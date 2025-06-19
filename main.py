@@ -5,6 +5,9 @@ from discord.ext import commands
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
+ARRIVALS_DEPARTURES_CHANNEL_ID = 1376466361961676920
+LOGGING_CHANNEL_ID = 1370987581386391642
+
 # Load environment variables from .env file (for local dev)
 load_dotenv()
 
@@ -139,6 +142,66 @@ async def on_ready():
         print("Slash commands synced.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
+@bot.event
+async def on_member_join(member):
+    channel = member.guild.get_channel(LOG_CHANNEL_ID)
+    if channel:
+        embed = discord.Embed(
+            title="👋 Welcome!",
+            description=f"{member.mention} joined the server.",
+            color=discord.Color.green(),
+            timestamp=member.joined_at
+        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.add_field(name="User", value=member.name, inline=True)
+        embed.add_field(name="Join Date", value=member.joined_at.strftime("%Y-%m-%d %H:%M:%S"), inline=True)
+        await channel.send(embed=embed)
+
+@bot.event
+async def on_member_remove(member):
+    channel = member.guild.get_channel(LOG_CHANNEL_ID)
+    if channel:
+        embed = discord.Embed(
+            title="👋 Goodbye!",
+            description=f"{member.mention} left the server.",
+            color=discord.Color.red()
+        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.add_field(name="User", value=member.name, inline=True)
+        await channel.send(embed=embed)
+
+@bot.event
+async def on_message_edit(before, after):
+    if before.author.bot or before.content == after.content:
+        return
+    channel = before.guild.get_channel(LOG_CHANNEL_ID)
+    if channel:
+        embed = discord.Embed(
+            title="✏️ Message Edited",
+            color=discord.Color.orange(),
+            timestamp=after.edited_at or discord.utils.utcnow()
+        )
+        embed.set_author(name=before.author.display_name, icon_url=before.author.display_avatar.url)
+        embed.add_field(name="Channel", value=before.channel.mention, inline=False)
+        embed.add_field(name="Before", value=before.content or "*empty*", inline=False)
+        embed.add_field(name="After", value=after.content or "*empty*", inline=False)
+        await channel.send(embed=embed)
+
+@bot.event
+async def on_message_delete(message):
+    if message.author.bot:
+        return
+    channel = message.guild.get_channel(LOG_CHANNEL_ID)
+    if channel:
+        embed = discord.Embed(
+            title="🗑️ Message Deleted",
+            color=discord.Color.red(),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+        embed.add_field(name="Channel", value=message.channel.mention, inline=False)
+        embed.add_field(name="Content", value=message.content or "*empty*", inline=False)
+        await channel.send(embed=embed)
 
 # --- /ping Command ---
 @bot.slash_command(name="ping", description="Check if the bot is alive.")
@@ -294,3 +357,29 @@ if __name__ == "__main__":
         print("Please set DISCORD_TOKEN and MONGODB_URI in your environment.")
     else:
         bot.run(DISCORD_TOKEN)
+# --- /clearwarnlist Command ---
+@bot.slash_command(name="clearwarnlist", description="Clear all warnings for a user (mod/admin only).")
+@option("user", description="User to clear warnings for", required=True)
+async def clearwarnlist(ctx, user: discord.Member):
+    if not is_admin_or_moderator(ctx.author):
+        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
+        return
+    db.warnings.delete_many({"user_id": str(user.id)})
+    await ctx.respond(f"All warnings for {user.mention} have been cleared.")
+
+# --- /announcement Command ---
+@bot.slash_command(name="announcement", description="Send an announcement to a channel (admin only).")
+@option("channel", description="Channel to send the announcement in", required=True)
+@option("message", description="The announcement message", required=True)
+async def announcement(ctx, channel: discord.TextChannel, message: str):
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
+        return
+    embed = discord.Embed(
+        title="📢 Announcement",
+        description=message,
+        color=discord.Color.blue()
+    )
+    embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+    await channel.send(embed=embed)
+    await ctx.respond(f"Announcement sent in {channel.mention}!", ephemeral=True)
