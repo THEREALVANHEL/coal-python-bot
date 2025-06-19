@@ -1,385 +1,243 @@
 import os
 import discord
-from discord import option
 from discord.ext import commands
+from discord.commands import Option
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
-ARRIVALS_DEPARTURES_CHANNEL_ID = 1376466361961676920
-LOGGING_CHANNEL_ID = 1370987581386391642
-
-# Load environment variables from .env file (for local dev)
+# Load environment variables
 load_dotenv()
-
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-MONGODB_URI = os.getenv('MONGODB_URI')
+TOKEN = os.getenv("DISCORD_TOKEN")
+MONGODB_URI = os.getenv("MONGODB_URI")
+LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID"))
+ARRIVALS_CHANNEL_ID = int(os.getenv("ARRIVALS_CHANNEL_ID"))
+GUILD_ID = 1370009417726169250  # Your server's ID
 
 # MongoDB setup
-mongo_client = MongoClient(MONGODB_URI)
-db = mongo_client['coal']  # Database name
+mongo = MongoClient(MONGODB_URI)
+db = mongo["coal"]  # Use your DB name here
 
-# --- CONFIG: Role IDs ---
-COOKIE_MANAGER_ROLE_ID = 1372121024841125888
-MODERATOR_ROLE_ID = 1371728518467293236
-LEAD_MODERATOR_ROLE_ID = 1371147562257748050
+# Intents
+intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True
 
-JUNIOR_OPERATIVE_ROLE_ID = 1370998669884788788
-SENIOR_OPERATIVE_ROLE_ID = 1370999721593671760
-ELITE_OPERATIVE_ROLE_ID = 1371000389444305017
-BLACK_TIER_OPERATIVE_ROLE_ID = 1371001322131947591
-VETERAN_OPERATIVE_ROLE_ID = 1371001806930579518
-GHOST_OPERATIVE_ROLE_ID = 1371304693715964005
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-COOKIE_ROLE_THRESHOLDS = [
-    (GHOST_OPERATIVE_ROLE_ID, 5000),
-    (VETERAN_OPERATIVE_ROLE_ID, 3000),
-    (BLACK_TIER_OPERATIVE_ROLE_ID, 1750),
-    (ELITE_OPERATIVE_ROLE_ID, 1000),
-    (SENIOR_OPERATIVE_ROLE_ID, 500),
-    (JUNIOR_OPERATIVE_ROLE_ID, 100),
-]
+# --- Helper Functions ---
 
-# --- Cookie System Helpers ---
+def is_admin(ctx):
+    return ctx.author.guild_permissions.administrator
+
+def is_cookie_manager(ctx):
+    role = discord.utils.get(ctx.author.roles, name="🚨🚓Cookie Manager 🍪")
+    return is_admin(ctx) or role is not None
+
+def is_moderator(ctx):
+    mod_roles = ["Moderator ��🚓", "🚨 Lead moderator"]
+    return is_admin(ctx) or any(discord.utils.get(ctx.author.roles, name=role) for role in mod_roles)
 
 def get_cookies(user_id):
-    user = db.cookies.find_one({"user_id": str(user_id)})
-    return user["cookies"] if user and "cookies" in user else 0
+    user = db.cookies.find_one({"_id": user_id})
+    return user["cookies"] if user else 0
 
 def set_cookies(user_id, amount):
-    db.cookies.update_one(
-        {"user_id": str(user_id)},
-        {"$set": {"cookies": int(amount)}},
-        upsert=True
-    )
+    db.cookies.update_one({"_id": user_id}, {"$set": {"cookies": amount}}, upsert=True)
 
 def add_cookies(user_id, amount):
-    db.cookies.update_one(
-        {"user_id": str(user_id)},
-        {"$inc": {"cookies": int(amount)}},
-        upsert=True
-    )
-
-def remove_cookies(user_id, amount):
-    current = get_cookies(user_id)
-    new_total = max(0, current - int(amount))
-    set_cookies(user_id, new_total)
+    db.cookies.update_one({"_id": user_id}, {"$inc": {"cookies": amount}}, upsert=True)
 
 def get_leaderboard(skip=0, limit=10):
     return list(db.cookies.find().sort("cookies", -1).skip(skip).limit(limit))
 
 def get_rank(user_id):
     all_users = list(db.cookies.find().sort("cookies", -1))
-    for idx, user in enumerate(all_users, 1):
-        if user["user_id"] == str(user_id):
-            return idx
+    for i, user in enumerate(all_users, 1):
+        if user["_id"] == user_id:
+            return i
     return None
 
-# --- Permission Check Helpers ---
+# --- Slash Commands ---
 
-def is_admin_or_cookie_manager(member: discord.Member):
-    return (
-        member.guild_permissions.administrator or
-        any(role.id == COOKIE_MANAGER_ROLE_ID for role in member.roles)
-    )
+@bot.slash_command(guild_ids=[GUILD_ID], description="Add cookies to a user")
+async def addcookies(ctx, user: Option(discord.Member, "User"), amount: Option(int, "Amount")):
+    if not is_cookie_manager(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    add_cookies(user.id, amount)
+    await ctx.respond(f"Added {amount} cookies to {user.mention}.")
 
-def is_admin_or_moderator(member: discord.Member):
-    return (
-        member.guild_permissions.administrator or
-        any(role.id in [MODERATOR_ROLE_ID, LEAD_MODERATOR_ROLE_ID] for role in member.roles)
-    )
+@bot.slash_command(guild_ids=[GUILD_ID], description="Remove cookies from a user")
+async def removecookies(ctx, user: Option(discord.Member, "User"), amount: Option(int, "Amount")):
+    if not is_cookie_manager(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    add_cookies(user.id, -amount)
+    await ctx.respond(f"Removed {amount} cookies from {user.mention}.")
 
-# --- Role Update Helper ---
+@bot.slash_command(guild_ids=[GUILD_ID], description="Show your or another user's cookies")
+async def cookies(ctx, user: Option(discord.Member, "User", required=False)):
+    user = user or ctx.author
+    cookies = get_cookies(user.id)
+    await ctx.respond(f"{user.mention} has {cookies} cookies.")
 
-async def update_cookie_roles(member: discord.Member):
-    cookies = get_cookies(member.id)
-    roles_to_add = []
-    roles_to_remove = []
-    # Find the highest role the user qualifies for
-    qualified_role = None
-    for role_id, threshold in COOKIE_ROLE_THRESHOLDS:
-        if cookies >= threshold:
-            qualified_role = role_id
-            break
-    # Remove all cookie roles first
-    for role_id, _ in COOKIE_ROLE_THRESHOLDS:
-        role = member.guild.get_role(role_id)
-        if role and role in member.roles:
-            roles_to_remove.append(role)
-    # Add the new qualified role
-    if qualified_role:
-        role = member.guild.get_role(qualified_role)
-        if role and role not in member.roles:
-            roles_to_add.append(role)
-    # Remove old roles, add new one
-    if roles_to_remove:
-        await member.remove_roles(*roles_to_remove, reason="Cookie role update")
-    if roles_to_add:
-        await member.add_roles(*roles_to_add, reason="Cookie role update")
+@bot.slash_command(guild_ids=[GUILD_ID], description="Show the leaderboard")
+async def top(ctx, page: Option(int, "Page", default=1)):
+    per_page = 10
+    skip = (page - 1) * per_page
+    leaderboard = get_leaderboard(skip, per_page)
+    desc = ""
+    for i, user in enumerate(leaderboard, skip + 1):
+        member = ctx.guild.get_member(user['_id'])
+        name = member.mention if member else f"User {user['_id']}"
+        desc += f"{i}. {name} - {user['cookies']} cookies\n"
+    embed = discord.Embed(title="Cookie Leaderboard", description=desc or "No data.", color=0xFFD700)
+    await ctx.respond(embed=embed)
 
-# --- Warn System Helpers ---
+@bot.slash_command(guild_ids=[GUILD_ID], description="Show your rank in the leaderboard")
+async def cookiesrank(ctx, user: Option(discord.Member, "User", required=False)):
+    user = user or ctx.author
+    rank = get_rank(user.id)
+    if rank:
+        await ctx.respond(f"{user.mention} is ranked #{rank}.")
+    else:
+        await ctx.respond(f"{user.mention} is not ranked.")
 
-def add_warning(user_id, moderator_id, reason):
-    db.warnings.insert_one({
-        "user_id": str(user_id),
-        "moderator_id": str(moderator_id),
-        "reason": reason
-    })
+@bot.slash_command(guild_ids=[GUILD_ID], description="Give cookies to all members")
+async def cookiesgiveall(ctx, amount: Option(int, "Amount")):
+    if not is_cookie_manager(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    for member in ctx.guild.members:
+        if not member.bot:
+            add_cookies(member.id, amount)
+    await ctx.respond(f"Gave {amount} cookies to everyone!")
 
-def get_warnings(user_id):
-    return list(db.warnings.find({"user_id": str(user_id)}))
+@bot.slash_command(guild_ids=[GUILD_ID], description="Reset all cookies to zero")
+async def cookiesreset(ctx):
+    if not is_cookie_manager(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    db.cookies.update_many({}, {"$set": {"cookies": 0}})
+    await ctx.respond("All cookies have been reset to zero.")
 
-# --- Bot Setup ---
+@bot.slash_command(guild_ids=[GUILD_ID], description="Warn a user")
+async def warn(ctx, user: Option(discord.Member, "User"), reason: Option(str, "Reason", required=False)):
+    if not is_moderator(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    db.warnings.insert_one({"user_id": user.id, "reason": reason or "No reason", "mod": ctx.author.id})
+    await ctx.respond(f"{user.mention} has been warned. Reason: {reason or 'No reason'}")
 
-intents = discord.Intents.default()
-intents.members = True  # Needed for member join/leave events
-bot = commands.Bot(command_prefix="!", intents=intents)
+@bot.slash_command(guild_ids=[GUILD_ID], description="Show warnings for a user")
+async def warnlist(ctx, user: Option(discord.Member, "User")):
+    if not is_moderator(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    warnings = list(db.warnings.find({"user_id": user.id}))
+    if not warnings:
+        await ctx.respond(f"{user.mention} has no warnings.")
+        return
+    desc = "\n".join([f"{i+1}. {w['reason']} (by <@{w['mod']}>)" for i, w in enumerate(warnings)])
+    embed = discord.Embed(title=f"Warnings for {user}", description=desc, color=0xFF0000)
+    await ctx.respond(embed=embed)
+
+@bot.slash_command(guild_ids=[GUILD_ID], description="Send an announcement")
+async def announcement(ctx, message: Option(str, "Announcement")):
+    if not is_admin(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    embed = discord.Embed(title="Announcement", description=message, color=0x00FF00)
+    embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+    await ctx.send(embed=embed)
+
+@bot.slash_command(guild_ids=[GUILD_ID], description="Show server info")
+async def serverinfo(ctx):
+    guild = ctx.guild
+    embed = discord.Embed(title=guild.name, color=0x3498db)
+    embed.add_field(name="Members", value=guild.member_count)
+    embed.add_field(name="Created", value=guild.created_at.strftime("%Y-%m-%d"))
+    embed.set_thumbnail(url=guild.icon.url if guild.icon else discord.Embed.Empty)
+    await ctx.respond(embed=embed)
+
+@bot.slash_command(guild_ids=[GUILD_ID], description="Create a poll")
+async def poll(ctx, question: Option(str, "Question"), option1: Option(str, "Option 1"), option2: Option(str, "Option 2")):
+    embed = discord.Embed(title="Poll", description=question, color=0x7289da)
+    embed.add_field(name="1️⃣", value=option1, inline=False)
+    embed.add_field(name="2️⃣", value=option2, inline=False)
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("1️⃣")
+    await msg.add_reaction("2️⃣")
+    await ctx.respond("Poll created!", ephemeral=True)
+
+@bot.slash_command(guild_ids=[GUILD_ID], description="Set welcome message")
+async def setwelcome(ctx, message: Option(str, "Welcome message")):
+    if not is_admin(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    db.config.update_one({"_id": "welcome"}, {"$set": {"message": message}}, upsert=True)
+    await ctx.respond("Welcome message updated.")
+
+@bot.slash_command(guild_ids=[GUILD_ID], description="Set leave message")
+async def setleave(ctx, message: Option(str, "Leave message")):
+    if not is_admin(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    db.config.update_one({"_id": "leave"}, {"$set": {"message": message}}, upsert=True)
+    await ctx.respond("Leave message updated.")
+
+# --- Logging and Events ---
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
     try:
         await bot.sync_commands()
-        print("Slash commands synced.")
+        print("Commands synced successfully.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
+
 @bot.event
 async def on_member_join(member):
-    channel = member.guild.get_channel(LOG_CHANNEL_ID)
+    config = db.config.find_one({"_id": "welcome"})
+    message = config["message"] if config else "Welcome, {user}!"
+    channel = member.guild.get_channel(ARRIVALS_CHANNEL_ID)
     if channel:
-        embed = discord.Embed(
-            title="👋 Welcome!",
-            description=f"{member.mention} joined the server.",
-            color=discord.Color.green(),
-            timestamp=member.joined_at
-        )
+        embed = discord.Embed(description=message.format(user=member.mention), color=0x00ff00)
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="User", value=member.name, inline=True)
-        embed.add_field(name="Join Date", value=member.joined_at.strftime("%Y-%m-%d %H:%M:%S"), inline=True)
+        embed.set_footer(text=f"Joined: {member.joined_at.strftime('%Y-%m-%d')}")
         await channel.send(embed=embed)
 
 @bot.event
 async def on_member_remove(member):
-    channel = member.guild.get_channel(LOG_CHANNEL_ID)
+    config = db.config.find_one({"_id": "leave"})
+    message = config["message"] if config else "{user} has left the server."
+    channel = member.guild.get_channel(ARRIVALS_CHANNEL_ID)
     if channel:
-        embed = discord.Embed(
-            title="👋 Goodbye!",
-            description=f"{member.mention} left the server.",
-            color=discord.Color.red()
-        )
+        embed = discord.Embed(description=message.format(user=member.mention), color=0xff0000)
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="User", value=member.name, inline=True)
-        await channel.send(embed=embed)
-
-@bot.event
-async def on_message_edit(before, after):
-    if before.author.bot or before.content == after.content:
-        return
-    channel = before.guild.get_channel(LOG_CHANNEL_ID)
-    if channel:
-        embed = discord.Embed(
-            title="✏️ Message Edited",
-            color=discord.Color.orange(),
-            timestamp=after.edited_at or discord.utils.utcnow()
-        )
-        embed.set_author(name=before.author.display_name, icon_url=before.author.display_avatar.url)
-        embed.add_field(name="Channel", value=before.channel.mention, inline=False)
-        embed.add_field(name="Before", value=before.content or "*empty*", inline=False)
-        embed.add_field(name="After", value=after.content or "*empty*", inline=False)
+        embed.set_footer(text=f"Left: {discord.utils.utcnow().strftime('%Y-%m-%d')}")
         await channel.send(embed=embed)
 
 @bot.event
 async def on_message_delete(message):
-    if message.author.bot:
-        return
-    channel = message.guild.get_channel(LOG_CHANNEL_ID)
-    if channel:
-        embed = discord.Embed(
-            title="🗑️ Message Deleted",
-            color=discord.Color.red(),
-            timestamp=discord.utils.utcnow()
-        )
-        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-        embed.add_field(name="Channel", value=message.channel.mention, inline=False)
-        embed.add_field(name="Content", value=message.content or "*empty*", inline=False)
-        await channel.send(embed=embed)
+    if message.guild and not message.author.bot:
+        channel = message.guild.get_channel(LOG_CHANNEL_ID)
+        if channel:
+            embed = discord.Embed(title="Message Deleted", description=message.content, color=0xffa500)
+            embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+            await channel.send(embed=embed)
 
-# --- /ping Command ---
-@bot.slash_command(name="ping", description="Check if the bot is alive.")
-async def ping(ctx):
-    await ctx.respond("Pong!")
+@bot.event
+async def on_message_edit(before, after):
+    if before.guild and not before.author.bot:
+        channel = before.guild.get_channel(LOG_CHANNEL_ID)
+        if channel:
+            embed = discord.Embed(title="Message Edited", color=0x3498db)
+            embed.set_author(name=before.author.display_name, icon_url=before.author.display_avatar.url)
+            embed.add_field(name="Before", value=before.content, inline=False)
+            embed.add_field(name="After", value=after.content, inline=False)
+            await channel.send(embed=embed)
 
-# --- /cookies Command ---
-@bot.slash_command(name="cookies", description="Show how many cookies you or another user have.")
-@option("user", description="User to check", required=False)
-async def cookies(ctx, user: discord.Member = None):
-    user = user or ctx.author
-    total = get_cookies(user.id)
-    await ctx.respond(f"{user.mention} has {total} 🍪 cookies.")
-
-# --- /addcookies Command ---
-@bot.slash_command(name="addcookies", description="Add cookies to a user (admin/Cookie Manager only).")
-@option("user", description="User to add cookies to", required=True)
-@option("amount", description="Amount of cookies to add", required=True)
-async def addcookies(ctx, user: discord.Member, amount: int):
-    if not is_admin_or_cookie_manager(ctx.author):
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    add_cookies(user.id, amount)
-    total = get_cookies(user.id)
-    await update_cookie_roles(user)
-    await ctx.respond(f"Added {amount} 🍪 to {user.mention}. They now have {total} cookies.")
-
-# --- /removecookies Command ---
-@bot.slash_command(name="removecookies", description="Remove cookies from a user (admin/Cookie Manager only).")
-@option("user", description="User to remove cookies from", required=True)
-@option("amount", description="Amount of cookies to remove", required=True)
-async def removecookies(ctx, user: discord.Member, amount: int):
-    if not is_admin_or_cookie_manager(ctx.author):
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    remove_cookies(user.id, amount)
-    total = get_cookies(user.id)
-    await update_cookie_roles(user)
-    await ctx.respond(f"Removed {amount} 🍪 from {user.mention}. They now have {total} cookies.")
-
-# --- /cookiesgiveall Command ---
-@bot.slash_command(name="cookiesgiveall", description="Give cookies to everyone in the server (admin/Cookie Manager only).")
-@option("amount", description="Amount of cookies to give to everyone", required=True)
-async def cookiesgiveall(ctx, amount: int):
-    if not is_admin_or_cookie_manager(ctx.author):
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    count = 0
-    for member in ctx.guild.members:
-        if not member.bot:
-            add_cookies(member.id, amount)
-            await update_cookie_roles(member)
-            count += 1
-    await ctx.respond(f"Gave {amount} 🍪 to {count} members!")
-
-# --- /cookiesreset Command ---
-@bot.slash_command(name="cookiesreset", description="Reset all cookies to zero (admin/Cookie Manager only).")
-async def cookiesreset(ctx):
-    if not is_admin_or_cookie_manager(ctx.author):
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    db.cookies.update_many({}, {"$set": {"cookies": 0}})
-    # Remove all cookie roles from all members
-    for member in ctx.guild.members:
-        roles_to_remove = []
-        for role_id, _ in COOKIE_ROLE_THRESHOLDS:
-            role = member.guild.get_role(role_id)
-            if role and role in member.roles:
-                roles_to_remove.append(role)
-        if roles_to_remove:
-            await member.remove_roles(*roles_to_remove, reason="Cookie reset")
-    await ctx.respond("All cookies have been reset to zero and roles removed.")
-
-# --- /cookiesrank Command ---
-@bot.slash_command(name="cookiesrank", description="Show your or another user's rank in the cookies leaderboard.")
-@option("user", description="User to check", required=False)
-async def cookiesrank(ctx, user: discord.Member = None):
-    user = user or ctx.author
-    rank = get_rank(user.id)
-    if rank:
-        await ctx.respond(f"{user.mention} is ranked #{rank} in cookies!")
-    else:
-        await ctx.respond(f"{user.mention} is not ranked yet.")
-
-# --- /top Command ---
-@bot.slash_command(name="top", description="Show the cookie leaderboard (10 per page).")
-@option("page", description="Leaderboard page", required=False)
-async def top(ctx, page: int = 1):
-    per_page = 10
-    skip = (page - 1) * per_page
-    leaderboard = get_leaderboard(skip, per_page)
-    if not leaderboard:
-        await ctx.respond("No data for this page.")
-        return
-    msg = f"**🍪 Cookie Leaderboard (Page {page})**\n"
-    for idx, user in enumerate(leaderboard, start=skip + 1):
-        user_id = int(user['user_id'])
-        member = ctx.guild.get_member(user_id)
-        name = member.mention if member else f"<@{user_id}>"
-        msg += f"{idx}. {name}: {user['cookies']} cookies\n"
-    await ctx.respond(msg)
-
-# --- /roleupdate Command ---
-@bot.slash_command(name="roleupdate", description="Update your cookie role based on your cookies.")
-async def roleupdate(ctx):
-    await update_cookie_roles(ctx.author)
-    await ctx.respond("Your cookie role has been updated!", ephemeral=True)
-
-# --- /modclear Command ---
-@bot.slash_command(name="modclear", description="Clear a specific number of messages in this channel (mod/admin only).")
-@option("amount", description="Number of messages to delete (max 100)", required=True)
-async def modclear(ctx, amount: int):
-    if not is_admin_or_moderator(ctx.author):
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    if amount < 1 or amount > 100:
-        await ctx.respond("Please specify an amount between 1 and 100.", ephemeral=True)
-        return
-    await ctx.channel.purge(limit=amount)
-    await ctx.respond(f"Deleted {amount} messages.", ephemeral=True)
-
-# --- /warn Command ---
-@bot.slash_command(name="warn", description="Warn a user (mod/admin only).")
-@option("user", description="User to warn", required=True)
-@option("reason", description="Reason for warning", required=False)
-async def warn(ctx, user: discord.Member, reason: str = "No reason provided"):
-    if not is_admin_or_moderator(ctx.author):
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    add_warning(user.id, ctx.author.id, reason)
-    await ctx.respond(f"{user.mention} has been warned. Reason: {reason}")
-
-# --- /warnlist Command ---
-@bot.slash_command(name="warnlist", description="Show all warnings for a user (mod/admin only).")
-@option("user", description="User to check", required=True)
-async def warnlist(ctx, user: discord.Member):
-    if not is_admin_or_moderator(ctx.author):
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    warnings = get_warnings(user.id)
-    if not warnings:
-        await ctx.respond(f"{user.mention} has no warnings.")
-        return
-    msg = f"Warnings for {user.mention}:\n"
-    for idx, w in enumerate(warnings, 1):
-        mod = ctx.guild.get_member(int(w['moderator_id']))
-        mod_name = mod.mention if mod else f"<@{w['moderator_id']}>"
-        msg += f"{idx}. By {mod_name}: {w['reason']}\n"
-    await ctx.respond(msg)
-
-if __name__ == "__main__":
-    if not DISCORD_TOKEN or not MONGODB_URI:
-        print("Please set DISCORD_TOKEN and MONGODB_URI in your environment.")
-    else:
-        bot.run(DISCORD_TOKEN)
-# --- /clearwarnlist Command ---
-@bot.slash_command(name="clearwarnlist", description="Clear all warnings for a user (mod/admin only).")
-@option("user", description="User to clear warnings for", required=True)
-async def clearwarnlist(ctx, user: discord.Member):
-    if not is_admin_or_moderator(ctx.author):
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    db.warnings.delete_many({"user_id": str(user.id)})
-    await ctx.respond(f"All warnings for {user.mention} have been cleared.")
-
-# --- /announcement Command ---
-@bot.slash_command(name="announcement", description="Send an announcement to a channel (admin only).")
-@option("channel", description="Channel to send the announcement in", required=True)
-@option("message", description="The announcement message", required=True)
-async def announcement(ctx, channel: discord.TextChannel, message: str):
-    if not ctx.author.guild_permissions.administrator:
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-    embed = discord.Embed(
-        title="📢 Announcement",
-        description=message,
-        color=discord.Color.blue()
-    )
-    embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
-    await channel.send(embed=embed)
-    await ctx.respond(f"Announcement sent in {channel.mention}!", ephemeral=True)
+# --- Run the bot ---
+bot.run(TOKEN)
