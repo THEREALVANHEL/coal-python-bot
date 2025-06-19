@@ -15,8 +15,26 @@ MONGODB_URI = os.getenv('MONGODB_URI')
 mongo_client = MongoClient(MONGODB_URI)
 db = mongo_client['coal']  # Database name
 
-# --- CONFIG: Cookie Manager role ID ---
+# --- CONFIG: Role IDs ---
 COOKIE_MANAGER_ROLE_ID = 1372121024841125888
+MODERATOR_ROLE_ID = 1371728518467293236
+LEAD_MODERATOR_ROLE_ID = 1371147562257748050
+
+JUNIOR_OPERATIVE_ROLE_ID = 1370998669884788788
+SENIOR_OPERATIVE_ROLE_ID = 1370999721593671760
+ELITE_OPERATIVE_ROLE_ID = 1371000389444305017
+BLACK_TIER_OPERATIVE_ROLE_ID = 1371001322131947591
+VETERAN_OPERATIVE_ROLE_ID = 1371001806930579518
+GHOST_OPERATIVE_ROLE_ID = 1371304693715964005
+
+COOKIE_ROLE_THRESHOLDS = [
+    (GHOST_OPERATIVE_ROLE_ID, 5000),
+    (VETERAN_OPERATIVE_ROLE_ID, 3000),
+    (BLACK_TIER_OPERATIVE_ROLE_ID, 1750),
+    (ELITE_OPERATIVE_ROLE_ID, 1000),
+    (SENIOR_OPERATIVE_ROLE_ID, 500),
+    (JUNIOR_OPERATIVE_ROLE_ID, 100),
+]
 
 # --- Cookie System Helpers ---
 
@@ -53,13 +71,59 @@ def get_rank(user_id):
             return idx
     return None
 
-# --- Permission Check Helper ---
+# --- Permission Check Helpers ---
 
 def is_admin_or_cookie_manager(member: discord.Member):
     return (
         member.guild_permissions.administrator or
         any(role.id == COOKIE_MANAGER_ROLE_ID for role in member.roles)
     )
+
+def is_admin_or_moderator(member: discord.Member):
+    return (
+        member.guild_permissions.administrator or
+        any(role.id in [MODERATOR_ROLE_ID, LEAD_MODERATOR_ROLE_ID] for role in member.roles)
+    )
+
+# --- Role Update Helper ---
+
+async def update_cookie_roles(member: discord.Member):
+    cookies = get_cookies(member.id)
+    roles_to_add = []
+    roles_to_remove = []
+    # Find the highest role the user qualifies for
+    qualified_role = None
+    for role_id, threshold in COOKIE_ROLE_THRESHOLDS:
+        if cookies >= threshold:
+            qualified_role = role_id
+            break
+    # Remove all cookie roles first
+    for role_id, _ in COOKIE_ROLE_THRESHOLDS:
+        role = member.guild.get_role(role_id)
+        if role and role in member.roles:
+            roles_to_remove.append(role)
+    # Add the new qualified role
+    if qualified_role:
+        role = member.guild.get_role(qualified_role)
+        if role and role not in member.roles:
+            roles_to_add.append(role)
+    # Remove old roles, add new one
+    if roles_to_remove:
+        await member.remove_roles(*roles_to_remove, reason="Cookie role update")
+    if roles_to_add:
+        await member.add_roles(*roles_to_add, reason="Cookie role update")
+
+# --- Warn System Helpers ---
+
+def add_warning(user_id, moderator_id, reason):
+    db.warnings.insert_one({
+        "user_id": str(user_id),
+        "moderator_id": str(moderator_id),
+        "reason": reason
+    })
+
+def get_warnings(user_id):
+    return list(db.warnings.find({"user_id": str(user_id)}))
 
 # --- Bot Setup ---
 
@@ -99,6 +163,7 @@ async def addcookies(ctx, user: discord.Member, amount: int):
         return
     add_cookies(user.id, amount)
     total = get_cookies(user.id)
+    await update_cookie_roles(user)
     await ctx.respond(f"Added {amount} 🍪 to {user.mention}. They now have {total} cookies.")
 
 # --- /removecookies Command ---
@@ -111,6 +176,7 @@ async def removecookies(ctx, user: discord.Member, amount: int):
         return
     remove_cookies(user.id, amount)
     total = get_cookies(user.id)
+    await update_cookie_roles(user)
     await ctx.respond(f"Removed {amount} 🍪 from {user.mention}. They now have {total} cookies.")
 
 # --- /cookiesgiveall Command ---
@@ -124,6 +190,7 @@ async def cookiesgiveall(ctx, amount: int):
     for member in ctx.guild.members:
         if not member.bot:
             add_cookies(member.id, amount)
+            await update_cookie_roles(member)
             count += 1
     await ctx.respond(f"Gave {amount} 🍪 to {count} members!")
 
@@ -134,7 +201,16 @@ async def cookiesreset(ctx):
         await ctx.respond("You do not have permission to use this command.", ephemeral=True)
         return
     db.cookies.update_many({}, {"$set": {"cookies": 0}})
-    await ctx.respond("All cookies have been reset to zero.")
+    # Remove all cookie roles from all members
+    for member in ctx.guild.members:
+        roles_to_remove = []
+        for role_id, _ in COOKIE_ROLE_THRESHOLDS:
+            role = member.guild.get_role(role_id)
+            if role and role in member.roles:
+                roles_to_remove.append(role)
+        if roles_to_remove:
+            await member.remove_roles(*roles_to_remove, reason="Cookie reset")
+    await ctx.respond("All cookies have been reset to zero and roles removed.")
 
 # --- /cookiesrank Command ---
 @bot.slash_command(name="cookiesrank", description="Show your or another user's rank in the cookies leaderboard.")
@@ -161,12 +237,60 @@ async def top(ctx, page: int = 1):
     for idx, user in enumerate(leaderboard, start=skip + 1):
         user_id = int(user['user_id'])
         member = ctx.guild.get_member(user_id)
-        name = member.mention if member else f\"<@{user_id}>\"
-        msg += f\"{idx}. {name}: {user['cookies']} cookies\\n\"
+        name = member.mention if member else f"<@{user_id}>"
+        msg += f"{idx}. {name}: {user['cookies']} cookies\n"
     await ctx.respond(msg)
 
-if __name__ == \"__main__\":
+# --- /roleupdate Command ---
+@bot.slash_command(name="roleupdate", description="Update your cookie role based on your cookies.")
+async def roleupdate(ctx):
+    await update_cookie_roles(ctx.author)
+    await ctx.respond("Your cookie role has been updated!", ephemeral=True)
+
+# --- /modclear Command ---
+@bot.slash_command(name="modclear", description="Clear a specific number of messages in this channel (mod/admin only).")
+@option("amount", description="Number of messages to delete (max 100)", required=True)
+async def modclear(ctx, amount: int):
+    if not is_admin_or_moderator(ctx.author):
+        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
+        return
+    if amount < 1 or amount > 100:
+        await ctx.respond("Please specify an amount between 1 and 100.", ephemeral=True)
+        return
+    await ctx.channel.purge(limit=amount)
+    await ctx.respond(f"Deleted {amount} messages.", ephemeral=True)
+
+# --- /warn Command ---
+@bot.slash_command(name="warn", description="Warn a user (mod/admin only).")
+@option("user", description="User to warn", required=True)
+@option("reason", description="Reason for warning", required=False)
+async def warn(ctx, user: discord.Member, reason: str = "No reason provided"):
+    if not is_admin_or_moderator(ctx.author):
+        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
+        return
+    add_warning(user.id, ctx.author.id, reason)
+    await ctx.respond(f"{user.mention} has been warned. Reason: {reason}")
+
+# --- /warnlist Command ---
+@bot.slash_command(name="warnlist", description="Show all warnings for a user (mod/admin only).")
+@option("user", description="User to check", required=True)
+async def warnlist(ctx, user: discord.Member):
+    if not is_admin_or_moderator(ctx.author):
+        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
+        return
+    warnings = get_warnings(user.id)
+    if not warnings:
+        await ctx.respond(f"{user.mention} has no warnings.")
+        return
+    msg = f"Warnings for {user.mention}:\n"
+    for idx, w in enumerate(warnings, 1):
+        mod = ctx.guild.get_member(int(w['moderator_id']))
+        mod_name = mod.mention if mod else f"<@{w['moderator_id']}>"
+        msg += f"{idx}. By {mod_name}: {w['reason']}\n"
+    await ctx.respond(msg)
+
+if __name__ == "__main__":
     if not DISCORD_TOKEN or not MONGODB_URI:
-        print(\"Please set DISCORD_TOKEN and MONGODB_URI in your environment.\")
+        print("Please set DISCORD_TOKEN and MONGODB_URI in your environment.")
     else:
         bot.run(DISCORD_TOKEN)
