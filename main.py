@@ -57,6 +57,10 @@ def get_rank(user_id):
             return i
     return None
 
+def get_log_channel_id(guild):
+    config = db.config.find_one({"_id": "log_channel"})
+    return config["channel_id"] if config else LOG_CHANNEL_ID
+
 # --- Slash Commands ---
 
 @bot.slash_command(guild_ids=[GUILD_ID], description="Add cookies to a user")
@@ -67,13 +71,21 @@ async def addcookies(ctx, user: Option(discord.Member, "User"), amount: Option(i
     add_cookies(user.id, amount)
     await ctx.respond(f"Added {amount} cookies to {user.mention}.")
 
-@bot.slash_command(guild_ids=[GUILD_ID], description="Remove cookies from a user")
-async def removecookies(ctx, user: Option(discord.Member, "User"), amount: Option(int, "Amount")):
+@bot.slash_command(guild_ids=[GUILD_ID], description="Remove all cookies from a user")
+async def removecookies(ctx, user: Option(discord.Member, "User")):
     if not is_cookie_manager(ctx):
         await ctx.respond("You don't have permission to use this command.", ephemeral=True)
         return
-    add_cookies(user.id, -amount)
-    await ctx.respond(f"Removed {amount} cookies from {user.mention}.")
+    set_cookies(user.id, 0)
+    await ctx.respond(f"All cookies removed from {user.mention}.")
+
+@bot.slash_command(guild_ids=[GUILD_ID], description="Reset cookies for a user")
+async def resetcookies(ctx, user: Option(discord.Member, "User")):
+    if not is_cookie_manager(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    set_cookies(user.id, 0)
+    await ctx.respond(f"{user.mention}'s cookies have been reset to zero.")
 
 @bot.slash_command(guild_ids=[GUILD_ID], description="Show your or another user's cookies")
 async def cookies(ctx, user: Option(discord.Member, "User", required=False)):
@@ -112,14 +124,6 @@ async def cookiesgiveall(ctx, amount: Option(int, "Amount")):
         if not member.bot:
             add_cookies(member.id, amount)
     await ctx.respond(f"Gave {amount} cookies to everyone!")
-
-@bot.slash_command(guild_ids=[GUILD_ID], description="Reset all cookies to zero")
-async def cookiesreset(ctx):
-    if not is_cookie_manager(ctx):
-        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
-        return
-    db.cookies.update_many({}, {"$set": {"cookies": 0}})
-    await ctx.respond("All cookies have been reset to zero.")
 
 @bot.slash_command(guild_ids=[GUILD_ID], description="Warn a user")
 async def warn(ctx, user: Option(discord.Member, "User"), reason: Option(str, "Reason", required=False)):
@@ -186,6 +190,14 @@ async def setleave(ctx, message: Option(str, "Leave message")):
     db.config.update_one({"_id": "leave"}, {"$set": {"message": message}}, upsert=True)
     await ctx.respond("Leave message updated.")
 
+@bot.slash_command(guild_ids=[GUILD_ID], description="Set the logging channel")
+async def setlogchannel(ctx, channel: Option(discord.TextChannel, "Channel")):
+    if not is_admin(ctx):
+        await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+        return
+    db.config.update_one({"_id": "log_channel"}, {"$set": {"channel_id": channel.id}}, upsert=True)
+    await ctx.respond(f"Logging channel set to {channel.mention}.")
+
 # --- Logging and Events ---
 
 @bot.event
@@ -222,7 +234,8 @@ async def on_member_remove(member):
 @bot.event
 async def on_message_delete(message):
     if message.guild and not message.author.bot:
-        channel = message.guild.get_channel(LOG_CHANNEL_ID)
+        channel_id = get_log_channel_id(message.guild)
+        channel = message.guild.get_channel(channel_id)
         if channel:
             embed = discord.Embed(title="Message Deleted", description=message.content, color=0xffa500)
             embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
@@ -231,7 +244,8 @@ async def on_message_delete(message):
 @bot.event
 async def on_message_edit(before, after):
     if before.guild and not before.author.bot:
-        channel = before.guild.get_channel(LOG_CHANNEL_ID)
+        channel_id = get_log_channel_id(before.guild)
+        channel = before.guild.get_channel(channel_id)
         if channel:
             embed = discord.Embed(title="Message Edited", color=0x3498db)
             embed.set_author(name=before.author.display_name, icon_url=before.author.display_avatar.url)
