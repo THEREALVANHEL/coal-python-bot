@@ -66,6 +66,20 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Error syncing commands: {e}")
 
+@bot.slash_command(name="botdebug", description="Show loaded cogs and commands.", guild_ids=[1370009417726169250])
+async def botdebug(ctx):
+    cogs = list(bot.cogs.keys())
+    commands_list = [cmd.name for cmd in bot.commands]
+    embed = discord.Embed(
+        title="🤖 Bot Debug Panel",
+        description="Here are the loaded cogs and commands:",
+        color=discord.Color.dark_blue()
+    )
+    embed.add_field(name="🧩 Loaded Cogs", value="\n".join(cogs) if cogs else "None", inline=False)
+    embed.add_field(name="🛠️ Commands", value=", ".join(commands_list) if commands_list else "None", inline=False)
+    embed.set_footer(text="Futuristic UK Debug | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
+    await ctx.respond(embed=embed, ephemeral=True)
+
 # --- Main Execution ---
 if __name__ == "__main__":
     if not DISCORD_TOKEN or not MONGODB_URI:

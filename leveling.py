@@ -167,5 +167,67 @@ class Leveling(commands.Cog):
         )
         await ctx.send(embed=embed)
 
+    @commands.slash_command(name="profile", description="Show your profile: cookies, level, XP, and rank.", guild_ids=[1370009417726169250])
+    @option("user", description="The user to show the profile of.", type=discord.Member, required=False)
+    async def profile(self, ctx: discord.ApplicationContext, user: discord.Member = None):
+        target_user = user or ctx.author
+        user_data = db.get_user_level_data(target_user.id)
+        cookies = db.get_cookies(target_user.id)
+        if not user_data:
+            embed = discord.Embed(
+                title="🚀 User Profile",
+                description=f"**{target_user.display_name}** hasn't chatted yet!",
+                color=discord.Color.dark_purple()
+            )
+            embed.set_thumbnail(url=target_user.display_avatar.url)
+            await ctx.respond(embed=embed, ephemeral=True)
+            return
+        level = user_data.get('level', 0)
+        xp = user_data.get('xp', 0)
+        xp_needed = self.get_xp_for_level(level)
+        rank = db.get_user_leveling_rank(target_user.id)
+        embed = discord.Embed(
+            title=f"🌌 {target_user.display_name}'s HyperProfile",
+            description=f"A glimpse into the future of Discord engagement.",
+            color=discord.Color.blurple()
+        )
+        embed.set_thumbnail(url=target_user.display_avatar.url)
+        embed.add_field(name="🧬 Level", value=f"`{level}`", inline=True)
+        embed.add_field(name="🏆 Rank", value=f"`#{rank}`", inline=True)
+        embed.add_field(name="💠 XP", value=f"`{xp} / {xp_needed}`", inline=True)
+        embed.add_field(name="🍪 Cookies", value=f"`{cookies}`", inline=True)
+        progress = int((xp / xp_needed) * 20) if xp_needed else 0
+        bar = "🟦" * progress + "⬛" * (20 - progress)
+        embed.add_field(name="Progress", value=bar, inline=False)
+        embed.set_footer(text="Powered by BLEK NEPHEW | UK Futurism", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
+        await ctx.respond(embed=embed, ephemeral=True)
+
+    @commands.slash_command(name="leveltop", description="Show the top users by level/XP.", guild_ids=[1370009417726169250])
+    async def leveltop(self, ctx: discord.ApplicationContext):
+        leaderboard = db.get_leveling_leaderboard(limit=10)
+        if not leaderboard:
+            embed = discord.Embed(
+                title="🌌 Level Leaderboard",
+                description="No one has leveled up yet!",
+                color=discord.Color.dark_teal()
+            )
+            await ctx.respond(embed=embed, ephemeral=True)
+            return
+        description = ""
+        for i, entry in enumerate(leaderboard):
+            user_id = entry.get('user_id')
+            user = ctx.guild.get_member(user_id)
+            username = user.display_name if user else f"User ID: {user_id}"
+            level = entry.get('level', 0)
+            xp = entry.get('xp', 0)
+            description += f"**{i+1}.** {username} — 🧬 Level `{level}` | 💠 XP `{xp}`\n"
+        embed = discord.Embed(
+            title="🌌 Level Leaderboard",
+            description=description,
+            color=discord.Color.teal()
+        )
+        embed.set_footer(text="Futuristic UK Leaderboard | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
+        await ctx.respond(embed=embed, ephemeral=True)
+
 def setup(bot):
     bot.add_cog(Leveling(bot))

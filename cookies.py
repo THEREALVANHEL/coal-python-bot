@@ -123,6 +123,32 @@ class Cookies(commands.Cog):
         view = LeaderboardView(ctx.author, None)
         await view.update_leaderboard(ctx.interaction) # Initial creation
 
+    @commands.slash_command(name="cookietop", description="Show the top users by cookies.", guild_ids=[1370009417726169250])
+    async def cookietop(self, ctx: discord.ApplicationContext):
+        leaderboard_data = db.get_leaderboard(limit=10)
+        if not leaderboard_data:
+            embed = discord.Embed(
+                title="🍪 Cookie Leaderboard",
+                description="No one has any cookies yet!",
+                color=discord.Color.dark_gold()
+            )
+            await ctx.respond(embed=embed, ephemeral=True)
+            return
+        description = ""
+        for i, entry in enumerate(leaderboard_data):
+            user_id = entry.get('user_id')
+            user = ctx.guild.get_member(user_id)
+            username = user.display_name if user else f"User ID: {user_id}"
+            cookies = entry.get('cookies', 0)
+            description += f"**{i+1}.** {username} — 🍪 `{cookies}`\n"
+        embed = discord.Embed(
+            title="🍪 Cookie Leaderboard",
+            description=description,
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text="Futuristic UK Cookieboard | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
+        await ctx.respond(embed=embed, ephemeral=True)
+
     @commands.slash_command(name="addcookies", description="[Manager] Add cookies to a user.", guild_ids=[1370009417726169250])
     @option("user", description="The user to give cookies to.", type=discord.Member, required=True)
     @option("amount", description="The amount of cookies to give.", type=int, required=True)
