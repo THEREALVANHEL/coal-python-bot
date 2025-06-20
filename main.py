@@ -4,6 +4,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
+from discord import app_commands
 
 # --- Keep-alive server for Render/UptimeRobot ---
 app = Flask('')
@@ -33,6 +34,7 @@ intents.members = True          # Required for welcome/leave messages
 intents.message_content = True  # Required for message logging
 
 # Create the bot instance
+GUILD_ID = 1370009417726169250
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
@@ -43,22 +45,21 @@ async def on_ready():
     print("Loading cogs...")
 
     # Load all .py files from the 'cogs' directory
-    for filename in os.listdir('./my-discord-bot/cogs'):
-        if filename.endswith('.py'):
+    for filename in os.listdir('./cogs'):
+        if filename.endswith('.py') and filename != '__init__.py':
             try:
-                # The path needs to match the directory structure
-                bot.load_extension(f'cogs.{filename[:-3]}')
+                await bot.load_extension(f'cogs.{filename[:-3]}')
                 print(f"✅ Loaded cog: {filename}")
             except Exception as e:
                 print(f"❌ Failed to load cog {filename}: {e}")
-                print(type(e)) # print the exception type
+                print(type(e))
 
     print("-------------------")
-    
-    # Sync slash commands
+    # Sync slash commands to the specified guild
     try:
-        await bot.sync_commands()
-        print(" Slash commands synced successfully.")
+        guild = discord.Object(id=GUILD_ID)
+        await bot.tree.sync(guild=guild)
+        print(f" Slash commands synced successfully to guild {GUILD_ID}.")
     except Exception as e:
         print(f" Error syncing commands: {e}")
 
