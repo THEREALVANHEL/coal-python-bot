@@ -37,17 +37,26 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 @bot.event
 async def on_ready():
     """Event that runs when the bot is ready."""
+    # Load cogs from cogs directory
     cogs_path = './my-discord-bot/cogs'
     if os.path.exists(cogs_path):
         for filename in os.listdir(cogs_path):
             if filename.endswith('.py'):
                 try:
                     bot.load_extension(f'cogs.{filename[:-3]}')
-                    print(f"✅ Loaded cog: {filename}")
+                    print(f"✅ Loaded cog from cogs: {filename}")
                 except Exception as e:
-                    print(f"❌ Failed to load cog {filename}: {e}")
+                    print(f"❌ Failed to load cog {filename} from cogs: {e}")
     else:
-        print(f"Warning: {cogs_path} does not exist. No cogs loaded.")
+        print(f"Warning: {cogs_path} does not exist. No cogs loaded from cogs directory.")
+    # Load cogs from parent directory
+    parent_cogs = ['leveling', 'events', 'moderation']
+    for cog in parent_cogs:
+        try:
+            bot.load_extension(cog)
+            print(f"✅ Loaded cog from parent: {cog}.py")
+        except Exception as e:
+            print(f"❌ Failed to load cog {cog} from parent: {e}")
     print(f"Logged in as {bot.user}")
     print("-------------------")
     # Sync slash commands (if using py-cord 2.0+)
