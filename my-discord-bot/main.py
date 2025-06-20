@@ -41,7 +41,7 @@ async def on_ready():
     cogs_path = './my-discord-bot/cogs'
     if os.path.exists(cogs_path):
         for filename in os.listdir(cogs_path):
-            if filename.endswith('.py'):
+            if filename.endswith('.py') and filename not in ['__init__.py']:
                 try:
                     bot.load_extension(f'cogs.{filename[:-3]}')
                     print(f"✅ Loaded cog from cogs: {filename}")
