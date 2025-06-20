@@ -139,6 +139,33 @@ class Leveling(commands.Cog):
 
         await ctx.respond(embed=embed)
 
+    @commands.slash_command(name="update_role", description="Update your roles based on your current level and cookies.", guild_ids=[1370009417726169250])
+    async def update_role(self, ctx: discord.ApplicationContext, user: discord.Member = None):
+        target_user = user or ctx.author
+        # Get user level and cookies
+        user_data = db.get_user_level_data(target_user.id)
+        cookies = db.get_cookies(target_user.id)
+        if not user_data:
+            await ctx.respond(f"**{target_user.display_name}** hasn't chatted yet!", ephemeral=True)
+            return
+        level = user_data.get('level', 0)
+        await self.update_user_roles(target_user, level)
+        await ctx.respond(f"Roles updated for **{target_user.display_name}** based on level {level} and {cookies} cookies.", ephemeral=True)
+
+    @commands.slash_command(name="chatlvlup", description="Announce your last level up in chat.", guild_ids=[1370009417726169250])
+    async def chatlvlup(self, ctx: discord.ApplicationContext, user: discord.Member = None):
+        target_user = user or ctx.author
+        user_data = db.get_user_level_data(target_user.id)
+        if not user_data:
+            await ctx.respond(f"**{target_user.display_name}** hasn't chatted yet!", ephemeral=True)
+            return
+        level = user_data.get('level', 0)
+        embed = discord.Embed(
+            title="🎉 Level Up!",
+            description=f"Congratulations {target_user.mention}, you've reached **Level {level}**!",
+            color=discord.Color.fuchsia()
+        )
+        await ctx.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(Leveling(bot))
