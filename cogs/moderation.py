@@ -52,29 +52,28 @@ class Moderation(commands.Cog):
         db.add_warning(user_id=user.id, moderator_id=interaction.user.id, reason=reason)
         
         embed = discord.Embed(
-            title="User Warned",
-            description=f"**{user.mention}** has been warned by **{interaction.user.mention}**.",
+            title="⚠️ User Warned",
+            description=f"**{user.mention}** has been officially warned.",
             color=discord.Color.orange(),
             timestamp=datetime.utcnow()
         )
         embed.add_field(name="Reason", value=reason, inline=False)
+        embed.set_footer(text=f"Moderator: {interaction.user.display_name}")
         
         await interaction.response.send_message(embed=embed)
         
         try:
-            # Also send a DM to the user
             dm_embed = discord.Embed(
-                title="You have been warned",
-                description=f"You have received a warning in **{interaction.guild.name}**.",
+                title="🚨 You Have Been Warned",
+                description=f"You received a warning in **{interaction.guild.name}**.",
                 color=discord.Color.red(),
                 timestamp=datetime.utcnow()
             )
             dm_embed.add_field(name="Reason", value=reason, inline=False)
-            dm_embed.set_footer(text=f"Warned by: {interaction.user.display_name}")
+            dm_embed.set_footer(text=f"Please respect the server rules.")
             await user.send(embed=dm_embed)
         except discord.Forbidden:
-            # This happens if the user has DMs disabled or has blocked the bot
-            await interaction.followup.send("Could not send a DM to the user.", ephemeral=True)
+            await interaction.followup.send("(Could not send a DM to the user. Their DMs may be closed.)", ephemeral=True)
 
 
     @app_commands.command(name="warnlist", description="[Moderator] Show all warnings for a user.")
@@ -100,9 +99,9 @@ class Moderation(commands.Cog):
             moderator = interaction.guild.get_member(warning['moderator_id'])
             mod_name = moderator.display_name if moderator else "Unknown Moderator"
             reason = warning['reason']
-            timestamp = warning['timestamp'].strftime("%Y-%m-%d %H:%M:%S UTC")
+            timestamp = warning['timestamp'].strftime("%Y-%m-%d %H:%M UTC")
             embed.add_field(
-                name=f"Warning on {timestamp}",
+                name=f"🗓️ Warning on {timestamp}",
                 value=f"**Reason:** {reason}\n**Moderator:** {mod_name}",
                 inline=False
             )
@@ -126,22 +125,19 @@ class Moderation(commands.Cog):
         view = discord.ui.View()
         button = discord.ui.Button(label=f"Confirm Clear Warnings for {user.display_name}", style=discord.ButtonStyle.danger)
         
-        async def button_callback(interaction: discord.Interaction):
-            # Double check permissions
-            if not self.check_is_moderator(interaction):
+        async def button_callback(callback_interaction: discord.Interaction):
+            if not await self.check_is_moderator(callback_interaction):
                 return
             
-            # Check if the interactor is the original command user
-            if interaction.user.id != interaction.user.id:
-                await interaction.response.send_message("This confirmation is not for you.", ephemeral=True)
+            if callback_interaction.user.id != interaction.user.id:
+                await callback_interaction.response.send_message("This confirmation is not for you.", ephemeral=True)
                 return
 
             db.clear_warnings(user.id)
-            await interaction.response.send_message(f"All warnings for **{user.display_name}** have been cleared.", ephemeral=True)
+            await callback_interaction.response.send_message(f"✅ All warnings for **{user.display_name}** have been cleared.", ephemeral=True)
             
-            # Disable the button after use
             button.disabled = True
-            await interaction.message.edit(view=view)
+            await interaction.edit_original_response(view=view)
 
         button.callback = button_callback
         view.add_item(button)
@@ -162,11 +158,11 @@ class Moderation(commands.Cog):
         embed = discord.Embed(
             title=f"📢 {title}",
             description=message,
-            color=discord.Color.blue(),
+            color=discord.Color.blurple(),
             timestamp=datetime.utcnow()
         )
         embed.set_author(name=f"Announcement from {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
-        embed.set_footer(text=f"Announced by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text=f"Announced by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url if interaction.user.display_avatar else None)
 
         try:
             await channel.send(embed=embed)

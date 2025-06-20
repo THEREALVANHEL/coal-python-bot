@@ -122,7 +122,7 @@ class Leveling(commands.Cog):
         
         user_data = db.get_user_level_data(target_user.id)
         if not user_data:
-            await interaction.response.send_message(f"**{target_user.display_name}** hasn't chatted yet!", ephemeral=True)
+            await interaction.response.send_message(f"**{target_user.display_name}** hasn't generated any XP yet!", ephemeral=True)
             return
 
         level = user_data.get('level', 0)
@@ -130,16 +130,15 @@ class Leveling(commands.Cog):
         xp_needed = self.get_xp_for_level(level)
         rank = db.get_user_leveling_rank(target_user.id)
 
-        embed = discord.Embed(title=f"Rank for {target_user.display_name}", color=target_user.color)
+        embed = discord.Embed(title=f"🚀 Level Rank for {target_user.display_name}", color=target_user.color)
         embed.set_thumbnail(url=target_user.display_avatar.url)
-        embed.add_field(name="Level", value=f"**{level}**", inline=True)
-        embed.add_field(name="Rank", value=f"**#{rank}**", inline=True)
-        embed.add_field(name="XP", value=f"`{xp} / {xp_needed}`", inline=False)
+        embed.add_field(name="🧬 Level", value=f"**{level}**", inline=True)
+        embed.add_field(name="🏆 Rank", value=f"**#{rank}**", inline=True)
+        embed.add_field(name="💠 XP", value=f"`{xp} / {xp_needed}`", inline=False)
         
-        # Progress bar
-        progress = int((xp / xp_needed) * 20)
+        progress = int((xp / xp_needed) * 20) if xp_needed else 0
         bar = "🟩" * progress + "⬛" * (20 - progress)
-        embed.add_field(name="Progress", value=bar, inline=False)
+        embed.add_field(name="Progress to Next Level", value=bar, inline=False)
 
         await interaction.response.send_message(embed=embed)
 
@@ -147,15 +146,15 @@ class Leveling(commands.Cog):
     @app_commands.guilds(guild_obj)
     async def update_role(self, interaction: discord.Interaction, user: discord.Member = None):
         target_user = user or interaction.user
-        # Get user level and cookies
+        
         user_data = db.get_user_level_data(target_user.id)
-        cookies = db.get_cookies(target_user.id)
         if not user_data:
             await interaction.response.send_message(f"**{target_user.display_name}** hasn't chatted yet!", ephemeral=True)
             return
+
         level = user_data.get('level', 0)
         await self.update_user_roles(target_user, level)
-        await interaction.response.send_message(f"Roles updated for **{target_user.display_name}** based on level {level} and {cookies} cookies.", ephemeral=True)
+        await interaction.response.send_message(f"✅ Roles updated for **{target_user.display_name}** based on their current level.", ephemeral=True)
 
     @app_commands.command(name="chatlvlup", description="Announce your last level up in chat.")
     @app_commands.guilds(guild_obj)
@@ -171,7 +170,7 @@ class Leveling(commands.Cog):
             description=f"Congratulations {target_user.mention}, you've reached **Level {level}**!",
             color=discord.Color.fuchsia()
         )
-        await interaction.channel.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="profile", description="Show your profile: cookies, level, XP, and rank.")
     @app_commands.guilds(guild_obj)
@@ -180,62 +179,69 @@ class Leveling(commands.Cog):
         target_user = user or interaction.user
         user_data = db.get_user_level_data(target_user.id)
         cookies = db.get_cookies(target_user.id)
+        
         if not user_data:
             embed = discord.Embed(
-                title="🚀 User Profile",
-                description=f"**{target_user.display_name}** hasn't chatted yet!",
+                title=f"🚀 Profile for {target_user.display_name}",
+                description=f"This user has not sent any messages yet.",
                 color=discord.Color.dark_purple()
             )
             embed.set_thumbnail(url=target_user.display_avatar.url)
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed)
             return
+            
         level = user_data.get('level', 0)
         xp = user_data.get('xp', 0)
         xp_needed = self.get_xp_for_level(level)
         rank = db.get_user_leveling_rank(target_user.id)
+        
         embed = discord.Embed(
-            title=f"🌌 {target_user.display_name}'s HyperProfile",
-            description=f"A glimpse into the future of Discord engagement.",
-            color=discord.Color.blurple()
+            title=f"🚀 Profile for {target_user.display_name}",
+            color=target_user.color
         )
         embed.set_thumbnail(url=target_user.display_avatar.url)
         embed.add_field(name="🧬 Level", value=f"`{level}`", inline=True)
         embed.add_field(name="🏆 Rank", value=f"`#{rank}`", inline=True)
-        embed.add_field(name="💠 XP", value=f"`{xp} / {xp_needed}`", inline=True)
         embed.add_field(name="🍪 Cookies", value=f"`{cookies}`", inline=True)
+        
         progress = int((xp / xp_needed) * 20) if xp_needed else 0
-        bar = "🟦" * progress + "⬛" * (20 - progress)
-        embed.add_field(name="Progress", value=bar, inline=False)
-        embed.set_footer(text="Powered by BLEK NEPHEW | UK Futurism", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        bar = "🟩" * progress + "⬛" * (20 - progress)
+        embed.add_field(name=f"💠 XP: `{xp} / {xp_needed}`", value=bar, inline=False)
+        
+        embed.set_footer(text="Powered by BLEK NEPHEW | UK Futurism")
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="leveltop", description="Show the top users by level/XP.")
     @app_commands.guilds(guild_obj)
     async def leveltop(self, interaction: discord.Interaction):
-        leaderboard = db.get_leveling_ leaderboard(limit=10)
+        await interaction.response.defer()
+        leaderboard = db.get_leveling_leaderboard(limit=10)
+        
         if not leaderboard:
             embed = discord.Embed(
-                title="🌌 Level Leaderboard",
+                title="🚀 Level Leaderboard",
                 description="No one has leveled up yet!",
                 color=discord.Color.dark_teal()
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed)
             return
+            
         description = ""
         for i, entry in enumerate(leaderboard):
             user_id = entry.get('user_id')
             user = interaction.guild.get_member(user_id)
-            username = user.display_name if user else f"User ID: {user_id}"
+            username = user.display_name if user else f"User ID: {user_id} (Left Server)"
             level = entry.get('level', 0)
             xp = entry.get('xp', 0)
-            description += f"**{i+1}.** {username} — 🧬 Level `{level}` | 💠 XP `{xp}`\n"
+            description += f"**{i+1}.** {username} — **Level {level}** ({xp} XP)\n"
+            
         embed = discord.Embed(
-            title="🌌 Level Leaderboard",
+            title="🏆 Top 10 Levelers",
             description=description,
-            color=discord.Color.teal()
+            color=discord.Color.blue()
         )
-        embed.set_footer(text="Futuristic UK Leaderboard | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed.set_footer(text="Powered by BLEK NEPHEW | UK Futurism")
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Leveling(bot))
