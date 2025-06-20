@@ -1,1 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Environment variables
 .env
+
+# IDE / Editor specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Render specific
+.render.yaml
