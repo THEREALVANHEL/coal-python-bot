@@ -106,7 +106,7 @@ class Moderation(commands.Cog):
                 inline=False
             )
         
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
 
     @app_commands.command(name="removewarnlist", description="[Moderator] Remove all warnings for a user.")

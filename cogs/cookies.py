@@ -10,84 +10,74 @@ import database as db
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
-class LeaderboardView(discord.ui.View):
-    def __init__(self, author, initial_embed):
-        super().__init__(timeout=120)
+# --- New Paginated Leaderboard View ---
+class CookieLeaderboardView(discord.ui.View):
+    def __init__(self, author, interaction: discord.Interaction):
+        super().__init__(timeout=180)
         self.author = author
+        self.interaction = interaction
         self.current_page = 0
-        self.initial_embed = initial_embed
-        self.message = None
+        self.users_per_page = 10
 
     async def on_timeout(self):
-        if self.message:
+        try:
             for item in self.children:
                 item.disabled = True
-            await self.message.edit(view=self)
+            await self.interaction.edit_original_response(view=self)
+        except discord.NotFound:
+            pass # Message might have been deleted
 
-    async def start(self, interaction: discord.Interaction):
-        await self.update_leaderboard(interaction, initial=True)
-
-    async def update_leaderboard(self, interaction: discord.Interaction, initial: bool = False):
-        if not initial:
-            await interaction.response.defer()
-
+    async def get_page_embed(self):
+        """Creates an embed for the current page of the leaderboard."""
         total_users = db.get_total_users_in_leaderboard()
         if total_users == 0:
-            embed = discord.Embed(title="🍪 Cookie Leaderboard", description="No one has any cookies yet!", color=discord.Color.blue())
-            if initial:
-                await interaction.response.send_message(embed=embed, view=None, ephemeral=True)
-            else:
-                await interaction.followup.edit_message(embed=embed, view=None)
-            return
+            return discord.Embed(title="🍪 Cookie Leaderboard", description="No one has any cookies yet!", color=discord.Color.blue())
 
-        limit = 10
-        leaderboard_data = db.get_leaderboard(skip=self.current_page * limit, limit=limit)
-        
+        total_pages = (total_users + self.users_per_page - 1) // self.users_per_page
+        self.current_page = max(0, min(self.current_page, total_pages - 1))
+
+        start_index = self.current_page * self.users_per_page
+        leaderboard_data = db.get_leaderboard(skip=start_index, limit=self.users_per_page)
+
         description = ""
         for i, entry in enumerate(leaderboard_data):
+            rank = start_index + i + 1
             user_id = entry.get('user_id')
-            user = interaction.guild.get_member(user_id)
-            username = user.display_name if user else f"User ID: {user_id}"
             cookies = entry.get('cookies', 0)
-            rank = (self.current_page * limit) + i + 1
-            description += f"**{rank}.** {username} - {cookies} 🍪\n"
+            description += f"**{rank}.** <@{user_id}> - **{cookies}** 🍪\n"
 
-        if not description:
-            description = "This page is empty."
-
-        embed = discord.Embed(title="🍪 Cookie Leaderboard", description=description, color=discord.Color.gold())
-        embed.set_footer(text=f"Page {self.current_page + 1} / {((total_users - 1) // limit) + 1}")
+        embed = discord.Embed(
+            title="🏆 Top Cookie Hoarders",
+            description=description,
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text=f"Page {self.current_page + 1}/{total_pages}")
         
-        self.children[0].disabled = (self.current_page == 0) # Previous button
-        self.children[1].disabled = ((self.current_page + 1) * limit >= total_users) # Next button
+        # Disable/enable buttons
+        self.children[0].disabled = (self.current_page == 0)
+        self.children[1].disabled = (self.current_page >= total_pages - 1)
+        
+        return embed
 
-        if initial:
-            await interaction.response.send_message(embed=embed, view=self, ephemeral=True)
-            self.message = await interaction.original_response()
-        else:
-            await interaction.followup.edit_message(embed=embed, view=self)
-
+    async def update_message(self, interaction: discord.Interaction):
+        embed = await self.get_page_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(label="⬅️ Previous", style=discord.ButtonStyle.grey)
-    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.author.id:
-            await interaction.response.send_message("This isn't your leaderboard!", ephemeral=True)
+            await interaction.response.send_message("This isn't for you!", ephemeral=True)
             return
-        
-        if self.current_page > 0:
-            self.current_page -= 1
-            await self.update_leaderboard(interaction)
+        self.current_page -= 1
+        await self.update_message(interaction)
 
     @discord.ui.button(label="Next ➡️", style=discord.ButtonStyle.grey)
-    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.author.id:
-            await interaction.response.send_message("This isn't your leaderboard!", ephemeral=True)
+            await interaction.response.send_message("This isn't for you!", ephemeral=True)
             return
-            
-        total_users = db.get_total_users_in_leaderboard()
-        if (self.current_page + 1) * 10 < total_users:
-            self.current_page += 1
-            await self.update_leaderboard(interaction)
+        self.current_page += 1
+        await self.update_message(interaction)
 
 class Cookies(commands.Cog):
     def __init__(self, bot):
@@ -97,9 +87,7 @@ class Cookies(commands.Cog):
     async def check_is_manager(self, interaction: discord.Interaction):
         author = interaction.user
         if isinstance(author, discord.Member):
-            if author.guild_permissions.administrator:
-                return True
-            if any(role.name == self.cookie_manager_role for role in author.roles):
+            if author.guild_permissions.administrator or any(role.name == self.cookie_manager_role for role in author.roles):
                 return True
         await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
         return False
@@ -131,53 +119,21 @@ class Cookies(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="top", description="Display the cookie leaderboard.")
-    @app_commands.guilds(guild_obj)
-    async def top(self, interaction: discord.Interaction):
-        view = LeaderboardView(interaction.user, None)
-        await view.start(interaction)
-
-    @app_commands.command(name="cookietop", description="Show the top users by cookies.")
+    @app_commands.command(name="cookietop", description="Show the interactive cookie leaderboard.")
     @app_commands.guilds(guild_obj)
     async def cookietop(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        leaderboard_data = db.get_leaderboard(limit=10)
-        if not leaderboard_data:
-            embed = discord.Embed(
-                title="🍪 Cookie Leaderboard",
-                description="No one has any cookies yet! Be the first.",
-                color=discord.Color.blue()
-            )
-            await interaction.followup.send(embed=embed)
-            return
-            
-        description = ""
-        for i, entry in enumerate(leaderboard_data):
-            user_id = entry.get('user_id')
-            user = interaction.guild.get_member(user_id)
-            username = user.display_name if user else f"User ID: {user_id} (Left Server)"
-            cookies = entry.get('cookies', 0)
-            description += f"**{i+1}.** {username} — **{cookies}** 🍪\n"
-
-        embed = discord.Embed(
-            title="🏆 Top 10 Cookie Hoarders",
-            description=description,
-            color=discord.Color.gold()
-        )
-        embed.set_footer(text="Powered by BLEK NEPHEW | UK Futurism")
-        await interaction.followup.send(embed=embed)
+        view = CookieLeaderboardView(interaction.user, interaction)
+        embed = await view.get_page_embed()
+        await interaction.response.send_message(embed=embed, view=view)
 
     @app_commands.command(name="addcookies", description="[Manager] Add cookies to a user.")
     @app_commands.guilds(guild_obj)
     @app_commands.describe(user="The user to give cookies to.", amount="The amount of cookies to give.")
     async def addcookies(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        if not await self.check_is_manager(interaction):
-            return
-        
+        if not await self.check_is_manager(interaction): return
         if amount <= 0:
             await interaction.response.send_message("Please provide a positive number of cookies.", ephemeral=True)
             return
-
         db.add_cookies(user.id, amount)
         await interaction.response.send_message(f"✅ Successfully added **{amount}** 🍪 to **{user.display_name}**.")
 
@@ -185,13 +141,10 @@ class Cookies(commands.Cog):
     @app_commands.guilds(guild_obj)
     @app_commands.describe(user="The user to remove cookies from.", amount="The amount of cookies to remove.")
     async def removecookies(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        if not await self.check_is_manager(interaction):
-            return
-            
+        if not await self.check_is_manager(interaction): return
         if amount <= 0:
             await interaction.response.send_message("Please provide a positive number of cookies.", ephemeral=True)
             return
-
         db.remove_cookies(user.id, amount)
         await interaction.response.send_message(f"✅ Successfully removed **{amount}** 🍪 from **{user.display_name}**.")
 
@@ -199,9 +152,7 @@ class Cookies(commands.Cog):
     @app_commands.guilds(guild_obj)
     @app_commands.describe(user="The user whose cookies you want to reset.")
     async def resetusercookies(self, interaction: discord.Interaction, user: discord.Member):
-        if not await self.check_is_manager(interaction):
-            return
-        
+        if not await self.check_is_manager(interaction): return
         db.set_cookies(user.id, 0)
         await interaction.response.send_message(f"🗑️ All cookies for **{user.display_name}** have been reset to 0.")
 
