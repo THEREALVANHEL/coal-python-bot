@@ -43,10 +43,10 @@ async def on_ready():
     print("Loading cogs...")
 
     # Load all .py files from the 'cogs' directory
-    for filename in os.listdir('./cogs'):
+    for filename in os.listdir('./my-discord-bot/cogs'):
         if filename.endswith('.py'):
             try:
-                # Corrected path for cogs
+                # The path needs to match the directory structure
                 bot.load_extension(f'cogs.{filename[:-3]}')
                 print(f"✅ Loaded cog: {filename}")
             except Exception as e:
