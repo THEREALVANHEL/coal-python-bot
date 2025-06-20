@@ -148,6 +148,34 @@ class Moderation(commands.Cog):
         
         await interaction.response.send_message(f"Are you sure you want to clear all **{len(warnings)}** warnings for **{user.display_name}**?", view=view, ephemeral=True)
 
+    @app_commands.command(name="announce", description="[Moderator] Create and send a server announcement.")
+    @app_commands.guilds(guild_obj)
+    @app_commands.describe(
+        channel="The channel to send the announcement to.",
+        title="The title of the announcement embed.",
+        message="The main content of the announcement."
+    )
+    async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, message: str):
+        if not await self.check_is_moderator(interaction):
+            return
+
+        embed = discord.Embed(
+            title=f"📢 {title}",
+            description=message,
+            color=discord.Color.blue(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name=f"Announcement from {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed.set_footer(text=f"Announced by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+
+        try:
+            await channel.send(embed=embed)
+            await interaction.response.send_message(f"✅ Announcement sent successfully to {channel.mention}.", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message("❌ I don't have permission to send messages in that channel.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(Moderation(bot))

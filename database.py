@@ -30,13 +30,13 @@ except Exception as e:
 # --- Cookie Functions ---
 def get_cookies(user_id: int):
     """Fetches the cookie count for a given user."""
-    if not cookies_collection: return 0
+    if cookies_collection is None: return 0
     user_data = cookies_collection.find_one({"user_id": user_id})
     return user_data.get("cookies", 0) if user_data else 0
 
 def set_cookies(user_id: int, amount: int):
     """Sets the cookie count for a user."""
-    if not cookies_collection: return
+    if cookies_collection is None: return
     cookies_collection.update_one(
         {"user_id": user_id},
         {"$set": {"cookies": amount}},
@@ -45,7 +45,7 @@ def set_cookies(user_id: int, amount: int):
 
 def add_cookies(user_id: int, amount: int):
     """Adds a specific amount of cookies to a user."""
-    if not cookies_collection: return
+    if cookies_collection is None: return
     cookies_collection.update_one(
         {"user_id": user_id},
         {"$inc": {"cookies": amount}},
@@ -54,35 +54,35 @@ def add_cookies(user_id: int, amount: int):
 
 def remove_cookies(user_id: int, amount: int):
     """Removes a specific amount of cookies from a user, ensuring it doesn't go below zero."""
-    if not cookies_collection: return
+    if cookies_collection is None: return
     current_cookies = get_cookies(user_id)
     new_amount = max(0, current_cookies - amount)
     set_cookies(user_id, new_amount)
 
 def get_leaderboard(skip: int = 0, limit: int = 10):
     """Retrieves a paginated list of users sorted by cookie count."""
-    if not cookies_collection: return []
+    if cookies_collection is None: return []
     return list(cookies_collection.find().sort("cookies", -1).skip(skip).limit(limit))
 
 def get_total_users_in_leaderboard():
     """Counts the total number of users with cookies."""
-    if not cookies_collection: return 0
+    if cookies_collection is None: return 0
     return cookies_collection.count_documents({})
 
 def get_user_rank(user_id: int):
     """Gets the rank of a specific user in the cookie leaderboard."""
-    if not cookies_collection: return 0
+    if cookies_collection is None: return 0
     rank = cookies_collection.count_documents({'cookies': {'$gt': get_cookies(user_id)}})
     return rank + 1
 
 def reset_all_cookies():
     """Resets all users' cookies to zero."""
-    if not cookies_collection: return
+    if cookies_collection is None: return
     cookies_collection.delete_many({})
 
 def give_cookies_to_all(amount: int, member_ids: list):
     """Gives a specified number of cookies to all members in the list."""
-    if not cookies_collection: return
+    if cookies_collection is None: return
     for user_id in member_ids:
         cookies_collection.update_one(
             {"user_id": user_id},
@@ -97,7 +97,7 @@ def give_cookies_to_all(amount: int, member_ids: list):
 # --- Warning Functions ---
 def add_warning(user_id: int, moderator_id: int, reason: str):
     """Adds a warning to a user."""
-    if not warnings_collection: return
+    if warnings_collection is None: return
     warnings_collection.insert_one({
         "user_id": user_id,
         "moderator_id": moderator_id,
@@ -107,18 +107,18 @@ def add_warning(user_id: int, moderator_id: int, reason: str):
 
 def get_warnings(user_id: int):
     """Retrieves all warnings for a specific user."""
-    if not warnings_collection: return []
+    if warnings_collection is None: return []
     return list(warnings_collection.find({"user_id": user_id}))
 
 def clear_warnings(user_id: int):
     """Clears all warnings for a specific user."""
-    if not warnings_collection: return
+    if warnings_collection is None: return
     warnings_collection.delete_many({"user_id": user_id})
 
 # --- Settings Functions ---
 def set_channel(guild_id: int, channel_type: str, channel_id: int):
     """Saves a channel ID for a specific purpose (e.g., 'welcome', 'log')."""
-    if not settings_collection: return
+    if settings_collection is None: return
     settings_collection.update_one(
         {"guild_id": guild_id},
         {"$set": {f"{channel_type}_channel": channel_id}},
@@ -127,19 +127,19 @@ def set_channel(guild_id: int, channel_type: str, channel_id: int):
 
 def get_channel(guild_id: int, channel_type: str):
     """Retrieves a saved channel ID."""
-    if not settings_collection: return None
+    if settings_collection is None: return None
     settings = settings_collection.find_one({"guild_id": guild_id})
     return settings.get(f"{channel_type}_channel") if settings else None
 
 # --- Leveling Functions ---
 def get_user_level_data(user_id: int):
     """Fetches the level and XP for a given user."""
-    if not leveling_collection: return None
+    if leveling_collection is None: return None
     return leveling_collection.find_one({"user_id": user_id})
 
 def update_user_xp(user_id: int, xp_to_add: int):
     """Adds XP to a user, creating the user if they don't exist."""
-    if not leveling_collection: return
+    if leveling_collection is None: return
     leveling_collection.update_one(
         {"user_id": user_id},
         {
@@ -151,7 +151,7 @@ def update_user_xp(user_id: int, xp_to_add: int):
 
 def set_user_level(user_id: int, new_level: int):
     """Sets a user's level and resets their current XP for that level to 0."""
-    if not leveling_collection: return
+    if leveling_collection is None: return
     leveling_collection.update_one(
         {"user_id": user_id},
         {"$set": {"level": new_level, "xp": 0}}
@@ -159,21 +159,21 @@ def set_user_level(user_id: int, new_level: int):
 
 def get_leveling_leaderboard(skip: int = 0, limit: int = 10):
     """Retrieves a paginated list of users sorted by level and XP."""
-    if not leveling_collection: return []
+    if leveling_collection is None: return []
     # Sort by level descending, then by XP descending
     return list(leveling_collection.find().sort([("level", -1), ("xp", -1)]).skip(skip).limit(limit))
 
 def get_total_users_in_leveling():
     """Counts the total number of users in the leveling system."""
-    if not leveling_collection: return 0
+    if leveling_collection is None: return 0
     return leveling_collection.count_documents({})
 
 def get_user_leveling_rank(user_id: int):
     """Gets the rank of a specific user in the leveling leaderboard."""
-    if not leveling_collection: return 0
+    if leveling_collection is None: return 0
     
     user_data = get_user_level_data(user_id)
-    if not user_data:
+    if user_data is None:
         return get_total_users_in_leveling() + 1 # Unranked user is last
 
     user_level = user_data.get('level', 0)
