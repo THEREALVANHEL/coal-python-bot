@@ -32,7 +32,7 @@ intents.members = True
 intents.message_content = True
 
 # Create the bot instance
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 @bot.event
 async def on_ready():
@@ -41,25 +41,16 @@ async def on_ready():
     if os.path.exists(cogs_path):
         for filename in os.listdir(cogs_path):
             if filename.endswith('.py'):
-                bot.load_extension(f'my-discord-bot.cogs.{filename[:-3]}')
+                try:
+                    bot.load_extension(f'cogs.{filename[:-3]}')
+                    print(f"✅ Loaded cog: {filename}")
+                except Exception as e:
+                    print(f"❌ Failed to load cog {filename}: {e}")
     else:
         print(f"Warning: {cogs_path} does not exist. No cogs loaded.")
     print(f"Logged in as {bot.user}")
     print("-------------------")
-    print("Loading cogs...")
-
-    # Load all .py files from the 'cogs' directory in the root
-    for filename in os.listdir('./cogs'): # <-- THIS IS THE CORRECTED LINE
-        if filename.endswith('.py'):
-            try:
-                bot.load_extension(f'cogs.{filename[:-3]}')
-                print(f"✅ Loaded cog: {filename}")
-            except Exception as e:
-                print(f"❌ Failed to load cog {filename}: {e}")
-
-    print("-------------------")
-    
-    # Sync slash commands
+    # Sync slash commands (if using py-cord 2.0+)
     try:
         await bot.sync_commands()
         print("✅ Slash commands synced successfully.")
