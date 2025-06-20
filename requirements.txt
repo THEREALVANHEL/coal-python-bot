@@ -1,3 +1,4 @@
 py-cord
-pymongo
+pymongo[srv]
 python-dotenv
+Flask
