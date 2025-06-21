@@ -5,6 +5,7 @@ import sys
 import os
 from datetime import datetime
 from typing import Optional
+import random
 
 # Add parent directory to path to import database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -192,6 +193,29 @@ class Community(commands.Cog):
         
         for i in range(len(options)):
             await poll_message.add_reaction(number_emojis[i])
+
+    @app_commands.command(name="askblecknephew", description="Ask the bot a yes/no question.")
+    @app_commands.guilds(guild_obj)
+    @app_commands.describe(question="The question you want to ask Blecknephew.")
+    async def askblecknephew(self, interaction: discord.Interaction, question: str):
+        responses = [
+            "It is certain.", "It is decidedly so.", "Without a doubt.", "Yes, definitely.",
+            "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.",
+            "Yes.", "Signs point to yes.", "Reply hazy, try again.", "Ask again later.",
+            "Better not tell you now.", "Cannot predict now.", "Concentrate and ask again.",
+            "Don't count on it.", "My reply is no.", "My sources say no.",
+            "Outlook not so good.", "Very doubtful."
+        ]
+        
+        embed = discord.Embed(
+            title="🤔 You asked...",
+            description=f"> {question}",
+            color=discord.Color.random()
+        )
+        embed.set_author(name=f"{interaction.user.display_name} asks Blecknephew...", icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="Blecknephew says...", value=f"**{random.choice(responses)}**")
+
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="suggest", description="Submit a suggestion for the server.")
     @app_commands.guilds(guild_obj)
