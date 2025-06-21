@@ -4,6 +4,7 @@ from discord import app_commands
 import sys
 import os
 from datetime import datetime
+from typing import Optional
 
 # Add parent directory to path to import database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -92,9 +93,10 @@ class Community(commands.Cog):
         title="The title of the event that was hosted.",
         game_summary="A summary of what happened during the event.",
         host="The main host of the event.",
+        participants="The users who participated (you can @mention them).",
         co_host="The co-host of the event (optional).",
-        medic_team="The users on the medic team (optional).",
-        guide_team="The users on the guide team (optional).",
+        medic_team="The users or roles on the medic team (you can @mention them).",
+        guide_team="The users or roles on the guide team (optional).",
         notes="Any additional notes from the event (optional).",
         picture="A picture from the event (optional)."
     )
@@ -103,6 +105,7 @@ class Community(commands.Cog):
                       title: str,
                       game_summary: str,
                       host: discord.Member,
+                      participants: str,
                       co_host: discord.Member = None,
                       medic_team: str = "None",
                       guide_team: str = "None",
@@ -124,6 +127,8 @@ class Community(commands.Cog):
         if co_host:
             embed.add_field(name="Co-Host", value=co_host.mention, inline=True)
         
+        embed.add_field(name="👥 Participants", value=participants, inline=False)
+        
         embed.add_field(name="⛑️ Medic Team", value=medic_team, inline=True)
         embed.add_field(name="🗺️ Guide Team", value=guide_team, inline=True)
         
@@ -140,6 +145,53 @@ class Community(commands.Cog):
             await interaction.response.send_message(f"✅ Game log sent successfully to {channel.mention}.", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message("❌ I don't have permission to send messages or upload images in that channel.", ephemeral=True)
+
+    @app_commands.command(name="poll", description="Create a simple poll with up to 10 options.")
+    @app_commands.guilds(guild_obj)
+    @app_commands.describe(
+        question="The question you want to ask.",
+        option1="The first choice for the poll.",
+        option2="The second choice for the poll.",
+        option3="The third choice for the poll (optional).",
+        option4="The fourth choice for the poll (optional).",
+        option5="The fifth choice for the poll (optional).",
+        option6="The sixth choice for the poll (optional).",
+        option7="The seventh choice for the poll (optional).",
+        option8="The eighth choice for the poll (optional).",
+        option9="The ninth choice for the poll (optional).",
+        option10="The tenth choice for the poll (optional)."
+    )
+    async def poll(self, interaction: discord.Interaction, 
+                 question: str, 
+                 option1: str, 
+                 option2: str,
+                 option3: Optional[str] = None, option4: Optional[str] = None, option5: Optional[str] = None,
+                 option6: Optional[str] = None, option7: Optional[str] = None, option8: Optional[str] = None,
+                 option9: Optional[str] = None, option10: Optional[str] = None):
+        
+        options = [opt for opt in [option1, option2, option3, option4, option5, option6, option7, option8, option9, option10] if opt is not None]
+        
+        embed = discord.Embed(
+            title=f"📊 {question}",
+            description="Vote by reacting with the corresponding number!",
+            color=discord.Color.blurple(),
+            timestamp=datetime.utcnow()
+        )
+        
+        number_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+        
+        poll_options_text = ""
+        for i, option in enumerate(options):
+            poll_options_text += f"{number_emojis[i]} {option}\n"
+            
+        embed.add_field(name="Options", value=poll_options_text, inline=False)
+        embed.set_author(name=f"Poll by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+
+        await interaction.response.send_message("Creating your poll...", ephemeral=True)
+        poll_message = await interaction.channel.send(embed=embed)
+        
+        for i in range(len(options)):
+            await poll_message.add_reaction(number_emojis[i])
 
     @app_commands.command(name="suggest", description="Submit a suggestion for the server.")
     @app_commands.guilds(guild_obj)
