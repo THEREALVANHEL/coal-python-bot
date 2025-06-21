@@ -94,6 +94,24 @@ def give_cookies_to_all(amount: int, member_ids: list):
         {"$inc": {"cookies": amount}}
     )
 
+def synchronize_cookies(all_member_ids: list):
+    """Removes users from the cookie database who are no longer in the server."""
+    if cookies_collection is None:
+        return 0
+    
+    # Get all user IDs from the database collection
+    db_user_ids = {doc['user_id'] for doc in cookies_collection.find({}, {'user_id': 1})}
+    
+    # Find users who are in the database but not in the server anymore
+    ids_to_remove = list(db_user_ids - set(all_member_ids))
+    
+    if not ids_to_remove:
+        return 0
+
+    # Remove them from the collection
+    result = cookies_collection.delete_many({'user_id': {'$in': ids_to_remove}})
+    return result.deleted_count
+
 # --- Warning Functions ---
 def add_warning(user_id: int, moderator_id: int, reason: str):
     """Adds a warning to a user."""

@@ -12,35 +12,35 @@ import database as db
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
+# --- Custom Check ---
+def is_moderator():
+    """Custom check to verify if the user is a moderator or admin."""
+    async def predicate(interaction: discord.Interaction) -> bool:
+        # Allow administrators to bypass role check
+        if interaction.user.guild_permissions.administrator:
+            return True
+        
+        # You should ideally store these roles in a database per guild
+        moderator_roles = ["Moderator 🚨🚓", "🚨 Lead moderator"]
+        
+        # Check if the user has any of the specified moderator roles
+        has_role = any(role.name in moderator_roles for role in interaction.user.roles)
+        if not has_role:
+            await interaction.response.send_message("You don't have the required role to use this command.", ephemeral=True)
+        return has_role
+    return app_commands.check(predicate)
+
 class Moderation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # Define the roles that can use these commands
-        self.moderator_roles = ["Moderator 🚨🚓", "🚨 Lead moderator"]
-
-    # --- Permission Check ---
-    async def check_is_moderator(self, interaction: discord.Interaction):
-        """Checks if the user has a moderator role or is an admin."""
-        author = interaction.user
-        if isinstance(author, discord.Member):
-            # Always allow administrators
-            if author.guild_permissions.administrator:
-                return True
-            # Check if they have any of the specified moderator roles
-            if any(role.name in self.moderator_roles for role in author.roles):
-                return True
-        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-        return False
 
     # --- Commands ---
 
     @app_commands.command(name="warn", description="[Moderator] Warn a user.")
     @app_commands.guilds(guild_obj)
+    @is_moderator()
     @app_commands.describe(user="The user to warn.", reason="The reason for the warning.")
     async def warn(self, interaction: discord.Interaction, user: discord.Member, reason: str = "No reason provided."):
-        if not await self.check_is_moderator(interaction):
-            return
-
         if user.bot:
             await interaction.response.send_message("You can't warn a bot!", ephemeral=True)
             return
@@ -51,6 +51,24 @@ class Moderation(commands.Cog):
 
         db.add_warning(user_id=user.id, moderator_id=interaction.user.id, reason=reason)
         
+        # First, try to send DM
+        dm_sent = False
+        try:
+            dm_embed = discord.Embed(
+                title="🚨 You Have Been Warned",
+                description=f"You received a warning in **{interaction.guild.name}**.",
+                color=discord.Color.red(),
+                timestamp=datetime.utcnow()
+            )
+            dm_embed.add_field(name="Reason", value=reason, inline=False)
+            dm_embed.set_footer(text=f"Please respect the server rules.")
+            await user.send(embed=dm_embed)
+            dm_sent = True
+        except discord.Forbidden:
+            # User has DMs closed or blocked the bot
+            pass
+
+        # Now, send the public confirmation
         embed = discord.Embed(
             title="⚠️ User Warned",
             description=f"**{user.mention}** has been officially warned.",
@@ -62,27 +80,15 @@ class Moderation(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
         
-        try:
-            dm_embed = discord.Embed(
-                title="🚨 You Have Been Warned",
-                description=f"You received a warning in **{interaction.guild.name}**.",
-                color=discord.Color.red(),
-                timestamp=datetime.utcnow()
-            )
-            dm_embed.add_field(name="Reason", value=reason, inline=False)
-            dm_embed.set_footer(text=f"Please respect the server rules.")
-            await user.send(embed=dm_embed)
-        except discord.Forbidden:
+        if not dm_sent:
             await interaction.followup.send("(Could not send a DM to the user. Their DMs may be closed.)", ephemeral=True)
 
 
     @app_commands.command(name="warnlist", description="[Moderator] Show all warnings for a user.")
     @app_commands.guilds(guild_obj)
+    @is_moderator()
     @app_commands.describe(user="The user whose warnings you want to see.")
     async def warnlist(self, interaction: discord.Interaction, user: discord.Member):
-        if not await self.check_is_moderator(interaction):
-            return
-
         warnings = db.get_warnings(user.id)
 
         if not warnings:
@@ -111,50 +117,58 @@ class Moderation(commands.Cog):
 
     @app_commands.command(name="removewarnlist", description="[Moderator] Remove all warnings for a user.")
     @app_commands.guilds(guild_obj)
+    @is_moderator()
     @app_commands.describe(user="The user whose warnings you want to remove.")
     async def removewarnlist(self, interaction: discord.Interaction, user: discord.Member):
-        if not await self.check_is_moderator(interaction):
-            return
-
         warnings = db.get_warnings(user.id)
         if not warnings:
             await interaction.response.send_message(f"**{user.display_name}** has no warnings to remove.", ephemeral=True)
             return
             
         # Add a confirmation view
-        view = discord.ui.View()
-        button = discord.ui.Button(label=f"Confirm Clear Warnings for {user.display_name}", style=discord.ButtonStyle.danger)
+        view = discord.ui.View(timeout=60) # Add a timeout
         
-        async def button_callback(callback_interaction: discord.Interaction):
-            if not await self.check_is_moderator(callback_interaction):
-                return
-            
+        # This check should be inside the button callback as well
+        confirm_button = discord.ui.Button(label=f"Confirm Clear Warnings", style=discord.ButtonStyle.danger)
+        
+        async def confirm_callback(callback_interaction: discord.Interaction):
+            # Re-check permissions for the person clicking the button
+            if not callback_interaction.user.guild_permissions.administrator:
+                 # Simple check, can be expanded to full mod check
+                is_mod = any(role.name in ["Moderator 🚨🚓", "🚨 Lead moderator"] for role in callback_interaction.user.roles)
+                if not is_mod:
+                    await callback_interaction.response.send_message("You don't have permission to confirm this.", ephemeral=True)
+                    return
+
             if callback_interaction.user.id != interaction.user.id:
                 await callback_interaction.response.send_message("This confirmation is not for you.", ephemeral=True)
                 return
 
             db.clear_warnings(user.id)
-            await callback_interaction.response.send_message(f"✅ All warnings for **{user.display_name}** have been cleared.", ephemeral=True)
-            
-            button.disabled = True
-            await interaction.edit_original_response(view=view)
+            await callback_interaction.response.edit_message(content=f"✅ All warnings for **{user.display_name}** have been cleared.", view=None)
 
-        button.callback = button_callback
-        view.add_item(button)
+        confirm_button.callback = confirm_callback
+        
+        cancel_button = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.secondary)
+        async def cancel_callback(callback_interaction: discord.Interaction):
+             await callback_interaction.response.edit_message(content="Cancelled.", view=None)
+
+        cancel_button.callback = cancel_callback
+        
+        view.add_item(confirm_button)
+        view.add_item(cancel_button)
         
         await interaction.response.send_message(f"Are you sure you want to clear all **{len(warnings)}** warnings for **{user.display_name}**?", view=view, ephemeral=True)
 
     @app_commands.command(name="announce", description="[Moderator] Create and send a server announcement.")
     @app_commands.guilds(guild_obj)
+    @is_moderator()
     @app_commands.describe(
         channel="The channel to send the announcement to.",
         title="The title of the announcement embed.",
         message="The main content of the announcement."
     )
     async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, message: str):
-        if not await self.check_is_moderator(interaction):
-            return
-
         embed = discord.Embed(
             title=f"📢 {title}",
             description=message,

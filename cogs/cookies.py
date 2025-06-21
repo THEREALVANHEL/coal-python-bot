@@ -156,5 +156,23 @@ class Cookies(commands.Cog):
         db.set_cookies(user.id, 0)
         await interaction.response.send_message(f"🗑️ All cookies for **{user.display_name}** have been reset to 0.")
 
+    @app_commands.command(name="updatecookies", description="[Manager] Syncs the cookie database with current server members.")
+    @app_commands.guilds(guild_obj)
+    async def updatecookies(self, interaction: discord.Interaction):
+        if not await self.check_is_manager(interaction): return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
+        # Fetch all member IDs from the guild. This can be slow in large servers.
+        all_member_ids = [member.id async for member in interaction.guild.fetch_members(limit=None)]
+        
+        # Synchronize the database
+        removed_count = db.synchronize_cookies(all_member_ids)
+
+        if removed_count > 0:
+            await interaction.followup.send(f"✅ Database synchronized. Removed **{removed_count}** user(s) from the cookie leaderboard who were no longer in the server.")
+        else:
+            await interaction.followup.send("✅ Database is already up-to-date. No users were removed.")
+
 async def setup(bot):
     await bot.add_cog(Cookies(bot))
