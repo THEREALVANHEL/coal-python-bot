@@ -56,6 +56,11 @@ class Economy(commands.Cog):
         db.add_cookies(user_id, reward)
         db.update_daily_checkin(user_id, new_streak)
 
+        # Update cookie roles
+        cookies_cog = self.bot.get_cog("Cookies")
+        if cookies_cog:
+            await cookies_cog.update_cookie_roles(interaction.user)
+
         embed = discord.Embed(
             title="🌞 Daily Reward Claimed!",
             description=f"You received **{reward}** 🍪 cookie(s)!\nYour current streak is now **{new_streak}** days.",
@@ -93,6 +98,11 @@ class Economy(commands.Cog):
             result_message = f"💔 **You lost!**\nYou lost **{amount}** 🍪 cookies and now have **{balance - amount}** 🍪."
             color = discord.Color.red()
         
+        # Update cookie roles
+        cookies_cog = self.bot.get_cog("Cookies")
+        if cookies_cog:
+            await cookies_cog.update_cookie_roles(interaction.user)
+
         embed = discord.Embed(title="🎰 Cookie Gamble", description=result_message, color=color)
         await interaction.response.send_message(embed=embed)
 
@@ -126,6 +136,17 @@ class Economy(commands.Cog):
         # Perform the transaction
         db.remove_cookies(sender_id, amount)
         db.add_cookies(receiver_id, amount)
+
+        # Update cookie roles for both users
+        cookies_cog = self.bot.get_cog("Cookies")
+        if cookies_cog:
+            # Fetch the member objects to pass to the update function
+            sender_member = interaction.guild.get_member(sender_id)
+            receiver_member = user
+            if sender_member:
+                await cookies_cog.update_cookie_roles(sender_member)
+            if receiver_member:
+                await cookies_cog.update_cookie_roles(receiver_member)
 
         embed = discord.Embed(
             title="🎁 Cookies Donated!",

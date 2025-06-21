@@ -10,6 +10,19 @@ import database as db
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
+# --- Role mapping: Requirements are MINIMUM cookies needed. ---
+COOKIE_ROLES = {
+    100: 1370998669884788788,
+    500: 1370999721593671760,
+    1000: 1371000389444305017,
+    1750: 1371001322131947591,
+    3000: 1371001806930579518,
+    5000: 1371004762761461770
+}
+# Sorted cookie requirements, from highest to lowest
+SORTED_COOKIE_TIERS = sorted(COOKIE_ROLES.keys(), reverse=True)
+
+
 # --- New Paginated Leaderboard View ---
 class CookieLeaderboardView(discord.ui.View):
     def __init__(self, author, interaction: discord.Interaction):
@@ -84,6 +97,45 @@ class Cookies(commands.Cog):
         self.bot = bot
         self.cookie_manager_role = "🚨🚓Cookie Manager 🍪"
 
+    async def update_cookie_roles(self, member: discord.Member):
+        """Checks a user's cookie balance and assigns the correct role."""
+        if member.bot: return
+
+        try:
+            balance = db.get_cookies(member.id)
+            
+            # Find the highest role the user is eligible for
+            target_role_id = None
+            for tier in SORTED_COOKIE_TIERS:
+                if balance >= tier:
+                    target_role_id = COOKIE_ROLES[tier]
+                    break
+            
+            # Get all cookie role objects from the guild
+            all_cookie_role_ids = set(COOKIE_ROLES.values())
+            
+            # Get the roles the user currently has that are cookie roles
+            current_user_cookie_roles = [role for role in member.roles if role.id in all_cookie_role_ids]
+            
+            # Optimization: If the user has the correct role and no other cookie roles, do nothing
+            if target_role_id and len(current_user_cookie_roles) == 1 and current_user_cookie_roles[0].id == target_role_id:
+                return
+
+            # Remove all existing cookie roles
+            if current_user_cookie_roles:
+                await member.remove_roles(*current_user_cookie_roles, reason="Cookie role update")
+
+            # Add the correct new role
+            if target_role_id:
+                new_role = member.guild.get_role(target_role_id)
+                if new_role:
+                    await member.add_roles(new_role, reason=f"Cookie balance at {balance}")
+
+        except discord.Forbidden:
+            print(f"Error: Bot lacks permissions to manage cookie roles for {member.display_name}.")
+        except Exception as e:
+            print(f"An error occurred while updating cookie roles for {member.display_name}: {e}")
+
     async def check_is_manager(self, interaction: discord.Interaction):
         author = interaction.user
         if isinstance(author, discord.Member):
@@ -135,6 +187,7 @@ class Cookies(commands.Cog):
             await interaction.response.send_message("Please provide a positive number of cookies.", ephemeral=True)
             return
         db.add_cookies(user.id, amount)
+        await self.update_cookie_roles(user)
         await interaction.response.send_message(f"✅ Successfully added **{amount}** 🍪 to **{user.display_name}**.")
 
     @app_commands.command(name="removecookies", description="[Manager] Remove cookies from a user.")
@@ -146,6 +199,7 @@ class Cookies(commands.Cog):
             await interaction.response.send_message("Please provide a positive number of cookies.", ephemeral=True)
             return
         db.remove_cookies(user.id, amount)
+        await self.update_cookie_roles(user)
         await interaction.response.send_message(f"✅ Successfully removed **{amount}** 🍪 from **{user.display_name}**.")
 
     @app_commands.command(name="resetusercookies", description="[Manager] Reset a user's cookies to 0.")
@@ -154,6 +208,7 @@ class Cookies(commands.Cog):
     async def resetusercookies(self, interaction: discord.Interaction, user: discord.Member):
         if not await self.check_is_manager(interaction): return
         db.set_cookies(user.id, 0)
+        await self.update_cookie_roles(user)
         await interaction.response.send_message(f"🗑️ All cookies for **{user.display_name}** have been reset to 0.")
 
     @app_commands.command(name="updatecookies", description="[Manager] Syncs the cookie database with current server members.")
@@ -192,6 +247,9 @@ class Cookies(commands.Cog):
         
         # Call the database function to give cookies
         db.give_cookies_to_all(amount, all_member_ids)
+        
+        # Note: Updating roles for all users here could be slow and rate-limit the bot.
+        # A separate command to slowly update all roles is recommended if needed.
 
         await interaction.followup.send(f"✅ Successfully gave **{amount}** 🍪 to **{len(all_member_ids)}** members.")
 
