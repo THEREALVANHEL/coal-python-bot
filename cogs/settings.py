@@ -48,6 +48,25 @@ class Settings(commands.Cog):
         db.set_channel(interaction.guild.id, "leveling", channel.id)
         await interaction.response.send_message(f"✅ Level-up announcements will now be sent to {channel.mention}.", ephemeral=True)
 
+    @app_commands.command(name="setsuggestionchannel", description="[Admin] Set the channel for user suggestions.")
+    @app_commands.guilds(guild_obj)
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(channel="The channel where suggestions should be posted.")
+    async def setsuggestionchannel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        db.set_channel(interaction.guild.id, "suggestion", channel.id)
+        await interaction.response.send_message(f"✅ Suggestions will now be sent to {channel.mention}.", ephemeral=True)
+
+    @app_commands.command(name="setstarboard", description="[Admin] Set the starboard channel and required star count.")
+    @app_commands.guilds(guild_obj)
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(
+        channel="The channel to use for the starboard.",
+        count="The number of stars required to post a message."
+    )
+    async def setstarboard(self, interaction: discord.Interaction, channel: discord.TextChannel, count: app_commands.Range[int, 1, 100]):
+        db.set_starboard(interaction.guild.id, channel.id, count)
+        await interaction.response.send_message(f"✅ Starboard enabled. Messages with **{count}** ⭐ will be posted to {channel.mention}.", ephemeral=True)
+
     @app_commands.command(name="showsettings", description="Show current configured channels.")
     @app_commands.guilds(guild_obj)
     async def showsettings(self, interaction: discord.Interaction):
@@ -56,6 +75,9 @@ class Settings(commands.Cog):
         leave = db.get_channel(guild_id, "leave")
         log = db.get_channel(guild_id, "log")
         leveling = db.get_channel(guild_id, "leveling")
+        suggestion = db.get_channel(guild_id, "suggestion")
+        starboard_settings = db.get_starboard_settings(guild_id)
+        
         embed = discord.Embed(
             title="🔧 Server Settings",
             description="Here are your current channel settings:",
@@ -65,6 +87,16 @@ class Settings(commands.Cog):
         embed.add_field(name="👋 Leave Channel", value=f"<#{leave}>" if leave else "Not set", inline=False)
         embed.add_field(name="📝 Log Channel", value=f"<#{log}>" if log else "Not set", inline=False)
         embed.add_field(name="🌌 Leveling Channel", value=f"<#{leveling}>" if leveling else "Not set", inline=False)
+        embed.add_field(name="💡 Suggestion Channel", value=f"<#{suggestion}>" if suggestion else "Not set", inline=False)
+
+        if starboard_settings and "starboard_channel" in starboard_settings:
+            channel_id = starboard_settings["starboard_channel"]
+            star_count = starboard_settings.get("starboard_star_count", "N/A")
+            starboard_info = f"<#{channel_id}> ({star_count} ⭐ required)"
+        else:
+            starboard_info = "Not set"
+        embed.add_field(name="⭐ Starboard Channel", value=starboard_info, inline=False)
+
         embed.set_footer(text="Futuristic UK Settings | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 

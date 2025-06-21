@@ -96,6 +96,44 @@ class Economy(commands.Cog):
         embed = discord.Embed(title="🎰 Cookie Gamble", description=result_message, color=color)
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.command(name="donatecookies", description="Give some of your cookies to another user.")
+    @app_commands.guilds(guild_obj)
+    @app_commands.describe(
+        user="The user you want to give cookies to.",
+        amount="The amount of cookies to give."
+    )
+    async def donatecookies(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        sender_id = interaction.user.id
+        receiver_id = user.id
+
+        if amount <= 0:
+            await interaction.response.send_message("You must donate a positive number of cookies.", ephemeral=True)
+            return
+
+        if sender_id == receiver_id:
+            await interaction.response.send_message("You can't donate cookies to yourself!", ephemeral=True)
+            return
+
+        if user.bot:
+            await interaction.response.send_message("You can't donate cookies to a bot!", ephemeral=True)
+            return
+
+        sender_balance = db.get_cookies(sender_id)
+        if sender_balance < amount:
+            await interaction.response.send_message(f"You don't have enough cookies to donate that much. Your balance is **{sender_balance}** 🍪.", ephemeral=True)
+            return
+
+        # Perform the transaction
+        db.remove_cookies(sender_id, amount)
+        db.add_cookies(receiver_id, amount)
+
+        embed = discord.Embed(
+            title="🎁 Cookies Donated!",
+            description=f"{interaction.user.mention} has donated **{amount}** 🍪 to {user.mention}!",
+            color=discord.Color.from_rgb(255, 182, 193) # Light pink
+        )
+        await interaction.response.send_message(embed=embed)
+
 
 async def setup(bot):
     await bot.add_cog(Economy(bot)) 

@@ -16,6 +16,7 @@ try:
     settings_collection = db.get_collection('settings')
     leveling_collection = db.get_collection('leveling') # New collection for levels
     dailies_collection = db.get_collection('dailies') # New collection for daily check-ins
+    starboard_messages_collection = db.get_collection('starboard_messages') # Tracks starboard posts
     print("✅ Successfully connected to MongoDB.")
 except Exception as e:
     print(f"❌ Failed to connect to MongoDB: {e}")
@@ -26,6 +27,7 @@ except Exception as e:
     settings_collection = None
     leveling_collection = None
     dailies_collection = None
+    starboard_messages_collection = None
 
 # --- Helper Functions ---
 
@@ -165,6 +167,38 @@ def get_channel(guild_id: int, channel_type: str):
     if settings_collection is None: return None
     settings = settings_collection.find_one({"guild_id": guild_id})
     return settings.get(f"{channel_type}_channel") if settings else None
+
+def set_starboard(guild_id: int, channel_id: int, star_count: int):
+    """Saves the settings for the starboard."""
+    if settings_collection is None: return
+    settings_collection.update_one(
+        {"guild_id": guild_id},
+        {"$set": {
+            "starboard_channel": channel_id,
+            "starboard_star_count": star_count
+        }},
+        upsert=True
+    )
+
+def get_starboard_settings(guild_id: int):
+    """Retrieves the starboard settings for a guild."""
+    if settings_collection is None: return None
+    return settings_collection.find_one({"guild_id": guild_id})
+
+# --- Starboard Message Tracking ---
+def add_starboard_message(original_message_id: int, starboard_message_id: int):
+    """Logs a message that has been posted to the starboard."""
+    if starboard_messages_collection is None: return
+    starboard_messages_collection.insert_one({
+        "original_message_id": original_message_id,
+        "starboard_message_id": starboard_message_id
+    })
+
+def get_starboard_message(original_message_id: int):
+    """Finds the ID of a starboard message linked to an original message."""
+    if starboard_messages_collection is None: return None
+    doc = starboard_messages_collection.find_one({"original_message_id": original_message_id})
+    return doc.get("starboard_message_id") if doc else None
 
 # --- Leveling Functions ---
 def get_user_level_data(user_id: int):

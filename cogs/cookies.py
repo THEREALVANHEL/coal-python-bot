@@ -174,5 +174,26 @@ class Cookies(commands.Cog):
         else:
             await interaction.followup.send("✅ Database is already up-to-date. No users were removed.")
 
+    @app_commands.command(name="giveallcookies", description="[Manager] Give cookies to all members in the server.")
+    @app_commands.guilds(guild_obj)
+    @app_commands.describe(amount="The amount of cookies to give to everyone.")
+    async def giveallcookies(self, interaction: discord.Interaction, amount: int):
+        if not await self.check_is_manager(interaction):
+            return
+
+        if amount <= 0:
+            await interaction.response.send_message("You must give a positive number of cookies.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
+        # Fetch all non-bot member IDs from the guild.
+        all_member_ids = [member.id async for member in interaction.guild.fetch_members(limit=None) if not member.bot]
+        
+        # Call the database function to give cookies
+        db.give_cookies_to_all(amount, all_member_ids)
+
+        await interaction.followup.send(f"✅ Successfully gave **{amount}** 🍪 to **{len(all_member_ids)}** members.")
+
 async def setup(bot):
     await bot.add_cog(Cookies(bot))
