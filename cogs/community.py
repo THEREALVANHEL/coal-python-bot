@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from typing import Optional
 import random
+import asyncio
 
 # Add parent directory to path to import database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -198,14 +199,29 @@ class Community(commands.Cog):
     @app_commands.guilds(guild_obj)
     @app_commands.describe(question="The question you want to ask Blecknephew.")
     async def askblecknephew(self, interaction: discord.Interaction, question: str):
-        responses = [
-            "It is certain.", "It is decidedly so.", "Without a doubt.", "Yes, definitely.",
-            "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.",
-            "Yes.", "Signs point to yes.", "Reply hazy, try again.", "Ask again later.",
-            "Better not tell you now.", "Cannot predict now.", "Concentrate and ask again.",
-            "Don't count on it.", "My reply is no.", "My sources say no.",
-            "Outlook not so good.", "Very doubtful."
-        ]
+        # Specific check for father/mentor
+        if 'father' in question.lower() or 'mentor' in question.lower():
+            response = f"My father and mentor is <@1297924079243890780>. He is the best!"
+        else:
+            responses = [
+                # Positive
+                "It is certain.", "It is decidedly so.", "Without a doubt.", "Yes, definitely.",
+                "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.",
+                "Yes.", "Signs point to yes.", "The stars say yes.", "I have a good feeling about this.",
+                "Affirmative.", "Absolutely!", "No doubt about it.",
+
+                # Neutral / Non-committal
+                "Reply hazy, try again.", "Ask again later.", "Better not tell you now.",
+                "Cannot predict now.", "Concentrate and ask again.", "I'm not sure, ask me again in a bit.",
+                "The answer is unclear at the moment.", "Let me think on that...", "Maybe.",
+
+                # Negative
+                "Don't count on it.", "My reply is no.", "My sources say no.",
+                "Outlook not so good.", "Very doubtful.", "I wouldn't bet on it.",
+                "The chances are not in your favor.", "Negative.", "Definitely not.",
+                "I'm sorry, but no."
+            ]
+            response = random.choice(responses)
         
         embed = discord.Embed(
             title="🤔 You asked...",
@@ -213,7 +229,7 @@ class Community(commands.Cog):
             color=discord.Color.random()
         )
         embed.set_author(name=f"{interaction.user.display_name} asks Blecknephew...", icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="Blecknephew says...", value=f"**{random.choice(responses)}**")
+        embed.add_field(name="Blecknephew says...", value=f"**{response}**")
 
         await interaction.response.send_message(embed=embed)
 
@@ -246,6 +262,54 @@ class Community(commands.Cog):
             await interaction.response.send_message(f"✅ Your suggestion has been submitted to {suggestion_channel.mention}!", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message("I don't have permission to send messages or add reactions in the suggestion channel.", ephemeral=True)
+
+    @app_commands.command(name="spinawheel", description="Spin a wheel with your own custom options!")
+    @app_commands.guilds(guild_obj)
+    @app_commands.describe(
+        option1="The first choice for the wheel.",
+        option2="The second choice for the wheel.",
+        option3="The third choice for the wheel (optional).",
+        option4="The fourth choice for the wheel (optional).",
+        option5="The fifth choice for the wheel (optional).",
+        option6="The sixth choice for the wheel (optional).",
+        option7="The seventh choice for the wheel (optional).",
+        option8="The eighth choice for the wheel (optional).",
+        option9="The ninth choice for the wheel (optional).",
+        option10="The tenth choice for the wheel (optional)."
+    )
+    async def spinawheel(self, interaction: discord.Interaction, 
+                         option1: str, 
+                         option2: str,
+                         option3: Optional[str] = None, option4: Optional[str] = None, option5: Optional[str] = None,
+                         option6: Optional[str] = None, option7: Optional[str] = None, option8: Optional[str] = None,
+                         option9: Optional[str] = None, option10: Optional[str] = None):
+        
+        options = [opt for opt in [option1, option2, option3, option4, option5, option6, option7, option8, option9, option10] if opt is not None]
+        
+        options_text = "\\n".join(f"🔹 {opt}" for opt in options)
+
+        embed = discord.Embed(
+            title="🎡 Spinning the wheel...",
+            description=f"The wheel is spinning with these options:\\n{options_text}",
+            color=discord.Color.gold()
+        )
+        embed.set_author(name=f"{interaction.user.display_name} is spinning...", icon_url=interaction.user.display_avatar.url)
+        
+        await interaction.response.send_message(embed=embed)
+        await asyncio.sleep(3)
+
+        winner = random.choice(options)
+
+        result_embed = discord.Embed(
+            title="🎡 The wheel has stopped!",
+            description=f"Out of the provided options, the winner is...",
+            color=discord.Color.green()
+        )
+        result_embed.set_author(name=f"Spin result for {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        result_embed.add_field(name="Landed on:", value=f"**🎉 {winner} 🎉**", inline=False)
+        result_embed.set_footer(text="Use /spinawheel again to play with new options!")
+
+        await interaction.edit_original_response(embed=result_embed)
 
 async def setup(bot):
     await bot.add_cog(Community(bot)) 
