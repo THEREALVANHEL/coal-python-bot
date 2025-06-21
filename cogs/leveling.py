@@ -177,38 +177,44 @@ class Leveling(commands.Cog):
     @app_commands.describe(user="The user to show the profile of.")
     async def profile(self, interaction: discord.Interaction, user: discord.Member = None):
         target_user = user or interaction.user
+        
+        # --- Get Leveling Data ---
         user_data = db.get_user_level_data(target_user.id)
-        cookies = db.get_cookies(target_user.id)
-        
-        if not user_data:
-            embed = discord.Embed(
-                title=f"🚀 Profile for {target_user.display_name}",
-                description=f"This user has not sent any messages yet.",
-                color=discord.Color.dark_purple()
-            )
-            embed.set_thumbnail(url=target_user.display_avatar.url)
-            await interaction.response.send_message(embed=embed)
-            return
-            
-        level = user_data.get('level', 0)
-        xp = user_data.get('xp', 0)
+        level = user_data.get('level', 0) if user_data else 0
+        xp = user_data.get('xp', 0) if user_data else 0
         xp_needed = self.get_xp_for_level(level)
-        rank = db.get_user_leveling_rank(target_user.id)
-        
+        rank = db.get_user_leveling_rank(target_user.id) if user_data else 'Unranked'
+
+        # --- Get Cookie Data ---
+        cookie_balance = db.get_cookies(target_user.id)
+        cookie_rank = db.get_user_rank(target_user.id)
+
+        # --- Create Embed ---
         embed = discord.Embed(
             title=f"🚀 Profile for {target_user.display_name}",
             color=target_user.color
         )
         embed.set_thumbnail(url=target_user.display_avatar.url)
-        embed.add_field(name="🧬 Level", value=f"`{level}`", inline=True)
-        embed.add_field(name="🏆 Rank", value=f"`#{rank}`", inline=True)
-        embed.add_field(name="🍪 Cookies", value=f"`{cookies}`", inline=True)
+
+        # --- Leveling Info ---
+        level_info = f"**Level:** {level}\n"
+        level_info += f"**Rank:** #{rank}\n"
+        level_info += f"**XP:** {xp} / {xp_needed}"
+        embed.add_field(name="🧬 Leveling Stats", value=level_info, inline=True)
+
+        # --- Cookie Info ---
+        cookie_info = f"**Balance:** {cookie_balance} 🍪\n"
+        cookie_info += f"**Rank:** #{cookie_rank}"
+        embed.add_field(name="🍪 Cookie Stats", value=cookie_info, inline=True)
         
-        progress = int((xp / xp_needed) * 20) if xp_needed else 0
-        bar = "🟩" * progress + "⬛" * (20 - progress)
-        embed.add_field(name=f"💠 XP: `{xp} / {xp_needed}`", value=bar, inline=False)
+        # --- Progress Bar ---
+        if user_data:
+            progress = int((xp / xp_needed) * 20) if xp_needed > 0 else 0
+            bar = "🟩" * progress + "⬛" * (20 - progress)
+            embed.add_field(name="Progress to Next Level", value=bar, inline=False)
         
-        embed.set_footer(text="Powered by BLEK NEPHEW | UK Futurism")
+        embed.set_footer(text=f"Joined: {target_user.joined_at.strftime('%b %d, %Y')}")
+
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="leveltop", description="Show the top users by level/XP.")

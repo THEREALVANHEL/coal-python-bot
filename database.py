@@ -15,6 +15,7 @@ try:
     warnings_collection = db.get_collection('warnings')
     settings_collection = db.get_collection('settings')
     leveling_collection = db.get_collection('leveling') # New collection for levels
+    dailies_collection = db.get_collection('dailies') # New collection for daily check-ins
     print("✅ Successfully connected to MongoDB.")
 except Exception as e:
     print(f"❌ Failed to connect to MongoDB: {e}")
@@ -24,8 +25,24 @@ except Exception as e:
     warnings_collection = None
     settings_collection = None
     leveling_collection = None
+    dailies_collection = None
 
 # --- Helper Functions ---
+
+# --- Daily Check-in Functions ---
+def get_daily_data(user_id: int):
+    """Fetches the daily check-in data for a given user."""
+    if dailies_collection is None: return None
+    return dailies_collection.find_one({"user_id": user_id})
+
+def update_daily_checkin(user_id: int, new_streak: int):
+    """Updates the user's daily check-in timestamp and streak."""
+    if dailies_collection is None: return
+    dailies_collection.update_one(
+        {"user_id": user_id},
+        {"$set": {"last_checkin": datetime.utcnow(), "streak": new_streak}},
+        upsert=True
+    )
 
 # --- Cookie Functions ---
 def get_cookies(user_id: int):
