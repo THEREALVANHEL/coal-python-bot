@@ -7,6 +7,9 @@ from datetime import datetime
 from typing import Optional
 import random
 import asyncio
+import io
+import numpy as np
+import matplotlib.pyplot as plt
 
 # Add parent directory to path to import database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -14,6 +17,54 @@ import database as db
 
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
+
+def create_wheel_image(options, winner=None):
+    """Generates an image of a spinning wheel using matplotlib."""
+    
+    num_options = len(options)
+    
+    # Create a figure and axes
+    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(aspect="equal"))
+    
+    # Generate colors
+    colors = plt.cm.viridis(np.linspace(0, 1, num_options))
+    
+    # Explode the winner slice
+    explode = [0] * num_options
+    if winner and winner in options:
+        winner_index = options.index(winner)
+        explode[winner_index] = 0.1
+        
+    # Create the pie chart
+    wedges, texts, autotexts = ax.pie(
+        [1] * num_options, 
+        labels=options, 
+        autopct="", 
+        pctdistance=0.85,
+        explode=explode,
+        colors=colors,
+        startangle=90,
+        wedgeprops={'width': 0.4, 'edgecolor': 'w'},
+        textprops={'fontsize': 12, 'color': 'black'}
+    )
+
+    # Style the labels
+    for text in texts:
+        text.set_horizontalalignment('center')
+        text.set_verticalalignment('center')
+
+    # Add a pointer
+    ax.arrow(0, 0, 0, 1.1, head_width=0.1, head_length=0.1, fc='black', ec='black', lw=2, zorder=10)
+    
+    # Set title
+    ax.set_title("Spinning Wheel", fontsize=20, weight='bold')
+
+    # Save it to a buffer
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight', transparent=True)
+    buf.seek(0)
+    plt.close(fig)
+    return buf
 
 class Community(commands.Cog):
     def __init__(self, bot):
@@ -233,6 +284,28 @@ class Community(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.command(name="flip", description="Flip a coin.")
+    @app_commands.guilds(guild_obj)
+    async def flip(self, interaction: discord.Interaction):
+        """Flips a coin and sends the result."""
+        
+        result = random.choice(["Heads", "Tails"])
+
+        embed = discord.Embed(
+            title="Coin Flip",
+            description=f"The coin landed on... **{result}**!",
+            color=discord.Color.gold() if result == "Heads" else discord.Color.dark_grey()
+        )
+        
+        if result == "Heads":
+            embed.set_thumbnail(url="https://i.imgur.com/M6X2V3X.png") # A simple heads image
+        else:
+            embed.set_thumbnail(url="https://i.imgur.com/B6aM4y0.png") # A simple tails image
+            
+        embed.set_author(name=f"{interaction.user.display_name} flipped a coin", icon_url=interaction.user.display_avatar.url)
+
+        await interaction.response.send_message(embed=embed)
+
     @app_commands.command(name="suggest", description="Submit a suggestion for the server.")
     @app_commands.guilds(guild_obj)
     @app_commands.describe(suggestion="Your suggestion for the server.")
@@ -286,19 +359,29 @@ class Community(commands.Cog):
         
         options = [opt for opt in [option1, option2, option3, option4, option5, option6, option7, option8, option9, option10] if opt is not None]
         
-        options_text = "\\n".join(f"🔹 {opt}" for opt in options)
+        # Initial response
+        wheel_image_buf = create_wheel_image(options)
+        wheel_file = discord.File(fp=wheel_image_buf, filename="wheel.png")
 
         embed = discord.Embed(
             title="🎡 Spinning the wheel...",
-            description=f"The wheel is spinning with these options:\\n{options_text}",
+            description=f"The wheel is spinning with {len(options)} options!",
             color=discord.Color.gold()
         )
+        embed.set_image(url="attachment://wheel.png")
         embed.set_author(name=f"{interaction.user.display_name} is spinning...", icon_url=interaction.user.display_avatar.url)
         
-        await interaction.response.send_message(embed=embed)
-        await asyncio.sleep(3)
+        await interaction.response.send_message(embed=embed, file=wheel_file)
+        
+        # Suspense
+        await asyncio.sleep(4)
 
+        # Choose the winner
         winner = random.choice(options)
+
+        # Create the result image
+        result_image_buf = create_wheel_image(options, winner=winner)
+        result_file = discord.File(fp=result_image_buf, filename="wheel_result.png")
 
         result_embed = discord.Embed(
             title="🎡 The wheel has stopped!",
@@ -307,9 +390,10 @@ class Community(commands.Cog):
         )
         result_embed.set_author(name=f"Spin result for {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         result_embed.add_field(name="Landed on:", value=f"**🎉 {winner} 🎉**", inline=False)
+        result_embed.set_image(url="attachment://wheel_result.png")
         result_embed.set_footer(text="Use /spinawheel again to play with new options!")
 
-        await interaction.edit_original_response(embed=result_embed)
+        await interaction.edit_original_response(embed=result_embed, attachments=[result_file])
 
 async def setup(bot):
     await bot.add_cog(Community(bot)) 

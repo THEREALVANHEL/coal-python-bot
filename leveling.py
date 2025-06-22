@@ -30,8 +30,8 @@ class Leveling(commands.Cog):
 
     def get_xp_for_level(self, level):
         """Calculate the XP needed to reach a certain level."""
-        # Using a common formula: 5 * (lvl^2) + 50 * lvl + 100
-        return 5 * (level ** 2) + (50 * level) + 100
+        # A much harder formula
+        return 25 * (level ** 2) + (100 * level) + 150
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -50,8 +50,8 @@ class Leveling(commands.Cog):
         # Update cooldown timestamp
         self.xp_cooldowns[user_id] = current_time
         
-        # Grant XP
-        xp_to_add = random.randint(5, 15)
+        # Grant XP (reduced amount)
+        xp_to_add = random.randint(1, 5)
         db.update_user_xp(user_id, xp_to_add)
 
         # Check for level up
@@ -80,30 +80,44 @@ class Leveling(commands.Cog):
             
             # Handle role rewards
             if new_level in LEVEL_ROLES:
-                await self.update_user_roles(message.author, new_level)
+                await self.update_user_roles(message.author)
 
-    async def update_user_roles(self, member: discord.Member, new_level: int):
-        """Assigns the new role and removes any previous level roles."""
+    async def update_user_roles(self, member: discord.Member):
+        """Assigns the correct level role based on the member's current level and removes other level roles."""
+        user_data = db.get_user_level_data(member.id)
+        if not user_data:
+            return # No data for this user
+
+        level = user_data.get('level', 0)
         guild = member.guild
-        
-        # Get the new role to add
-        role_to_add_id = LEVEL_ROLES.get(new_level)
-        if not role_to_add_id: return
-        role_to_add = guild.get_role(role_to_add_id)
-        if not role_to_add: 
-            print(f"Error: Role ID {role_to_add_id} not found.")
-            return
 
-        # Get a list of all level roles to remove
-        roles_to_remove_ids = [role_id for level, role_id in LEVEL_ROLES.items() if level < new_level]
-        roles_to_remove = [guild.get_role(rid) for rid in roles_to_remove_ids if guild.get_role(rid)]
+        # Find the highest role the user should have
+        highest_role_to_keep_id = None
+        # Iterate from highest level to lowest
+        for role_level, role_id in sorted(LEVEL_ROLES.items(), key=lambda item: item[0], reverse=True):
+            if level >= role_level:
+                highest_role_to_keep_id = role_id
+                break
+        
+        # Determine which roles to add and remove
+        level_role_ids = set(LEVEL_ROLES.values())
+        roles_to_remove = []
+        
+        for role in member.roles:
+            if role.id in level_role_ids and role.id != highest_role_to_keep_id:
+                roles_to_remove.append(role)
+
+        role_to_add = None
+        if highest_role_to_keep_id:
+            highest_role = guild.get_role(highest_role_to_keep_id)
+            if highest_role and highest_role not in member.roles:
+                role_to_add = highest_role
 
         try:
-            # Remove old roles first
             if roles_to_remove:
-                await member.remove_roles(*roles_to_remove, reason="Level up")
-            # Add new role
-            await member.add_roles(role_to_add, reason=f"Reached Level {new_level}")
+                await member.remove_roles(*roles_to_remove, reason="Level role update")
+            if role_to_add:
+                await member.add_roles(role_to_add, reason=f"Level role update for Level {level}")
         except discord.Forbidden:
             print(f"Error: Bot does not have permissions to manage roles for {member.display_name}.")
         except Exception as e:
@@ -139,18 +153,16 @@ class Leveling(commands.Cog):
 
         await ctx.respond(embed=embed)
 
-    @commands.slash_command(name="update_role", description="Update your roles based on your current level and cookies.", guild_ids=[1370009417726169250])
-    async def update_role(self, ctx: discord.ApplicationContext, user: discord.Member = None):
+    @commands.slash_command(name="updateroles", description="Update your roles based on your current level.", guild_ids=[1370009417726169250])
+    @option("user", description="The user whose roles you want to update.", type=discord.Member, required=False)
+    async def updateroles(self, ctx: discord.ApplicationContext, user: discord.Member = None):
         target_user = user or ctx.author
-        # Get user level and cookies
-        user_data = db.get_user_level_data(target_user.id)
-        cookies = db.get_cookies(target_user.id)
-        if not user_data:
-            await ctx.respond(f"**{target_user.display_name}** hasn't chatted yet!", ephemeral=True)
-            return
-        level = user_data.get('level', 0)
-        await self.update_user_roles(target_user, level)
-        await ctx.respond(f"Roles updated for **{target_user.display_name}** based on level {level} and {cookies} cookies.", ephemeral=True)
+        
+        await ctx.defer(ephemeral=True)
+        
+        await self.update_user_roles(target_user)
+        
+        await ctx.followup.send(f"Roles have been updated for **{target_user.display_name}** based on their current level.")
 
     @commands.slash_command(name="chatlvlup", description="Announce your last level up in chat.", guild_ids=[1370009417726169250])
     async def chatlvlup(self, ctx: discord.ApplicationContext, user: discord.Member = None):

@@ -30,6 +30,27 @@ class Moderation(commands.Cog):
 
     # --- Commands ---
 
+    @commands.slash_command(name="modclear", description="[Moderator] Clears a specified number of messages.", guild_ids=[1370009417726169250])
+    @option("amount", description="The number of messages to clear.", type=int, required=True)
+    async def modclear(self, ctx: discord.ApplicationContext, amount: int):
+        if not self.check_is_moderator(ctx.interaction):
+            await ctx.respond("You don't have permission to use this command.", ephemeral=True)
+            return
+
+        if amount <= 0:
+            await ctx.respond("The number of messages must be positive.", ephemeral=True)
+            return
+
+        try:
+            # Add 1 to include the command message itself, though slash commands are not messages in the same way
+            # purge will delete messages before the one it's told to, so this is fine.
+            deleted_messages = await ctx.channel.purge(limit=amount)
+            await ctx.respond(f"Successfully cleared {len(deleted_messages)} messages.", ephemeral=True)
+        except discord.Forbidden:
+            await ctx.respond("I don't have the `Manage Messages` permission to do that.", ephemeral=True)
+        except discord.HTTPException as e:
+            await ctx.respond(f"An error occurred while clearing messages: {e}", ephemeral=True)
+
     @commands.slash_command(name="warn", description="[Moderator] Warn a user.", guild_ids=[1370009417726169250])
     @option("user", description="The user to warn.", type=discord.Member, required=True)
     @option("reason", description="The reason for the warning.", type=str, required=False)

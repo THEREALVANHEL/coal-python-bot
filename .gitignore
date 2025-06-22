@@ -14,3 +14,40 @@ __pycache__/
 
 # Render specific
 .render.yaml
+
+# System & User Files
+.cache/
+.config/
+.local/
+.pm2/
+.var/
+snap/
+Downloads/
+Desktop/
+Documents/
+Music/
+Pictures/
+Public/
+Templates/
+Videos/
+.Xauthority
+.bash_history
+.sudo_as_admin_successful
+.xsession-errors*
+*~
+*.swp
+*.swo
+
+# Embedded repos that should be submodules
+discord-cpp-bot/
+
+# Build artifacts
+build/
+dist/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Cursor-specific
+.cursor/
