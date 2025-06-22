@@ -21,7 +21,7 @@ import database as db
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
-def create_wheel_image(options, winner=None):
+def create_wheel_image(options, title, winner=None):
     """Generates a more decorative and bright image of a spinning wheel."""
     
     num_options = len(options)
@@ -80,8 +80,9 @@ def create_wheel_image(options, winner=None):
     # Pointer - a more stylish triangle
     ax.add_patch(plt.Polygon([[0.1, 1.0], [-0.1, 1.0], [0, 1.25]], fc='gold', ec='black', lw=2, zorder=10))
     
-    # Remove the default title to keep it clean
-    ax.set_title("", fontsize=20, weight='bold')
+    # Set the title if provided
+    wheel_title = title if title else "Spinning Wheel"
+    ax.set_title(wheel_title, fontsize=20, weight='bold', pad=30)
 
     # Save it to a buffer
     buf = io.BytesIO()
@@ -372,6 +373,7 @@ class Community(commands.Cog):
     @app_commands.command(name="spinawheel", description="Spin a wheel with your own custom options!")
     @app_commands.guilds(guild_obj)
     @app_commands.describe(
+        question="The question or title for the wheel spin.",
         option1="The first choice for the wheel.",
         option2="The second choice for the wheel.",
         option3="The third choice for the wheel (optional).",
@@ -384,6 +386,7 @@ class Community(commands.Cog):
         option10="The tenth choice for the wheel (optional)."
     )
     async def spinawheel(self, interaction: discord.Interaction, 
+                         question: Optional[str],
                          option1: str, 
                          option2: str,
                          option3: Optional[str] = None, option4: Optional[str] = None, option5: Optional[str] = None,
@@ -393,11 +396,11 @@ class Community(commands.Cog):
         options = [opt for opt in [option1, option2, option3, option4, option5, option6, option7, option8, option9, option10] if opt is not None]
         
         # Initial response
-        wheel_image_buf = create_wheel_image(options)
+        wheel_image_buf = create_wheel_image(options, question)
         wheel_file = discord.File(fp=wheel_image_buf, filename="wheel.png")
 
         embed = discord.Embed(
-            title="🎡 Spinning the wheel...",
+            title=f"🎡 {question}" if question else "🎡 Spinning the wheel...",
             description=f"The wheel is spinning with {len(options)} options!",
             color=discord.Color.gold()
         )
@@ -413,11 +416,11 @@ class Community(commands.Cog):
         winner = random.choice(options)
 
         # Create the result image
-        result_image_buf = create_wheel_image(options, winner=winner)
+        result_image_buf = create_wheel_image(options, question, winner=winner)
         result_file = discord.File(fp=result_image_buf, filename="wheel_result.png")
 
         result_embed = discord.Embed(
-            title="🎡 The wheel has stopped!",
+            title=f"🎡 {question}" if question else "🎡 The wheel has stopped!",
             description=f"Out of the provided options, the winner is...",
             color=discord.Color.green()
         )
