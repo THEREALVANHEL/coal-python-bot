@@ -167,10 +167,11 @@ class Community(commands.Cog):
         slice_angle = 360 / num_options
         start_angle = 90 - (slice_angle * winner_index + slice_angle / 2)
 
-        colors = ['white', 'black', 'yellow', 'gray', 'lightgray', 'gold', 'silver', 'beige', 'ivory', 'darkgray'][:num_options]
+        base_colors = ['white', 'black', 'yellow', 'gray', 'lightgray', 'gold', 'silver', 'beige', 'ivory', 'darkgray']
+        colors = base_colors[:num_options]
 
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(aspect="equal"))
-        wedges, _ = ax.pie([1] * num_options, colors=colors, startangle=start_angle, counterclock=False)
+        wedges, _ = ax.pie([1] * num_options, colors=colors, startangle=90, counterclock=False)
 
         for i, wedge in enumerate(wedges):
             angle = (wedge.theta2 + wedge.theta1) / 2
@@ -184,7 +185,10 @@ class Community(commands.Cog):
                 path_effects=[withStroke(linewidth=2, foreground='white')]
             )
 
-        ax.add_patch(FancyArrow(0, 1.1, 0, -0.2, width=0.05, length_includes_head=True, color='gold'))
+        pointer_angle_rad = np.radians(start_angle)
+        pointer_x = np.cos(pointer_angle_rad) * 1.1
+        pointer_y = np.sin(pointer_angle_rad) * 1.1
+        ax.add_patch(FancyArrow(pointer_x, pointer_y, -pointer_x * 0.1, -pointer_y * 0.1, width=0.05, length_includes_head=True, color='gold'))
         ax.set_title(title, fontsize=32, weight='bold', pad=20, color='gold')
         plt.tight_layout()
 
