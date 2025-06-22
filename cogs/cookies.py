@@ -171,58 +171,6 @@ class Cookies(commands.Cog):
         await self.update_cookie_roles(user)
         await interaction.response.send_message(f"✅ Successfully removed **{amount}** 🍪 from **{user.display_name}**.")
 
-    @app_commands.command(name="cookiesreset")
-    @app_commands.guilds(guild_obj)
-    async def cookiesreset(self, interaction: discord.Interaction):
-        if not await self.check_is_manager(interaction): return
-
-        class ConfirmationView(discord.ui.View):
-            def __init__(self, author):
-                super().__init__(timeout=60)
-                self.value = None
-                self.author = author
-
-            async def interaction_check(self, interaction: discord.Interaction) -> bool:
-                if interaction.user.id != self.author.id:
-                    await interaction.response.send_message("This confirmation is not for you.", ephemeral=True)
-                    return False
-                return True
-
-            @discord.ui.button(label="Confirm Reset", style=discord.ButtonStyle.danger)
-            async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-                self.value = True
-                for item in self.children:
-                    item.disabled = True
-                await interaction.response.edit_message(view=self)
-                self.stop()
-
-            @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
-            async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-                self.value = False
-                for item in self.children:
-                    item.disabled = True
-                await interaction.response.edit_message(view=self)
-                self.stop()
-
-        view = ConfirmationView(interaction.user)
-        await interaction.response.send_message(
-            "**⚠️ Are you sure?** This will reset all cookie balances to **zero**.", view=view, ephemeral=True)
-
-        await view.wait()
-
-        if view.value is True:
-            await interaction.edit_original_response(content="Processing... please wait.", view=None)
-            all_members = [member async for member in interaction.guild.fetch_members(limit=None) if not member.bot]
-            all_member_ids = [member.id for member in all_members]
-            db.reset_all_cookies(all_member_ids)
-            for member in all_members:
-                await self.update_cookie_roles(member)
-            await interaction.edit_original_response(content="✅ All cookies reset to 0.")
-        elif view.value is False:
-            await interaction.edit_original_response(content="Reset cancelled.", view=None)
-        else:
-            await interaction.edit_original_response(content="Confirmation timed out.", view=None)
-
     @app_commands.command(name="resetusercookies")
     @app_commands.guilds(guild_obj)
     @app_commands.describe(user="The user to reset.")
