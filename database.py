@@ -164,17 +164,20 @@ def get_starboard_settings(guild_id: int):
     return settings_collection.find_one({"guild_id": guild_id})
 
 # --- Starboard Message Tracking ---
-def add_starboard_message(original_message_id: int, starboard_message_id: int):
+def has_been_starred(guild_id: int, message_id: int) -> bool:
+    if starboard_messages_collection is None: return False
+    return starboard_messages_collection.find_one({
+        "guild_id": guild_id,
+        "message_id": message_id
+    }) is not None
+
+def mark_as_starred(guild_id: int, message_id: int):
     if starboard_messages_collection is None: return
     starboard_messages_collection.insert_one({
-        "original_message_id": original_message_id,
-        "starboard_message_id": starboard_message_id
+        "guild_id": guild_id,
+        "message_id": message_id,
+        "timestamp": datetime.utcnow()
     })
-
-def get_starboard_message(original_message_id: int):
-    if starboard_messages_collection is None: return None
-    doc = starboard_messages_collection.find_one({"original_message_id": original_message_id})
-    return doc.get("starboard_message_id") if doc else None
 
 # --- Leveling Functions ---
 def get_user_level_data(user_id: int):
