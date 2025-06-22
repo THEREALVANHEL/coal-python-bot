@@ -22,69 +22,54 @@ GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
 def create_wheel_image(options, title, winner=None):
-    """Generates a more decorative and bright image of a spinning wheel."""
+    """Generates a simple, flat image of a spinning wheel."""
     
     num_options = len(options)
     
-    # Create a figure with a transparent background
-    fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(aspect="equal"))
+    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(aspect="equal"))
     fig.patch.set_alpha(0.0)
     ax.patch.set_alpha(0.0)
 
-    # A custom, bright color palette
-    colors = ['#FF4B4B', '#FFB84B', '#F8FF4B', '#8DFF4B', '#4BFFB8', 
-              '#4BFFFF', '#4B8DFF', '#8D4BFF', '#FF4BFF', '#FF4B8D']
+    # Simple, bright, flat colors like the example
+    colors = ['#3498db', '#e74c3c', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22']
     
-    # Ensure colors are repeated if there are more than 10 options
     final_colors = (colors * (num_options // len(colors) + 1))[:num_options]
     
-    # Explode the winner slice
     explode = [0] * num_options
     if winner and winner in options:
         winner_index = options.index(winner)
         explode[winner_index] = 0.1
         
-    # --- Create the main wheel ---
-    wedges, texts = ax.pie(
+    wedges, _ = ax.pie(
         [1] * num_options,
         explode=explode,
         colors=final_colors,
         startangle=90,
-        # Make it a donut chart
-        wedgeprops={'width': 0.4, 'edgecolor': 'white', 'linewidth': 3}
+        wedgeprops={'edgecolor': 'white', 'linewidth': 2}
     )
 
-    # --- Add Text Labels Inside Slices ---
-    # Wrap long text
-    wrapped_labels = ['\n'.join(textwrap.wrap(l, 10, break_long_words=False, replace_whitespace=False)) for l in options]
-    
+    # Add more visible text labels, rotated with the wheel
     for i, p in enumerate(wedges):
         ang = (p.theta2 - p.theta1)/2. + p.theta1
         y = np.sin(np.deg2rad(ang))
         x = np.cos(np.deg2rad(ang))
         
-        # Place text in the middle of the slice
-        ax.text(x*0.7, y*0.7, wrapped_labels[i], ha='center', va='center', fontsize=14,
+        # Wrap long text
+        wrapped_label = '\n'.join(textwrap.wrap(options[i], 10, break_long_words=False))
+        
+        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center', rotation=ang, fontsize=16,
                 fontweight='bold', color='white',
-                path_effects=[withStroke(linewidth=3, foreground='black')])
+                path_effects=[withStroke(linewidth=4, foreground='black')])
 
-    # --- Add Decorative Elements ---
-    # Center circle
-    centre_circle = plt.Circle((0,0),0.35,fc='white', ec='black', lw=2, zorder=5)
-    ax.add_artist(centre_circle)
+    # Add a simple pointer on the right
+    ax.add_patch(plt.Polygon([[1.0, 0.1], [1.0, -0.1], [1.2, 0]], fc='#808080', ec='black', lw=1.5))
     
-    # Outer border circle
-    outer_circle = plt.Circle((0,0),1.02,fc='none', ec='gold', lw=5, zorder=5)
-    ax.add_artist(outer_circle)
+    # Add a title at the top
+    if title:
+        fig.suptitle(title, fontsize=24, weight='bold', y=1.02)
     
-    # Pointer - a more stylish triangle
-    ax.add_patch(plt.Polygon([[0.1, 1.0], [-0.1, 1.0], [0, 1.25]], fc='gold', ec='black', lw=2, zorder=10))
-    
-    # Set the title if provided
-    wheel_title = title if title else "Spinning Wheel"
-    ax.set_title(wheel_title, fontsize=20, weight='bold', pad=30)
+    plt.tight_layout()
 
-    # Save it to a buffer
     buf = io.BytesIO()
     plt.savefig(buf, format='png', bbox_inches='tight', transparent=True)
     buf.seek(0)
@@ -310,8 +295,22 @@ class Community(commands.Cog):
             
             await interaction.followup.send(embed=embed)
 
+        except openai.APIStatusError as e:
+            error_message = f"An error occurred while contacting OpenAI (APIStatusError): {e}"
+            print(error_message)
+            await interaction.followup.send(
+                f"Sorry, I couldn't get an answer. The AI service reported an error: `{e.status_code}`.",
+                ephemeral=True
+            )
+        except openai.APIConnectionError as e:
+            error_message = f"An error occurred while contacting OpenAI (APIConnectionError): {e}"
+            print(error_message)
+            await interaction.followup.send(
+                "Sorry, I couldn't get an answer. I'm having trouble connecting to the AI service.", 
+                ephemeral=True
+            )
         except Exception as e:
-            error_message = f"An error occurred while contacting OpenAI: {e}"
+            error_message = f"An unexpected error occurred: {e}"
             print(error_message) # Log the full error for debugging
             await interaction.followup.send(
                 "Sorry, I couldn't get an answer. There might be an issue with the AI service.", 
@@ -373,35 +372,29 @@ class Community(commands.Cog):
     @app_commands.command(name="spinawheel", description="Spin a wheel with your own custom options!")
     @app_commands.guilds(guild_obj)
     @app_commands.describe(
-        question="The question or title for the wheel spin.",
-        option1="The first choice for the wheel.",
-        option2="The second choice for the wheel.",
-        option3="The third choice for the wheel (optional).",
-        option4="The fourth choice for the wheel (optional).",
-        option5="The fifth choice for the wheel (optional).",
-        option6="The sixth choice for the wheel (optional).",
-        option7="The seventh choice for the wheel (optional).",
-        option8="The eighth choice for the wheel (optional).",
-        option9="The ninth choice for the wheel (optional).",
-        option10="The tenth choice for the wheel (optional)."
+        title="The title for the wheel spin.",
+        options="A comma-separated list of options for the wheel (e.g., 'red, blue, green')."
     )
-    async def spinawheel(self, interaction: discord.Interaction, 
-                         question: Optional[str],
-                         option1: str, 
-                         option2: str,
-                         option3: Optional[str] = None, option4: Optional[str] = None, option5: Optional[str] = None,
-                         option6: Optional[str] = None, option7: Optional[str] = None, option8: Optional[str] = None,
-                         option9: Optional[str] = None, option10: Optional[str] = None):
+    async def spinawheel(self, interaction: discord.Interaction, title: str, options: str):
         
-        options = [opt for opt in [option1, option2, option3, option4, option5, option6, option7, option8, option9, option10] if opt is not None]
+        # Parse the options from the comma-separated string
+        option_list = [opt.strip() for opt in options.split(',') if opt.strip()]
+
+        if len(option_list) < 2:
+            await interaction.response.send_message("Please provide at least two options separated by commas.", ephemeral=True)
+            return
+
+        if len(option_list) > 50: # Set a reasonable limit
+            await interaction.response.send_message("You can have a maximum of 50 options.", ephemeral=True)
+            return
         
         # Initial response
-        wheel_image_buf = create_wheel_image(options, question)
+        wheel_image_buf = create_wheel_image(option_list, title)
         wheel_file = discord.File(fp=wheel_image_buf, filename="wheel.png")
 
         embed = discord.Embed(
-            title=f"🎡 {question}" if question else "🎡 Spinning the wheel...",
-            description=f"The wheel is spinning with {len(options)} options!",
+            title=f"🎡 {title}",
+            description=f"The wheel is spinning with {len(option_list)} options!",
             color=discord.Color.gold()
         )
         embed.set_image(url="attachment://wheel.png")
@@ -413,14 +406,14 @@ class Community(commands.Cog):
         await asyncio.sleep(4)
 
         # Choose the winner
-        winner = random.choice(options)
+        winner = random.choice(option_list)
 
         # Create the result image
-        result_image_buf = create_wheel_image(options, question, winner=winner)
+        result_image_buf = create_wheel_image(option_list, title, winner=winner)
         result_file = discord.File(fp=result_image_buf, filename="wheel_result.png")
 
         result_embed = discord.Embed(
-            title=f"🎡 {question}" if question else "🎡 The wheel has stopped!",
+            title=f"🎡 {title}",
             description=f"Out of the provided options, the winner is...",
             color=discord.Color.green()
         )
