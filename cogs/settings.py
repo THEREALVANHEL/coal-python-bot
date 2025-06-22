@@ -105,7 +105,6 @@ class Settings(commands.Cog):
     @app_commands.guilds(guild_obj)
     @commands.is_owner()
     async def botdebug(self, interaction: discord.Interaction):
-        """Shows a debug panel with bot information."""
         await interaction.response.defer(ephemeral=True)
 
         embed = discord.Embed(
@@ -119,12 +118,11 @@ class Settings(commands.Cog):
         loaded_cogs = ", ".join(self.bot.cogs.keys())
         embed.add_field(name="✅ Loaded Cogs", value=f"```\n{loaded_cogs}\n```", inline=False)
 
-        # Registered App Commands
-        app_commands_list = self.bot.tree.get_commands(guild=guild_obj)
-        if app_commands_list:
-            command_names = [f"/{cmd.name}" for cmd in app_commands_list]
+        # Registered App Commands (fetch is safer)
+        commands_list = await self.bot.tree.fetch_commands(guild=guild_obj)
+        if commands_list:
+            command_names = [f"/{cmd.name}" for cmd in commands_list]
             commands_str = ", ".join(command_names)
-            # Split into multiple fields if it's too long
             if len(commands_str) > 1000:
                 parts = []
                 current_part = ""
@@ -135,16 +133,16 @@ class Settings(commands.Cog):
                     current_part += name + ", "
                 parts.append(current_part.strip(', '))
                 for i, part in enumerate(parts):
-                     embed.add_field(name=f" Slash Commands (Part {i+1})", value=f"```\n{part}\n```", inline=False)
+                    embed.add_field(name=f" Slash Commands (Part {i+1})", value=f"```\n{part}\n```", inline=False)
             else:
-                 embed.add_field(name=" Slash Commands", value=f"```\n{commands_str}\n```", inline=False)
+                embed.add_field(name=" Slash Commands", value=f"```\n{commands_str}\n```", inline=False)
         else:
-            embed.add_field(name=" Slash Commands", value="No slash commands registered for this guild.", inline=False)
+            embed.add_field(name=" Slash Commands", value="No slash commands registered.", inline=False)
 
         embed.set_footer(text=f"Latency: {round(self.bot.latency * 1000)}ms")
-        
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
+# Setup the Cog
 async def setup(bot):
     await bot.add_cog(Settings(bot))
