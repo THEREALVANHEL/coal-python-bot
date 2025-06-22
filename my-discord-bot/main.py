@@ -37,34 +37,41 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 @bot.event
 async def on_ready():
     """Event that runs when the bot is ready."""
+    # Define the guild ID for syncing
+    GUILD_ID = 1370009417726169250
+    guild_obj = discord.Object(id=GUILD_ID)
+
     # Load cogs from cogs directory
-    cogs_path = './my-discord-bot/cogs'
-    if os.path.exists(cogs_path):
-        for filename in os.listdir(cogs_path):
-            if filename.endswith('.py') and filename not in ['__init__.py']:
-                try:
-                    bot.load_extension(f'cogs.{filename[:-3]}')
-                    print(f"✅ Loaded cog from cogs: {filename}")
-                except Exception as e:
-                    print(f"❌ Failed to load cog {filename} from cogs: {e}")
-    else:
-        print(f"Warning: {cogs_path} does not exist. No cogs loaded from cogs directory.")
-    # Load cogs from parent directory
-    parent_cogs = ['leveling', 'events', 'moderation']
+    # Note: Using a hardcoded relative path might be brittle.
+    cogs_path = 'cogs'
+    # It seems your bot's structure is a bit unusual. Let's try to make cog loading more robust.
+    # Assuming main.py is in 'my-discord-bot' and cogs are in 'my-discord-bot/cogs'
+    # The extension name should just be 'cogs.filename'
+    for filename in os.listdir(cogs_path):
+        if filename.endswith('.py') and not filename.startswith('__'):
+            try:
+                await bot.load_extension(f'cogs.{filename[:-3]}')
+                print(f"✅ Loaded cog: {filename}")
+            except Exception as e:
+                print(f"❌ Failed to load cog {filename}: {e}")
+
+    # Load top-level cogs
+    parent_cogs = ['leveling', 'moderation', 'cookies']
     for cog in parent_cogs:
         try:
-            bot.load_extension(cog)
-            print(f"✅ Loaded cog from parent: {cog}.py")
+            await bot.load_extension(cog)
+            print(f"✅ Loaded top-level cog: {cog}.py")
         except Exception as e:
-            print(f"❌ Failed to load cog {cog} from parent: {e}")
+            print(f"❌ Failed to load top-level cog {cog}: {e}")
+
     print(f"Logged in as {bot.user}")
     print("-------------------")
-    # Sync slash commands (if using py-cord 2.0+)
+    # Force sync all commands to the specific guild
     try:
-        await bot.sync_commands()
-        print("✅ Slash commands synced successfully.")
+        await bot.tree.sync(guild=guild_obj)
+        print(f"✅ Slash commands synced successfully to guild {GUILD_ID}.")
     except Exception as e:
-        print(f"❌ Error syncing commands: {e}")
+        print(f"❌ Error syncing commands to guild {GUILD_ID}: {e}")
 
 @bot.slash_command(name="botdebug", description="Show loaded cogs and commands.", guild_ids=[1370009417726169250])
 async def botdebug(ctx):
@@ -85,7 +92,7 @@ if __name__ == "__main__":
     if not DISCORD_TOKEN or not MONGODB_URI:
         print("CRITICAL: DISCORD_TOKEN or MONGODB_URI not set.")
     else:
-        print("Starting web server for keep-alive...")
+        # It's better to start the bot first, then the keep-alive thread.
         keep_alive()
         print("Starting bot...")
         bot.run(DISCORD_TOKEN)
