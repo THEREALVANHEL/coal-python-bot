@@ -4,4 +4,4 @@ python-dotenv
 Flask
 matplotlib
 numpy
-openai
+google-generativeai
