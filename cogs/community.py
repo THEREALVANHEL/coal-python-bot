@@ -10,6 +10,7 @@ import asyncio
 import io
 import numpy as np
 import matplotlib.pyplot as plt
+import openai
 
 # Add parent directory to path to import database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -246,43 +247,52 @@ class Community(commands.Cog):
         for i in range(len(options)):
             await poll_message.add_reaction(number_emojis[i])
 
-    @app_commands.command(name="askblecknephew", description="Ask the bot a yes/no question.")
+    @app_commands.command(name="askblecknephew", description="Ask Blecknephew a question.")
+    @app_commands.describe(question="The question you want to ask.")
     @app_commands.guilds(guild_obj)
-    @app_commands.describe(question="The question you want to ask Blecknephew.")
     async def askblecknephew(self, interaction: discord.Interaction, question: str):
-        # Specific check for father/mentor
-        if 'father' in question.lower() or 'mentor' in question.lower():
-            response = f"My father and mentor is <@1297924079243890780>. He is the best!"
-        else:
-            responses = [
-                # Positive
-                "It is certain.", "It is decidedly so.", "Without a doubt.", "Yes, definitely.",
-                "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.",
-                "Yes.", "Signs point to yes.", "The stars say yes.", "I have a good feeling about this.",
-                "Affirmative.", "Absolutely!", "No doubt about it.",
-
-                # Neutral / Non-committal
-                "Reply hazy, try again.", "Ask again later.", "Better not tell you now.",
-                "Cannot predict now.", "Concentrate and ask again.", "I'm not sure, ask me again in a bit.",
-                "The answer is unclear at the moment.", "Let me think on that...", "Maybe.",
-
-                # Negative
-                "Don't count on it.", "My reply is no.", "My sources say no.",
-                "Outlook not so good.", "Very doubtful.", "I wouldn't bet on it.",
-                "The chances are not in your favor.", "Negative.", "Definitely not.",
-                "I'm sorry, but no."
-            ]
-            response = random.choice(responses)
+        # Securely get the API key from environment variables
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            await interaction.response.send_message(
+                "❌ The OpenAI API key is not configured. An administrator needs to set the `OPENAI_API_KEY` environment variable.",
+                ephemeral=True
+            )
+            return
         
-        embed = discord.Embed(
-            title="🤔 You asked...",
-            description=f"> {question}",
-            color=discord.Color.random()
-        )
-        embed.set_author(name=f"{interaction.user.display_name} asks Blecknephew...", icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="Blecknephew says...", value=f"**{response}**")
+        openai.api_key = api_key
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.defer() # Acknowledge the interaction and show a "thinking..." state
+
+        try:
+            # Asynchronous API call
+            response = await asyncio.to_thread(
+                openai.chat.completions.create,
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful and wise Discord bot assistant named Blecknephew. Provide clear and concise answers."},
+                    {"role": "user", "content": question}
+                ]
+            )
+            answer = response.choices[0].message.content.strip()
+
+            embed = discord.Embed(
+                title=f"🤔 {question}",
+                description=answer,
+                color=discord.Color.blue()
+            )
+            embed.set_author(name=f"A question from {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="Powered by OpenAI")
+            
+            await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            error_message = f"An error occurred while contacting OpenAI: {e}"
+            print(error_message) # Log the full error for debugging
+            await interaction.followup.send(
+                "Sorry, I couldn't get an answer. There might be an issue with the AI service.", 
+                ephemeral=True
+            )
 
     @app_commands.command(name="flip", description="Flip a coin.")
     @app_commands.guilds(guild_obj)
@@ -290,7 +300,7 @@ class Community(commands.Cog):
         """Flips a coin and sends the result."""
         
         result = random.choice(["Heads", "Tails"])
-
+        
         embed = discord.Embed(
             title="Coin Flip",
             description=f"The coin landed on... **{result}**!",
@@ -372,7 +382,7 @@ class Community(commands.Cog):
         embed.set_author(name=f"{interaction.user.display_name} is spinning...", icon_url=interaction.user.display_avatar.url)
         
         await interaction.response.send_message(embed=embed, file=wheel_file)
-        
+
         # Suspense
         await asyncio.sleep(4)
 
