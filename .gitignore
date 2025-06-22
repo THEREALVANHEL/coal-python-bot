@@ -51,3 +51,13 @@ Thumbs.db
 
 # Cursor-specific
 .cursor/
+
+# User-specific files
+.bashrc
+.gitconfig
+.pki/
+coal.txt
+
+# Other projects
+my-discord-bot/
+.fly/

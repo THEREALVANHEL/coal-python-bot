@@ -171,9 +171,35 @@ class Cookies(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="cookietop", description="Show the interactive cookie leaderboard.")
+    @app_commands.command(name="cookietop", description="Shows a leaderboard of the top 10 users with the most cookies.")
     @app_commands.guilds(guild_obj)
     async def cookietop(self, interaction: discord.Interaction):
+        """Shows a static top 10 cookie leaderboard."""
+        leaderboard_data = db.get_leaderboard(limit=10)
+
+        if not leaderboard_data:
+            embed = discord.Embed(title="🍪 Cookie Leaderboard", description="No one has any cookies yet!", color=discord.Color.blue())
+            await interaction.response.send_message(embed=embed)
+            return
+
+        description = ""
+        for i, entry in enumerate(leaderboard_data):
+            rank = i + 1
+            user_id = entry.get('user_id')
+            cookies = entry.get('cookies', 0)
+            description += f"**{rank}.** <@{user_id}> - **{cookies}** 🍪\n"
+
+        embed = discord.Embed(
+            title="🏆 Top 10 Cookie Hoarders",
+            description=description,
+            color=discord.Color.gold()
+        )
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="top", description="Displays a paginated, interactive cookie leaderboard.")
+    @app_commands.guilds(guild_obj)
+    async def top(self, interaction: discord.Interaction):
+        """Shows an interactive, paginated cookie leaderboard."""
         view = CookieLeaderboardView(interaction.user, interaction)
         embed = await view.get_page_embed()
         await interaction.response.send_message(embed=embed, view=view)
@@ -202,6 +228,76 @@ class Cookies(commands.Cog):
         await self.update_cookie_roles(user)
         await interaction.response.send_message(f"✅ Successfully removed **{amount}** 🍪 from **{user.display_name}**.")
 
+    @app_commands.command(name="cookiesreset", description="[Manager] Resets the cookie balance of all server members to zero.")
+    @app_commands.guilds(guild_obj)
+    async def cookiesreset(self, interaction: discord.Interaction):
+        if not await self.check_is_manager(interaction):
+            return
+
+        # --- Confirmation View ---
+        class ConfirmationView(discord.ui.View):
+            def __init__(self, author):
+                super().__init__(timeout=60)
+                self.value = None
+                self.author = author
+
+            async def interaction_check(self, interaction: discord.Interaction) -> bool:
+                if interaction.user.id != self.author.id:
+                    await interaction.response.send_message("This confirmation is not for you.", ephemeral=True)
+                    return False
+                return True
+
+            @discord.ui.button(label="Confirm Reset", style=discord.ButtonStyle.danger)
+            async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+                self.value = True
+                for item in self.children:
+                    item.disabled = True
+                await interaction.response.edit_message(view=self)
+                self.stop()
+
+            @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+            async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+                self.value = False
+                for item in self.children:
+                    item.disabled = True
+                await interaction.response.edit_message(view=self)
+                self.stop()
+
+        view = ConfirmationView(interaction.user)
+        await interaction.response.send_message(
+            "**⚠️ Are you absolutely sure?** This will reset all cookie balances on the server to **zero**. This action cannot be undone.",
+            view=view,
+            ephemeral=True
+        )
+        
+        await view.wait()
+
+        if view.value is True:
+            await interaction.edit_original_response(content="Processing... please wait.", view=None)
+            
+            # Fetch all non-bot members
+            all_members = [member async for member in interaction.guild.fetch_members(limit=None) if not member.bot]
+            all_member_ids = [member.id for member in all_members]
+
+            # Reset cookies in DB
+            db.reset_all_cookies(all_member_ids)
+            
+            # Reset roles
+            all_cookie_role_ids = set(COOKIE_ROLES.values())
+            all_cookie_roles = [role for role in interaction.guild.roles if role.id in all_cookie_role_ids]
+            
+            for member in all_members:
+                try:
+                    await member.remove_roles(*all_cookie_roles, reason="Server-wide cookie reset")
+                except discord.Forbidden:
+                    print(f"No perms to remove roles from {member.display_name} during cookie reset.")
+                except Exception as e:
+                     print(f"Error removing roles from {member.display_name} during reset: {e}")
+
+            await interaction.edit_original_response(content="✅ **All server cookie balances have been reset to zero.**")
+        else:
+            await interaction.edit_original_response(content="🚫 Cookie reset cancelled.", view=None)
+
     @app_commands.command(name="resetusercookies", description="[Manager] Reset a user's cookies to 0.")
     @app_commands.guilds(guild_obj)
     @app_commands.describe(user="The user whose cookies you want to reset.")
@@ -229,10 +325,10 @@ class Cookies(commands.Cog):
         else:
             await interaction.followup.send("✅ Database is already up-to-date. No users were removed.")
 
-    @app_commands.command(name="giveallcookies", description="[Manager] Give cookies to all members in the server.")
+    @app_commands.command(name="cookiesgiveall", description="[Manager] Give cookies to all members in the server.")
     @app_commands.guilds(guild_obj)
     @app_commands.describe(amount="The amount of cookies to give to everyone.")
-    async def giveallcookies(self, interaction: discord.Interaction, amount: int):
+    async def cookiesgiveall(self, interaction: discord.Interaction, amount: int):
         if not await self.check_is_manager(interaction):
             return
 
@@ -248,10 +344,7 @@ class Cookies(commands.Cog):
         # Call the database function to give cookies
         db.give_cookies_to_all(amount, all_member_ids)
         
-        # Note: Updating roles for all users here could be slow and rate-limit the bot.
-        # A separate command to slowly update all roles is recommended if needed.
-
-        await interaction.followup.send(f"✅ Successfully gave **{amount}** 🍪 to **{len(all_member_ids)}** members.")
+        await interaction.followup.send(f"✅ Successfully gave **{amount}** 🍪 to **all {len(all_member_ids)} members**.")
 
 async def setup(bot):
     await bot.add_cog(Cookies(bot))

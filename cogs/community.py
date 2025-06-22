@@ -29,7 +29,7 @@ def create_wheel_image(options, title, winner=None):
     colors = ['#3498db', '#e74c3c', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#d35400']
     final_colors = (colors * (num_options // len(colors) + 1))[:num_options]
 
-    explode = [0] * num_options
+    explode = [0.0] * num_options
     if winner and winner in options:
         winner_index = options.index(winner)
         explode[winner_index] = 0.1
@@ -111,9 +111,9 @@ class Community(commands.Cog):
             )
 
 
-    @app_commands.command(name="suggestion", description="Submit a suggestion for the server.")
+    @app_commands.command(name="suggest", description="Submit a suggestion for the server.")
     @app_commands.describe(suggestion="Your suggestion.", notes="Any additional notes or details.")
-    async def suggestion(self, interaction: discord.Interaction, suggestion: str, notes: str = "None"):
+    async def suggest(self, interaction: discord.Interaction, suggestion: str, notes: str = "None"):
         channel = interaction.guild.get_channel(SUGGESTION_CHANNEL_ID)
         
         if not channel:

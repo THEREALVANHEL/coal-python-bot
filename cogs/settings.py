@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands, Permissions
 import sys
 import os
+from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
@@ -99,6 +100,51 @@ class Settings(commands.Cog):
 
         embed.set_footer(text="Futuristic UK Settings | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="botdebug", description="[Owner] Shows a debug panel with loaded cogs and commands.")
+    @app_commands.guilds(guild_obj)
+    @commands.is_owner()
+    async def botdebug(self, interaction: discord.Interaction):
+        """Shows a debug panel with bot information."""
+        await interaction.response.defer(ephemeral=True)
+
+        embed = discord.Embed(
+            title="🤖 Bot Debug Panel",
+            description=f"**Bot Name:** {self.bot.user.name}\n**Bot ID:** {self.bot.user.id}",
+            color=discord.Color.dark_red(),
+            timestamp=datetime.utcnow()
+        )
+
+        # Loaded Cogs
+        loaded_cogs = ", ".join(self.bot.cogs.keys())
+        embed.add_field(name="✅ Loaded Cogs", value=f"```\n{loaded_cogs}\n```", inline=False)
+
+        # Registered App Commands
+        app_commands_list = self.bot.tree.get_commands(guild=guild_obj)
+        if app_commands_list:
+            command_names = [f"/{cmd.name}" for cmd in app_commands_list]
+            commands_str = ", ".join(command_names)
+            # Split into multiple fields if it's too long
+            if len(commands_str) > 1000:
+                parts = []
+                current_part = ""
+                for name in command_names:
+                    if len(current_part) + len(name) > 1000:
+                        parts.append(current_part)
+                        current_part = ""
+                    current_part += name + ", "
+                parts.append(current_part.strip(', '))
+                for i, part in enumerate(parts):
+                     embed.add_field(name=f" Slash Commands (Part {i+1})", value=f"```\n{part}\n```", inline=False)
+            else:
+                 embed.add_field(name=" Slash Commands", value=f"```\n{commands_str}\n```", inline=False)
+        else:
+            embed.add_field(name=" Slash Commands", value="No slash commands registered for this guild.", inline=False)
+
+        embed.set_footer(text=f"Latency: {round(self.bot.latency * 1000)}ms")
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(Settings(bot))

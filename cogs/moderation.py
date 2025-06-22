@@ -36,6 +36,38 @@ class Moderation(commands.Cog):
 
     # --- Commands ---
 
+    @app_commands.command(name="modclear", description="[Moderator] Deletes a specified number of recent messages.")
+    @app_commands.guilds(guild_obj)
+    @is_moderator()
+    @app_commands.describe(amount="The number of messages to delete (up to 100).")
+    async def modclear(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100]):
+        await interaction.response.defer(ephemeral=True)
+        
+        # Purge messages
+        deleted_messages = await interaction.channel.purge(limit=amount)
+        
+        # Send confirmation
+        await interaction.followup.send(f"✅ Successfully deleted **{len(deleted_messages)}** messages.", ephemeral=True)
+        
+        # Optionally, log the action
+        log_channel_id = db.get_channel(interaction.guild.id, "modlog")
+        if log_channel_id:
+            log_channel = interaction.guild.get_channel(log_channel_id)
+            if log_channel:
+                embed = discord.Embed(
+                    title="Message Clear Event",
+                    description=f"**{len(deleted_messages)}** messages were cleared in {interaction.channel.mention}.",
+                    color=discord.Color.orange(),
+                    timestamp=datetime.utcnow()
+                )
+                embed.set_footer(text=f"Moderator: {interaction.user.display_name}")
+                try:
+                    await log_channel.send(embed=embed)
+                except discord.Forbidden:
+                    # Can't send to log channel, but don't bother the mod about it.
+                    print(f"Could not log message clear to channel ID {log_channel_id}")
+
+
     @app_commands.command(name="warn", description="[Moderator] Warn a user.")
     @app_commands.guilds(guild_obj)
     @is_moderator()
@@ -159,32 +191,6 @@ class Moderation(commands.Cog):
         view.add_item(cancel_button)
         
         await interaction.response.send_message(f"Are you sure you want to clear all **{len(warnings)}** warnings for **{user.display_name}**?", view=view, ephemeral=True)
-
-    @app_commands.command(name="announce", description="[Moderator] Create and send a server announcement.")
-    @app_commands.guilds(guild_obj)
-    @is_moderator()
-    @app_commands.describe(
-        channel="The channel to send the announcement to.",
-        title="The title of the announcement embed.",
-        message="The main content of the announcement."
-    )
-    async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, message: str):
-        embed = discord.Embed(
-            title=f"📢 {title}",
-            description=message,
-            color=discord.Color.blurple(),
-            timestamp=datetime.utcnow()
-        )
-        embed.set_author(name=f"Announcement from {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
-        embed.set_footer(text=f"Announced by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url if interaction.user.display_avatar else None)
-
-        try:
-            await channel.send(embed=embed)
-            await interaction.response.send_message(f"✅ Announcement sent successfully to {channel.mention}.", ephemeral=True)
-        except discord.Forbidden:
-            await interaction.response.send_message("❌ I don't have permission to send messages in that channel.", ephemeral=True)
-        except Exception as e:
-            await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
 
 
 async def setup(bot):

@@ -1,5 +1,5 @@
 import os
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -94,10 +94,18 @@ def get_user_rank(user_id: int):
     rank = cookies_collection.count_documents({'cookies': {'$gt': get_cookies(user_id)}})
     return rank + 1
 
-def reset_all_cookies():
-    """Resets all users' cookies to zero."""
+def reset_all_cookies(member_ids: list):
+    """Resets cookies to zero for all specified member IDs."""
     if cookies_collection is None: return
-    cookies_collection.delete_many({})
+    
+    # This ensures that even if a user wasn't in the DB, they will be now with 0 cookies.
+    # This is more robust for role updates after a reset.
+    bulk_ops = [
+        UpdateOne({"user_id": user_id}, {"$set": {"cookies": 0}}, upsert=True)
+        for user_id in member_ids
+    ]
+    if bulk_ops:
+        cookies_collection.bulk_write(bulk_ops)
 
 def give_cookies_to_all(amount: int, member_ids: list):
     """Gives a specified number of cookies to all members in the list."""

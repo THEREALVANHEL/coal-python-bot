@@ -142,19 +142,61 @@ class Leveling(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="update_role", description="Update your roles based on your current level and cookies.")
+    @app_commands.command(name="updateroles", description="Update your roles based on your current level.")
     @app_commands.guilds(guild_obj)
-    async def update_role(self, interaction: discord.Interaction, user: discord.Member = None):
+    @app_commands.describe(user="The user whose roles you want to update.")
+    async def updateroles(self, interaction: discord.Interaction, user: discord.Member = None):
         target_user = user or interaction.user
         
+        # We need to manually determine the highest role they should have.
         user_data = db.get_user_level_data(target_user.id)
         if not user_data:
-            await interaction.response.send_message(f"**{target_user.display_name}** hasn't chatted yet!", ephemeral=True)
+            await interaction.response.send_message(f"**{target_user.display_name}** hasn't chatted yet, so they have no level roles.", ephemeral=True)
             return
 
-        level = user_data.get('level', 0)
-        await self.update_user_roles(target_user, level)
-        await interaction.response.send_message(f"✅ Roles updated for **{target_user.display_name}** based on their current level.", ephemeral=True)
+        current_level = user_data.get('level', 0)
+        
+        # Find the highest role tier the user has achieved
+        highest_achieved_role_id = None
+        # Sort roles by level descending to find the highest one they qualify for
+        sorted_roles = sorted(LEVEL_ROLES.items(), key=lambda item: item[0], reverse=True)
+        
+        for level_req, role_id in sorted_roles:
+            if current_level >= level_req:
+                highest_achieved_role_id = role_id
+                break
+
+        # Get all level role objects from the guild
+        all_level_role_ids = set(LEVEL_ROLES.values())
+        
+        roles_to_add = []
+        roles_to_remove = []
+
+        # Determine which roles to add and remove
+        for role_id in all_level_role_ids:
+            role = interaction.guild.get_role(role_id)
+            if not role: continue
+
+            has_role = role in target_user.roles
+            
+            # If this is the target role, add it if they don't have it
+            if role_id == highest_achieved_role_id:
+                if not has_role:
+                    roles_to_add.append(role)
+            # For all other level roles, remove them if they have them
+            elif has_role:
+                roles_to_remove.append(role)
+        
+        # Apply changes
+        if roles_to_remove:
+            await target_user.remove_roles(*roles_to_remove, reason="Manual role update")
+        if roles_to_add:
+            await target_user.add_roles(*roles_to_add, reason="Manual role update")
+
+        if not roles_to_add and not roles_to_remove:
+            await interaction.response.send_message(f"✅ **{target_user.display_name}**'s roles are already up-to-date.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"✅ Roles updated for **{target_user.display_name}** based on their current level.", ephemeral=True)
 
     @app_commands.command(name="chatlvlup", description="Announce your last level up in chat.")
     @app_commands.guilds(guild_obj)
