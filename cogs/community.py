@@ -11,6 +11,8 @@ import io
 import numpy as np
 import matplotlib.pyplot as plt
 import openai
+from matplotlib.patheffects import withStroke
+import textwrap
 
 # Add parent directory to path to import database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -20,15 +22,21 @@ GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
 def create_wheel_image(options, winner=None):
-    """Generates an image of a spinning wheel using matplotlib."""
+    """Generates a more decorative and bright image of a spinning wheel."""
     
     num_options = len(options)
     
-    # Create a figure and axes
-    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(aspect="equal"))
+    # Create a figure with a transparent background
+    fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(aspect="equal"))
+    fig.patch.set_alpha(0.0)
+    ax.patch.set_alpha(0.0)
+
+    # A custom, bright color palette
+    colors = ['#FF4B4B', '#FFB84B', '#F8FF4B', '#8DFF4B', '#4BFFB8', 
+              '#4BFFFF', '#4B8DFF', '#8D4BFF', '#FF4BFF', '#FF4B8D']
     
-    # Generate colors
-    colors = plt.cm.viridis(np.linspace(0, 1, num_options))
+    # Ensure colors are repeated if there are more than 10 options
+    final_colors = (colors * (num_options // len(colors) + 1))[:num_options]
     
     # Explode the winner slice
     explode = [0] * num_options
@@ -36,29 +44,44 @@ def create_wheel_image(options, winner=None):
         winner_index = options.index(winner)
         explode[winner_index] = 0.1
         
-    # Create the pie chart
-    wedges, texts, autotexts = ax.pie(
-        [1] * num_options, 
-        labels=options, 
-        autopct="", 
-        pctdistance=0.85,
+    # --- Create the main wheel ---
+    wedges, texts = ax.pie(
+        [1] * num_options,
         explode=explode,
-        colors=colors,
+        colors=final_colors,
         startangle=90,
-        wedgeprops={'width': 0.4, 'edgecolor': 'w'},
-        textprops={'fontsize': 12, 'color': 'black'}
+        # Make it a donut chart
+        wedgeprops={'width': 0.4, 'edgecolor': 'white', 'linewidth': 3}
     )
 
-    # Style the labels
-    for text in texts:
-        text.set_horizontalalignment('center')
-        text.set_verticalalignment('center')
-
-    # Add a pointer
-    ax.arrow(0, 0, 0, 1.1, head_width=0.1, head_length=0.1, fc='black', ec='black', lw=2, zorder=10)
+    # --- Add Text Labels Inside Slices ---
+    # Wrap long text
+    wrapped_labels = ['\n'.join(textwrap.wrap(l, 10, break_long_words=False, replace_whitespace=False)) for l in options]
     
-    # Set title
-    ax.set_title("Spinning Wheel", fontsize=20, weight='bold')
+    for i, p in enumerate(wedges):
+        ang = (p.theta2 - p.theta1)/2. + p.theta1
+        y = np.sin(np.deg2rad(ang))
+        x = np.cos(np.deg2rad(ang))
+        
+        # Place text in the middle of the slice
+        ax.text(x*0.7, y*0.7, wrapped_labels[i], ha='center', va='center', fontsize=14,
+                fontweight='bold', color='white',
+                path_effects=[withStroke(linewidth=3, foreground='black')])
+
+    # --- Add Decorative Elements ---
+    # Center circle
+    centre_circle = plt.Circle((0,0),0.35,fc='white', ec='black', lw=2, zorder=5)
+    ax.add_artist(centre_circle)
+    
+    # Outer border circle
+    outer_circle = plt.Circle((0,0),1.02,fc='none', ec='gold', lw=5, zorder=5)
+    ax.add_artist(outer_circle)
+    
+    # Pointer - a more stylish triangle
+    ax.add_patch(plt.Polygon([[0.1, 1.0], [-0.1, 1.0], [0, 1.25]], fc='gold', ec='black', lw=2, zorder=10))
+    
+    # Remove the default title to keep it clean
+    ax.set_title("", fontsize=20, weight='bold')
 
     # Save it to a buffer
     buf = io.BytesIO()
