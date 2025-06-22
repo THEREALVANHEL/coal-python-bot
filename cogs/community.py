@@ -14,7 +14,7 @@ guild_obj = discord.Object(id=GUILD_ID)
 ANNOUNCE_ROLES = [
     "Moderator 🚨🚓",
     "🚨 Lead moderator",
-    "🦅 Overseer",
+    "🦥 Overseer",
     "Forgotten one"
 ]
 
@@ -153,44 +153,39 @@ class Community(commands.Cog):
         import numpy as np
         import io
         import textwrap
+        from matplotlib.patches import FancyArrow
         from matplotlib.patheffects import withStroke
 
-        option_list = [opt.strip() for opt in options.split(',')]
+        option_list = [opt.strip() for opt in options.split(',') if opt.strip()]
         if not (2 <= len(option_list) <= 10):
             await interaction.followup.send("Please provide between 2 to 10 options.", ephemeral=True)
             return
 
         winner = random.choice(option_list)
-        num_options = len(option_list)
-        slice_degrees = 360 / num_options
         winner_index = option_list.index(winner)
-        start_angle = (winner_index * slice_degrees) + (slice_degrees / 2)
+        num_options = len(option_list)
+        slice_angle = 360 / num_options
+        start_angle = 90 - (slice_angle * winner_index + slice_angle / 2)
 
-        colors = ['#f94144', '#f3722c', '#f9c74f', '#90be6d', '#43aa8b', '#577590', '#277da1', '#9b5de5', '#f15bb5', '#00f5d4']
-        final_colors = (colors * (num_options // len(colors) + 1))[:num_options]
+        colors = ['#f94144', '#f3722c', '#f9c74f', '#90be6d', '#43aa8b', '#577590', '#277da1', '#9b5de5', '#f15bb5', '#00f5d4'][:num_options]
 
-        fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(aspect="equal"))
-        wedges, _ = ax.pie(
-            [1] * num_options,
-            colors=final_colors,
-            startangle=start_angle,
-            counterclock=False,
-            wedgeprops=dict(edgecolor='white', width=0.4)
-        )
+        fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(aspect="equal"))
+        wedges, _ = ax.pie([1] * num_options, colors=colors, startangle=start_angle, counterclock=False)
 
         for i, wedge in enumerate(wedges):
-            angle = (wedge.theta1 + wedge.theta2) / 2
-            x = 0.65 * np.cos(np.radians(angle))
-            y = 0.65 * np.sin(np.radians(angle))
-            wrapped = "\n".join(textwrap.wrap(option_list[i], 12))
+            angle = (wedge.theta2 + wedge.theta1) / 2
+            x = 0.8 * np.cos(np.radians(angle))
+            y = 0.8 * np.sin(np.radians(angle))
+            label = textwrap.fill(option_list[i], width=10)
             ax.text(
-                x, y, wrapped, ha='center', va='center',
-                fontsize=12, color='white', weight='bold',
+                x, y, label,
+                ha='center', va='center',
+                fontsize=14, color='white', weight='bold',
                 path_effects=[withStroke(linewidth=3, foreground='black')]
             )
 
-        ax.annotate('', xy=(1.15, 0), xytext=(1.4, 0), arrowprops=dict(arrowstyle="simple", fc="black", ec="black"))
-        ax.set_title(title, fontsize=18, weight='bold', pad=30)
+        ax.add_patch(FancyArrow(0, 1.1, 0, -0.2, width=0.05, length_includes_head=True, color='black'))
+        ax.set_title(title, fontsize=16, weight='bold', pad=20)
         plt.tight_layout()
 
         buf = io.BytesIO()
@@ -201,7 +196,7 @@ class Community(commands.Cog):
         wheel_file = discord.File(buf, filename="wheel.png")
 
         embed = discord.Embed(
-            title=f"🍀 The Wheel Has Spun!",
+            title="🍀 The Wheel Has Spun!",
             description=f"The wheel titled **'{title}'** landed on:",
             color=discord.Color.gold(),
             timestamp=datetime.utcnow()
@@ -214,4 +209,5 @@ class Community(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Community(bot), guilds=[guild_obj])
+
 
