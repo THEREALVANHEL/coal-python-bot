@@ -35,7 +35,7 @@ class Community(commands.Cog):
             model = genai.GenerativeModel('gemini-1.5-flash-latest')
             prompt = f"You are Bleck Nephew, a helpful and slightly mischievous Discord bot. A user asked: {question}"
             response = await model.generate_content_async(prompt)
-            answer = response.text
+            answer = response.text.strip() if hasattr(response, 'text') and response.text.strip() else "Hmm... I couldn't think of a clever answer this time. Try asking again later!"
 
             embed = discord.Embed(
                 title=f"🤔 {interaction.user.display_name} asks...",
@@ -167,7 +167,7 @@ class Community(commands.Cog):
         slice_angle = 360 / num_options
         start_angle = 90 - (slice_angle * winner_index + slice_angle / 2)
 
-        colors = ['#f94144', '#f3722c', '#f9c74f', '#90be6d', '#43aa8b', '#577590', '#277da1', '#9b5de5', '#f15bb5', '#00f5d4'][:num_options]
+        colors = ['#e0e0e0', '#c0c0c0', '#a0a0a0', '#808080', '#606060', '#404040', '#202020', '#f0f0f0', '#d0d0d0', '#b0b0b0'][:num_options]
 
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(aspect="equal"))
         wedges, _ = ax.pie([1] * num_options, colors=colors, startangle=start_angle, counterclock=False)
@@ -180,12 +180,12 @@ class Community(commands.Cog):
             ax.text(
                 x, y, label,
                 ha='center', va='center',
-                fontsize=14, color='white', weight='bold',
+                fontsize=56, color='white', weight='bold',
                 path_effects=[withStroke(linewidth=3, foreground='black')]
             )
 
-        ax.add_patch(FancyArrow(0, 1.1, 0, -0.2, width=0.05, length_includes_head=True, color='black'))
-        ax.set_title(title, fontsize=16, weight='bold', pad=20)
+        ax.add_patch(FancyArrow(0, 1.1, 0, -0.2, width=0.05, length_includes_head=True, color='gold'))
+        ax.set_title(title, fontsize=64, weight='bold', pad=20, color='gold')
         plt.tight_layout()
 
         buf = io.BytesIO()
@@ -209,5 +209,3 @@ class Community(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Community(bot), guilds=[guild_obj])
-
-
