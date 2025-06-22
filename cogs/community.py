@@ -1,3 +1,4 @@
+
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -92,7 +93,12 @@ class Community(commands.Cog):
 
         try:
             await channel.send(embed=embed)
-            await interaction.response.send_message(f"✅ Announcement sent to {channel.mention}", ephemeral=True)
+            confirm = discord.Embed(
+                description=f"🌟 Your announcement has been posted in {channel.mention}!",
+                color=discord.Color.green()
+            )
+            confirm.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+            await interaction.response.send_message(embed=confirm, ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message("❌ I don't have permission to send messages in that channel.", ephemeral=True)
 
@@ -134,24 +140,60 @@ class Community(commands.Cog):
     @app_commands.command(name="spinawheel", description="Spin a wheel with a title and comma-separated options.")
     @app_commands.describe(title="The title of the wheel.", options="A comma-separated list of options.")
     async def spinawheel(self, interaction: discord.Interaction, title: str, options: str):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import io
+        import textwrap
+        from matplotlib.patheffects import withStroke
+
         option_list = [opt.strip() for opt in options.split(',')]
-        if len(option_list) < 2:
-            await interaction.response.send_message("At least two options required.", ephemeral=True)
+        if not (2 <= len(option_list) <= 10):
+            await interaction.response.send_message("Please provide between 2 to 10 options.", ephemeral=True)
             return
 
         winner = random.choice(option_list)
+        num_options = len(option_list)
+        slice_degrees = 360 / num_options
+        winner_index = option_list.index(winner)
+        start_angle = (winner_index * slice_degrees) + (slice_degrees / 2)
 
-        # Use the static wheel image from assets
-        file_path = "./assets/wheel.png"
-        if not os.path.exists(file_path):
-            await interaction.response.send_message("❌ Could not find wheel image.", ephemeral=True)
-            return
+        colors = ['#f94144', '#f3722c', '#f9c74f', '#90be6d', '#43aa8b', '#577590', '#277da1', '#9b5de5', '#f15bb5', '#00f5d4']
+        final_colors = (colors * (num_options // len(colors) + 1))[:num_options]
 
-        wheel_file = discord.File(file_path, filename="wheel.png")
+        fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(aspect="equal"))
+        wedges, _ = ax.pie(
+            [1] * num_options,
+            colors=final_colors,
+            startangle=start_angle,
+            counterclock=False,
+            wedgeprops=dict(edgecolor='white', width=0.4)
+        )
+
+        for i, wedge in enumerate(wedges):
+            angle = (wedge.theta1 + wedge.theta2) / 2
+            x = 0.65 * np.cos(np.radians(angle))
+            y = 0.65 * np.sin(np.radians(angle))
+            wrapped = "\n".join(textwrap.wrap(option_list[i], 12))
+            ax.text(
+                x, y, wrapped, ha='center', va='center',
+                fontsize=12, color='white', weight='bold',
+                path_effects=[withStroke(linewidth=3, foreground='black')]
+            )
+
+        ax.annotate('', xy=(1.15, 0), xytext=(1.4, 0), arrowprops=dict(arrowstyle="simple", fc="black", ec="black"))
+        ax.set_title(title, fontsize=18, weight='bold', pad=30)
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', transparent=True)
+        buf.seek(0)
+        plt.close(fig)
+
+        wheel_file = discord.File(buf, filename="wheel.png")
 
         embed = discord.Embed(
-            title=f"🎡 The Wheel Has Spun!",
-            description=f"The wheel, titled **'{title}'**, landed on...",
+            title=f"🍀 The Wheel Has Spun!",
+            description=f"The wheel titled **'{title}'** landed on:",
             color=discord.Color.gold(),
             timestamp=datetime.utcnow()
         )
