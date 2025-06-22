@@ -112,56 +112,47 @@ class EventCommands(commands.Cog):
     @app_commands.guilds(guild_obj)
     @is_event_host()
     @app_commands.describe(
-        title="The title of the event.",
+        gamename="The name/title of the event.",
         description="A description of the event.",
-        starttime="When the event starts (e.g., 'in 1 hour', '30m', '1d 2h').",
+        time="When the event starts (e.g., 'in 1 hour', '1h30m').",
         channel="The channel to send the announcement to.",
-        host="The main host for the event.",
-        cohost="The co-host for the event (optional).",
-        medic="The medic for the event (optional).",
-        guide="The guide for the event (optional).",
-        gamelist="A list of games to be played (optional).",
-        image="An optional image to attach to the announcement."
+        host="The host(s) for the event.",
+        cohost="The co-host(s) for the event (optional).",
+        medic_team="The medic team for the event (optional).",
+        guide_team="The guide team for the event (optional).",
+        joining_option="Information on how to join the event (optional)."
     )
     async def shout(self, interaction: discord.Interaction, 
-                  title: str, description: str, starttime: str, channel: discord.TextChannel,
-                  host: discord.Member, cohost: discord.Member = None, medic: discord.Member = None,
-                  guide: discord.Member = None, gamelist: str = None, image: discord.Attachment = None):
+                  gamename: str, description: str, time: str, channel: discord.TextChannel, host: str,
+                  cohost: Optional[str] = None, medic_team: Optional[str] = None,
+                  guide_team: Optional[str] = None, joining_option: Optional[str] = None):
         
-        start_time_obj = parse_time(starttime)
+        start_time_obj = parse_time(time)
         if not start_time_obj:
             return await interaction.response.send_message("Invalid time format. Please use a format like 'in 1 hour' or '1h30m'.", ephemeral=True)
         
         unix_timestamp = int(start_time_obj.timestamp())
 
         embed = discord.Embed(
-            title=f"🎉 {title} 🎉",
+            title=f"🎉 {gamename} 🎉",
             description=description,
             color=discord.Color.blurple(),
         )
         embed.set_author(name=f"Event Announcement", icon_url=interaction.guild.icon.url)
         
-        # --- Event Details ---
-        details = f"**Host:** {host.mention}\n"
-        if cohost: details += f"**Co-Host:** {cohost.mention}\n"
-        if medic: details += f"**Medic:** {medic.mention}\n"
-        if guide: details += f"**Guide:** {guide.mention}\n"
+        details = f"**Host:** {host}\n"
+        if cohost: details += f"**Co-Host:** {cohost}\n"
+        if medic_team: details += f"**Medic Team:** {medic_team}\n"
+        if guide_team: details += f"**Guide Team:** {guide_team}\n"
         embed.add_field(name="📋 Event Staff", value=details, inline=False)
-        
-        if gamelist:
-            embed.add_field(name="🎮 Gamelist", value=gamelist, inline=False)
             
         embed.add_field(name="⏰ Starts", value=f"<t:{unix_timestamp}:F> (<t:{unix_timestamp}:R>)", inline=False)
 
-        if image:
-            embed.set_image(url=image.url)
-        
-        embed.set_footer(text="Click 'Join Event' to participate!")
-
-        view = EventJoinView(host=host, title=title)
+        if joining_option:
+            embed.add_field(name="🔗 How to Join", value=joining_option, inline=False)
         
         try:
-            await channel.send(embed=embed, view=view)
+            await channel.send(embed=embed)
             await interaction.response.send_message(f"✅ Announcement sent to {channel.mention}!", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message("I don't have permissions to send messages in that channel.", ephemeral=True)
@@ -170,23 +161,21 @@ class EventCommands(commands.Cog):
     @app_commands.guilds(guild_obj)
     @is_event_host()
     @app_commands.describe(
-        title="The title of the game that was played.",
-        host="The host of the game.",
-        cohost="The co-host of the game (optional).",
-        guide="The guide for the game (optional).",
-        medic="The medic for the game (optional).",
-        participants="A list of all participants. You can @mention them here.",
+        host="The host(s) of the game.",
+        cohost="The co-host(s) of the game (optional).",
+        medic_team="The medic team for the game (optional).",
+        guide_team="The guide team for the game (optional).",
+        participants="A list of all participants in the event.",
+        timings="The start and end times of the event.",
         summary="A summary of what happened in the event.",
-        notes="Any additional notes about the event (optional).",
-        picture="An optional picture to include in the log (optional)."
+        picture="A URL to an image for the log (optional)."
     )
     async def gamelog(self, interaction: discord.Interaction, 
-                  title: str, host: discord.Member, participants: str, summary: str,
-                  cohost: Optional[discord.Member] = None, 
-                  guide: Optional[discord.Member] = None, 
-                  medic: Optional[discord.Member] = None, 
-                  notes: Optional[str] = None, 
-                  picture: Optional[discord.Attachment] = None):
+                  host: str, participants: str, timings: str, summary: str,
+                  cohost: Optional[str] = None, 
+                  medic_team: Optional[str] = None, 
+                  guide_team: Optional[str] = None, 
+                  picture: Optional[str] = None):
         
         log_channel_id = db.get_channel(interaction.guild.id, "gamelog")
         if not log_channel_id:
@@ -197,26 +186,26 @@ class EventCommands(commands.Cog):
             return await interaction.response.send_message("I couldn't find the game log channel. Please contact an admin.", ephemeral=True)
             
         embed = discord.Embed(
-            title=f"📜 Game Log: {title}",
+            title=f"📜 Game Log",
             description=summary,
             color=discord.Color.from_rgb(153, 102, 204), # A nice purple
             timestamp=datetime.utcnow()
         )
         embed.set_author(name=f"Logged by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         
-        staff_info = f"**Host:** {host.mention}\n"
-        if cohost: staff_info += f"**Co-host:** {cohost.mention}\n"
-        if guide: staff_info += f"**Guide:** {guide.mention}\n"
-        if medic: staff_info += f"**Medic:** {medic.mention}"
+        staff_info = f"**Host:** {host}\n"
+        if cohost: staff_info += f"**Co-host:** {cohost}\n"
+        if guide_team: staff_info += f"**Guide Team:** {guide_team}\n"
+        if medic_team: staff_info += f"**Medic Team:** {medic_team}"
         embed.add_field(name="👑 Staff", value=staff_info, inline=False)
         
         embed.add_field(name="👥 Participants", value=participants, inline=False)
-        
-        if notes:
-            embed.add_field(name="📝 Notes", value=notes, inline=False)
+        embed.add_field(name="⏱️ Timings", value=timings, inline=False)
         
         if picture:
-            embed.set_image(url=picture.url)
+            # Basic URL validation
+            if picture.startswith("http://") or picture.startswith("https://"):
+                embed.set_image(url=picture)
 
         embed.set_footer(text="Another great event concluded!")
 
