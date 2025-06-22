@@ -10,6 +10,7 @@ import google.generativeai as genai
 import matplotlib.pyplot as plt
 from matplotlib.patheffects import withStroke
 import numpy as np
+from matplotlib import font_manager as fm
 
 # --- Globals ---
 SUGGESTION_CHANNEL_ID = 1137000942544199742
@@ -18,7 +19,18 @@ GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
 def create_wheel_image(options, title, winner=None):
-    """Generates a simple, flat image of a spinning wheel."""
+    """Generates a higher-quality image of a spinning wheel."""
+
+    # --- Font and Asset Paths ---
+    font_path = '/home/bhargav/assets/Poppins-Bold.ttf'
+    try:
+        font_prop_title = fm.FontProperties(fname=font_path)
+        font_prop_options = fm.FontProperties(fname=font_path)
+    except Exception:
+        # Fallback to default font if Poppins is not found
+        font_prop_title = fm.FontProperties(weight='bold')
+        font_prop_options = fm.FontProperties(weight='bold')
+
 
     num_options = len(options)
     
@@ -32,7 +44,7 @@ def create_wheel_image(options, title, winner=None):
         # arrow at 0 degrees, we set the start angle accordingly.
         start_angle = (winner_index * slice_degrees) + (slice_degrees / 2)
 
-    fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(aspect="equal"))
+    fig, ax = plt.subplots(figsize=(12, 12), subplot_kw=dict(aspect="equal"))
     fig.patch.set_alpha(0.0)
     ax.patch.set_alpha(0.0)
 
@@ -52,25 +64,27 @@ def create_wheel_image(options, title, winner=None):
         wedgeprops={'edgecolor': 'white', 'linewidth': 3}
     )
 
-    ax.set_title(title, fontsize=32, weight='bold', pad=40, color='#FFD700', path_effects=[withStroke(linewidth=2, foreground='black')])
+    font_prop_title.set_size(40)
+    ax.set_title(title, fontproperties=font_prop_title, pad=50, color='#FFD700', path_effects=[withStroke(linewidth=3, foreground='black')])
 
+    font_prop_options.set_size(28)
     for i, p in enumerate(wedges):
         # Calculate the middle angle of the wedge for text placement
         ang = (p.theta1 + p.theta2) / 2
         y = np.sin(np.deg2rad(ang))
         x = np.cos(np.deg2rad(ang))
-        wrapped_label = '\n'.join(textwrap.wrap(options[i], 12, break_long_words=False))
-        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center', fontsize=24,
-                fontweight='bold', color='white',
-                path_effects=[withStroke(linewidth=4, foreground='black')])
+        wrapped_label = '\n'.join(textwrap.wrap(options[i], 10, break_long_words=False))
+        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center',
+                fontproperties=font_prop_options, color='white',
+                path_effects=[withStroke(linewidth=5, foreground='black')])
 
     # The static arrow pointing at the winner
-    ax.add_patch(plt.Polygon([[1.0, 0.1], [1.0, -0.1], [1.2, 0]], fc='#808080', ec='black', lw=1.5))
+    ax.add_patch(plt.Polygon([[1.0, 0.1], [1.0, -0.1], [1.2, 0]], fc='#808080', ec='black', lw=2))
     ax.axis('equal')
     plt.tight_layout()
 
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', transparent=True, dpi=300)
+    plt.savefig(buf, format='png', transparent=True, dpi=600)
     buf.seek(0)
     plt.close(fig)
     return buf
