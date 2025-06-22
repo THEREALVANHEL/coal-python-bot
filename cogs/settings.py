@@ -160,6 +160,10 @@ class Settings(commands.Cog):
         if not starboard_channel:
             return
 
+        # 🛑 Check if already starred
+        if db.has_been_starred(payload.guild_id, payload.message_id):
+            return
+
         channel = guild.get_channel(payload.channel_id)
         try:
             message = await channel.fetch_message(payload.message_id)
@@ -185,6 +189,7 @@ class Settings(commands.Cog):
             embed.set_image(url=message.attachments[0].url)
 
         await starboard_channel.send(embed=embed)
+        db.mark_as_starred(payload.guild_id, payload.message_id)  # ✅ Mark posted
 
 # Setup the Cog
 async def setup(bot):
