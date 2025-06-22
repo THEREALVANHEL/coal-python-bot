@@ -172,17 +172,21 @@ class EventCommands(commands.Cog):
     @app_commands.describe(
         title="The title of the game that was played.",
         host="The host of the game.",
-        cohost="The co-host of the game. Mention 'None' if there wasn't one.",
-        guide="The guide for the game. Mention 'None' if there wasn't one.",
-        medic="The medic for the game. Mention 'None' if there wasn't one.",
-        participants="A list of all participants in the event.",
+        cohost="The co-host of the game (optional).",
+        guide="The guide for the game (optional).",
+        medic="The medic for the game (optional).",
+        participants="A list of all participants. You can @mention them here.",
         summary="A summary of what happened in the event.",
-        notes="Any additional notes about the event.",
-        picture="An optional picture to include in the log."
+        notes="Any additional notes about the event (optional).",
+        picture="An optional picture to include in the log (optional)."
     )
     async def gamelog(self, interaction: discord.Interaction, 
-                  title: str, host: discord.Member, cohost: str, guide: str, medic: str,
-                  participants: str, summary: str, notes: Optional[str] = None, picture: Optional[discord.Attachment] = None):
+                  title: str, host: discord.Member, participants: str, summary: str,
+                  cohost: Optional[discord.Member] = None, 
+                  guide: Optional[discord.Member] = None, 
+                  medic: Optional[discord.Member] = None, 
+                  notes: Optional[str] = None, 
+                  picture: Optional[discord.Attachment] = None):
         
         log_channel_id = db.get_channel(interaction.guild.id, "gamelog")
         if not log_channel_id:
@@ -201,9 +205,9 @@ class EventCommands(commands.Cog):
         embed.set_author(name=f"Logged by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         
         staff_info = f"**Host:** {host.mention}\n"
-        if cohost.lower() != 'none': staff_info += f"**Co-host:** {cohost}\n"
-        if guide.lower() != 'none': staff_info += f"**Guide:** {guide}\n"
-        if medic.lower() != 'none': staff_info += f"**Medic:** {medic}"
+        if cohost: staff_info += f"**Co-host:** {cohost.mention}\n"
+        if guide: staff_info += f"**Guide:** {guide.mention}\n"
+        if medic: staff_info += f"**Medic:** {medic.mention}"
         embed.add_field(name="👑 Staff", value=staff_info, inline=False)
         
         embed.add_field(name="👥 Participants", value=participants, inline=False)
