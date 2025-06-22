@@ -17,7 +17,7 @@ class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="daily", description="Claim your daily cookies and build a streak!")
+    @app_commands.command(name="daily", description="Claim your daily XP and build a streak!")
     @app_commands.guilds(guild_obj)
     async def daily(self, interaction: discord.Interaction):
         user_id = interaction.user.id
@@ -47,63 +47,49 @@ class Economy(commands.Cog):
             new_streak = current_streak + 1
 
         # --- Calculate reward ---
-        reward = 1
+        reward = 20
         bonus_message = ""
-        if new_streak > 0 and new_streak % 7 == 0:
-            reward += 1 # Weekly streak bonus
-            bonus_message = f"🎉 **+1** bonus cookie for your **{new_streak}-day** streak!"
+        
+        if new_streak == 7:
+            bonus = 50
+            reward += bonus
+            bonus_message = f"🎉 You've reached a 7-day streak! You get a bonus of **{bonus} XP**."
+            # Reset streak after claiming the bonus
+            db.update_daily_checkin(user_id, 0) 
+        else:
+            db.update_daily_checkin(user_id, new_streak)
 
-        db.add_cookies(user_id, reward)
-        db.update_daily_checkin(user_id, new_streak)
+        db.update_user_xp(user_id, reward)
 
-        # Update cookie roles
-        cookies_cog = self.bot.get_cog("Cookies")
-        if cookies_cog:
-            await cookies_cog.update_cookie_roles(interaction.user)
+        leveling_cog = self.bot.get_cog("Leveling")
+        if leveling_cog:
+            user_data = db.get_user_level_data(user_id)
+            user_level = user_data.get('level', 0)
+            user_xp = user_data.get('xp', 0)
+            xp_needed = leveling_cog.get_xp_for_level(user_level)
+            if user_xp >= xp_needed:
+                 # Announce level up
+                level_channel_id = db.get_channel(interaction.guild.id, "leveling")
+                if level_channel_id:
+                    level_channel = interaction.guild.get_channel(level_channel_id)
+                    if level_channel:
+                        embed = discord.Embed(
+                            title="🎉 Level Up!",
+                            description=f"Congratulations {interaction.user.mention}, you've reached **Level {user_level + 1}**!",
+                            color=discord.Color.fuchsia()
+                        )
+                        await level_channel.send(embed=embed)
+                await leveling_cog.update_user_roles(interaction.user, user_level + 1)
+
 
         embed = discord.Embed(
             title="🌞 Daily Reward Claimed!",
-            description=f"You received **{reward}** 🍪 cookie(s)!\nYour current streak is now **{new_streak}** days.",
+            description=f"You received **{reward} XP**!\nYour current streak is now **{new_streak if new_streak != 7 else 0}** days.",
             color=discord.Color.green()
         )
         if bonus_message:
             embed.add_field(name="Streak Bonus!", value=bonus_message)
         
-        await interaction.response.send_message(embed=embed)
-
-    @app_commands.command(name="gamble", description="Gamble your cookies for a chance to win more.")
-    @app_commands.guilds(guild_obj)
-    @app_commands.describe(amount="The amount of cookies to bet.")
-    async def gamble(self, interaction: discord.Interaction, amount: int):
-        if amount <= 0:
-            await interaction.response.send_message("You must bet a positive number of cookies.", ephemeral=True)
-            return
-
-        user_id = interaction.user.id
-        balance = db.get_cookies(user_id)
-
-        if amount > balance:
-            await interaction.response.send_message(f"You can't bet more cookies than you have! Your balance is **{balance}** 🍪.", ephemeral=True)
-            return
-
-        # 50/50 chance
-        is_win = random.choice([True, False])
-
-        if is_win:
-            db.add_cookies(user_id, amount)
-            result_message = f"🎉 **You won!**\nYou won **{amount}** 🍪 cookies and now have **{balance + amount}** 🍪."
-            color = discord.Color.green()
-        else:
-            db.remove_cookies(user_id, amount)
-            result_message = f"💔 **You lost!**\nYou lost **{amount}** 🍪 cookies and now have **{balance - amount}** 🍪."
-            color = discord.Color.red()
-        
-        # Update cookie roles
-        cookies_cog = self.bot.get_cog("Cookies")
-        if cookies_cog:
-            await cookies_cog.update_cookie_roles(interaction.user)
-
-        embed = discord.Embed(title="🎰 Cookie Gamble", description=result_message, color=color)
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="donatecookies", description="Give some of your cookies to another user.")
@@ -154,7 +140,6 @@ class Economy(commands.Cog):
             color=discord.Color.from_rgb(255, 182, 193) # Light pink
         )
         await interaction.response.send_message(embed=embed)
-
 
 async def setup(bot):
     await bot.add_cog(Economy(bot)) 
