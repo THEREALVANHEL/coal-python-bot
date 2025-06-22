@@ -298,10 +298,17 @@ class Community(commands.Cog):
         except openai.APIStatusError as e:
             error_message = f"An error occurred while contacting OpenAI (APIStatusError): {e}"
             print(error_message)
-            await interaction.followup.send(
-                f"Sorry, I couldn't get an answer. The AI service reported an error: `{e.status_code}`.",
-                ephemeral=True
-            )
+            # Add a specific message for 429 (quota/billing issues)
+            if e.status_code == 429:
+                await interaction.followup.send(
+                    "Sorry, I can't answer right now. This is likely due to an issue with the API key's billing/quota (e.g., expired free trial). Please check the OpenAI dashboard.",
+                    ephemeral=True
+                )
+            else:
+                await interaction.followup.send(
+                    f"Sorry, I couldn't get an answer. The AI service reported an error: `{e.status_code}`.",
+                    ephemeral=True
+                )
         except openai.APIConnectionError as e:
             error_message = f"An error occurred while contacting OpenAI (APIConnectionError): {e}"
             print(error_message)
