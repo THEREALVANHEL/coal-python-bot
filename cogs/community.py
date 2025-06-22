@@ -82,7 +82,7 @@ class Community(commands.Cog):
     async def announce(self, interaction: discord.Interaction, title: str, content: str, channel: discord.TextChannel):
         embed = discord.Embed(
             title=f"📢 {title}",
-            description=f"**__{content}__**",  # enlarged & bold content
+            description=f"**__{content}__**",
             color=discord.Color.blurple(),
             timestamp=datetime.utcnow()
         )
@@ -124,12 +124,14 @@ class Community(commands.Cog):
 
     @app_commands.command(name="flip", description="Flip a coin.")
     async def flip(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
         result = random.choice(["Heads", "Tails"])
         emoji = "👑" if result == "Heads" else "🪙"
         image_path = f"./assets/{result.lower()}.jpeg"
 
         if not os.path.exists(image_path):
-            await interaction.response.send_message(f"❌ Image for {result} not found in assets.", ephemeral=True)
+            await interaction.followup.send(f"❌ Image for {result} not found in assets.", ephemeral=True)
             return
 
         file = discord.File(image_path, filename="result.jpeg")
@@ -140,11 +142,13 @@ class Community(commands.Cog):
         embed.add_field(name="Result", value=f"{emoji} **{result}**")
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
-        await interaction.response.send_message(embed=embed, file=file)
+        await interaction.followup.send(embed=embed, file=file)
 
     @app_commands.command(name="spinawheel", description="Spin a wheel with a title and comma-separated options.")
     @app_commands.describe(title="The title of the wheel.", options="A comma-separated list of options.")
     async def spinawheel(self, interaction: discord.Interaction, title: str, options: str):
+        await interaction.response.defer()
+
         import matplotlib.pyplot as plt
         import numpy as np
         import io
@@ -153,7 +157,7 @@ class Community(commands.Cog):
 
         option_list = [opt.strip() for opt in options.split(',')]
         if not (2 <= len(option_list) <= 10):
-            await interaction.response.send_message("Please provide between 2 to 10 options.", ephemeral=True)
+            await interaction.followup.send("Please provide between 2 to 10 options.", ephemeral=True)
             return
 
         winner = random.choice(option_list)
@@ -206,7 +210,8 @@ class Community(commands.Cog):
         embed.set_image(url="attachment://wheel.png")
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
-        await interaction.response.send_message(embed=embed, file=wheel_file)
+        await interaction.followup.send(embed=embed, file=wheel_file)
 
 async def setup(bot):
     await bot.add_cog(Community(bot), guilds=[guild_obj])
+
