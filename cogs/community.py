@@ -53,8 +53,8 @@ class Community(commands.Cog):
             await interaction.followup.send("Couldn't get an answer from the AI service.", ephemeral=True)
 
     @app_commands.command(name="suggest", description="Submit a suggestion for the server.")
-    @app_commands.describe(suggestion="Your suggestion.", notes="Any additional notes or details.")
-    async def suggest(self, interaction: discord.Interaction, suggestion: str, notes: str = "None"):
+    @app_commands.describe(suggestion="Your suggestion.")
+    async def suggest(self, interaction: discord.Interaction, suggestion: str):
         channel_id = db.get_channel(interaction.guild.id, "suggestion")
         channel = interaction.guild.get_channel(channel_id) if channel_id else None
 
@@ -62,19 +62,22 @@ class Community(commands.Cog):
             await interaction.response.send_message("❌ Suggestion channel not set. Use `/setsuggestionchannel` first.", ephemeral=True)
             return
 
-        embed = discord.Embed(title="💡 New Suggestion", description=suggestion, color=discord.Color.yellow(), timestamp=datetime.utcnow())
+        embed = discord.Embed(
+            title="💡 New Suggestion",
+            description=suggestion,
+            color=discord.Color.yellow(),
+            timestamp=datetime.utcnow()
+        )
         embed.set_author(name=f"Suggested by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-        if notes != "None":
-            embed.add_field(name="🗘️ Additional Notes", value=notes, inline=False)
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         try:
-            await channel.send(embed=embed)
+            msg = await channel.send(embed=embed)
+            await msg.add_reaction("👍🏻")
+            await msg.add_reaction("👎🏻")
             await interaction.response.send_message("✅ Suggestion submitted successfully!", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message("❌ I don't have permission to send messages in that channel.", ephemeral=True)
-
-    # (All other commands like announce, poll, flip, spinawheel remain unchanged below)
 
     @app_commands.command(name="announce", description="[Moderator] Create a server announcement.")
     @app_commands.checks.has_any_role(*ANNOUNCE_ROLES)
