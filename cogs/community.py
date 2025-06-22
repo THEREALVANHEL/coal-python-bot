@@ -167,25 +167,25 @@ class Community(commands.Cog):
         slice_angle = 360 / num_options
         start_angle = 90 - (slice_angle * winner_index + slice_angle / 2)
 
-        colors = ['#e0e0e0', '#c0c0c0', '#a0a0a0', '#808080', '#606060', '#404040', '#202020', '#f0f0f0', '#d0d0d0', '#b0b0b0'][:num_options]
+        colors = ['white', 'black', 'yellow', 'gray', 'lightgray', 'gold', 'silver', 'beige', 'ivory', 'darkgray'][:num_options]
 
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(aspect="equal"))
         wedges, _ = ax.pie([1] * num_options, colors=colors, startangle=start_angle, counterclock=False)
 
         for i, wedge in enumerate(wedges):
             angle = (wedge.theta2 + wedge.theta1) / 2
-            x = 0.8 * np.cos(np.radians(angle))
-            y = 0.8 * np.sin(np.radians(angle))
+            x = 0.75 * np.cos(np.radians(angle))
+            y = 0.75 * np.sin(np.radians(angle))
             label = textwrap.fill(option_list[i], width=10)
             ax.text(
                 x, y, label,
                 ha='center', va='center',
-                fontsize=56, color='white', weight='bold',
-                path_effects=[withStroke(linewidth=3, foreground='black')]
+                fontsize=36, color='black', weight='bold',
+                path_effects=[withStroke(linewidth=2, foreground='white')]
             )
 
         ax.add_patch(FancyArrow(0, 1.1, 0, -0.2, width=0.05, length_includes_head=True, color='gold'))
-        ax.set_title(title, fontsize=64, weight='bold', pad=20, color='gold')
+        ax.set_title(title, fontsize=32, weight='bold', pad=20, color='gold')
         plt.tight_layout()
 
         buf = io.BytesIO()
