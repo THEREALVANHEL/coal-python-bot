@@ -18,32 +18,23 @@ ANNOUNCEMENT_CHANNEL_ID = 1137000942544199745
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
-def is_mod_or_admin():
-    async def predicate(interaction: discord.Interaction) -> bool:
-        if interaction.user.guild_permissions.administrator:
-            return True
-
-        mod_roles = ["Moderator 🚨🚓", "🚨 Lead moderator"]
-        has_role = any(role.name in mod_roles for role in interaction.user.roles)
-        if not has_role:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-        return has_role
-    return app_commands.check(predicate)
-
 def create_wheel_image(options, title, winner=None):
     """Generates a higher-quality image of a spinning wheel."""
 
+    # --- Font and Asset Paths ---
     font_path = '/home/bhargav/assets/Poppins-Bold.ttf'
     try:
         font_prop_title = fm.FontProperties(fname=font_path)
         font_prop_options = fm.FontProperties(fname=font_path)
     except Exception:
+        # Fallback to default font if Poppins is not found
         font_prop_title = fm.FontProperties(weight='bold')
         font_prop_options = fm.FontProperties(weight='bold')
 
     num_options = len(options)
-    
-    start_angle = 90
+
+    # --- Calculate rotation to land on the winner ---
+    start_angle = 90  # Default start angle if no winner is provided
     winner_index = -1
     if winner and winner in options:
         winner_index = options.index(winner)
@@ -109,7 +100,6 @@ class Community(commands.Cog):
         try:
             model = genai.GenerativeModel('gemini-1.5-flash-latest')
             prompt = f"You are Bleck Nephew, a helpful and slightly mischievous Discord bot. A user has asked you the following question. Keep your answer concise, helpful, and under 250 words. Question: {question}"
-            
             response = await model.generate_content_async(prompt)
             answer = response.text
 
@@ -122,21 +112,16 @@ class Community(commands.Cog):
             embed.set_author(name="Bleck Nephew AI", icon_url=self.bot.user.display_avatar.url)
             embed.add_field(name="💡 Answer", value=answer, inline=False)
             embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-            
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
             print(f"An unexpected error occurred in askblecknephew: {e}")
-            await interaction.followup.send(
-                "Sorry, I couldn't get an answer. There seems to be an issue with the AI service right now.", 
-                ephemeral=True
-            )
+            await interaction.followup.send("Sorry, I couldn't get an answer. There seems to be an issue with the AI service right now.", ephemeral=True)
 
     @app_commands.command(name="suggest", description="Submit a suggestion for the server.")
     @app_commands.describe(suggestion="Your suggestion.", notes="Any additional notes or details.")
     async def suggest(self, interaction: discord.Interaction, suggestion: str, notes: str = "None"):
         channel = interaction.guild.get_channel(SUGGESTION_CHANNEL_ID)
-        
         if not channel:
             await interaction.response.send_message("The suggestion channel could not be found. Please contact an admin.", ephemeral=True)
             return
@@ -150,7 +135,6 @@ class Community(commands.Cog):
         embed.set_author(name=f"Suggested by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         if notes != "None":
             embed.add_field(name="📝 Additional Notes", value=notes, inline=False)
-            
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         try:
@@ -160,14 +144,16 @@ class Community(commands.Cog):
             await interaction.response.send_message("I don't have permission to send messages in the suggestion channel.", ephemeral=True)
 
     @app_commands.command(name="announce", description="[Moderator] Create a server announcement.")
-    @is_mod_or_admin()
-    @app_commands.describe(
-        title="The title of the announcement.",
-        content="The main content of the announcement."
+    @app_commands.checks.has_any_role(
+        "Moderator 🚨🚓",
+        "🚨 Lead moderator",
+        "🦅 Overseer",
+        discord.Object(id=1371004219875917875),
+        discord.Object(id=1376574861333495910)
     )
+    @app_commands.describe(title="The title of the announcement.", content="The main content of the announcement.")
     async def announce(self, interaction: discord.Interaction, title: str, content: str):
         channel = interaction.guild.get_channel(ANNOUNCEMENT_CHANNEL_ID)
-
         if not channel:
             await interaction.response.send_message("The announcement channel could not be found.", ephemeral=True)
             return
@@ -179,7 +165,6 @@ class Community(commands.Cog):
             timestamp=datetime.utcnow()
         )
         embed.set_author(name=f"Announcement by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-        
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         try:
@@ -197,7 +182,6 @@ class Community(commands.Cog):
             return
 
         emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
-        
         poll_options_text = ""
         for i, option in enumerate(option_list):
             poll_options_text += f"{emojis[i]} {option}\n"
@@ -208,44 +192,56 @@ class Community(commands.Cog):
             color=discord.Color.green(),
             timestamp=datetime.utcnow()
         )
-            
         embed.add_field(name="Options", value=poll_options_text, inline=False)
         embed.set_author(name=f"Poll by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
-        try:
-            message = await interaction.channel.send(embed=embed)
-            for i in range(len(option_list)):
-                await message.add_reaction(emojis[i])
-            await interaction.response.send_message("Poll created successfully!", ephemeral=True)
-        except discord.Forbidden:
-            await interaction.response.send_message("I don't have permission to send messages or add reactions here.", ephemeral=True)
+        await interaction.response.send_message("Creating poll...")
+        poll_message = await interaction.channel.send(embed=embed)
+        for i in range(len(option_list)):
+            await poll_message.add_reaction(emojis[i])
+        await interaction.delete_original_response()
 
-    @app_commands.command(name="spin", description="Spin a wheel of options and get a random result.")
-    @app_commands.describe(
-        options="Enter options separated by commas.",
-        title="Title for the wheel (optional)."
-    )
-    async def spin(self, interaction: discord.Interaction, options: str, title: str = "Spin the Wheel"):
-        option_list = [opt.strip() for opt in options.split(',') if opt.strip()]
+    @app_commands.command(name="flip", description="Flip a coin.")
+    async def flip(self, interaction: discord.Interaction):
+        result = random.choice(["Heads", "Tails"])
+        emoji = "👑" if result == "Heads" else "🪙"
+
+        embed = discord.Embed(
+            title=f"Coin Flip: It's {result}!",
+            color=discord.Color.gold()
+        )
+        embed.set_author(name=f"Flipped by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        embed.set_thumbnail(url="https://i.imgur.com/s0z6E5C.gif")
+        embed.add_field(name="Result", value=f"{emoji} **{result}**")
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="spinawheel", description="Spin a wheel with a title and comma-separated options.")
+    @app_commands.describe(title="The title of the wheel.", options="A comma-separated list of options (e.g., Option A, Option B).")
+    async def spinawheel(self, interaction: discord.Interaction, title: str, options: str):
+        await interaction.response.defer()
+        option_list = [opt.strip() for opt in options.split(',')]
         if len(option_list) < 2:
-            await interaction.response.send_message("Please provide at least two options separated by commas.", ephemeral=True)
+            await interaction.followup.send("Please provide at least two options, separated by commas.", ephemeral=True)
             return
 
         winner = random.choice(option_list)
-        img_buf = create_wheel_image(option_list, title, winner=winner)
-        file = discord.File(fp=img_buf, filename="wheel.png")
+        wheel_image_buffer = create_wheel_image(option_list, title, winner=winner)
+        wheel_file = discord.File(wheel_image_buffer, filename="spinning_wheel.png")
 
         embed = discord.Embed(
-            title=f"🎉 The wheel has spun! Winner: {winner}",
-            color=discord.Color.purple(),
+            title=f"🎡 The Wheel has Spun! 🎡",
+            description=f"The wheel, titled **'{title}'**, landed on...",
+            color=discord.Color.gold(),
             timestamp=datetime.utcnow()
         )
-        embed.set_image(url="attachment://wheel.png")
+        embed.add_field(name="👑 Winner", value=f"**{winner}**", inline=False)
+        embed.set_image(url="attachment://spinning_wheel.png")
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-
-        await interaction.response.send_message(embed=embed, file=file)
+        await interaction.followup.send(embed=embed, file=wheel_file)
 
 
 async def setup(bot):
-    await bot.add_cog(Community(bot))
+    await bot.add_cog(Community(bot), guilds=[guild_obj])
