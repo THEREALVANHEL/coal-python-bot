@@ -161,6 +161,7 @@ class EventCommands(commands.Cog):
     @app_commands.guilds(guild_obj)
     @is_event_host()
     @app_commands.describe(
+        channel="The channel to send the game log to.",
         host="The host(s) of the game.",
         cohost="The co-host(s) of the game (optional).",
         medic_team="The medic team for the game (optional).",
@@ -171,19 +172,11 @@ class EventCommands(commands.Cog):
         picture="A URL to an image for the log (optional)."
     )
     async def gamelog(self, interaction: discord.Interaction, 
-                  host: str, participants: str, timings: str, summary: str,
+                  channel: discord.TextChannel, host: str, participants: str, timings: str, summary: str,
                   cohost: Optional[str] = None, 
                   medic_team: Optional[str] = None, 
                   guide_team: Optional[str] = None, 
                   picture: Optional[str] = None):
-        
-        log_channel_id = db.get_channel(interaction.guild.id, "gamelog")
-        if not log_channel_id:
-            return await interaction.response.send_message("The game log channel has not been set up. Please ask an admin to set it.", ephemeral=True)
-        
-        log_channel = interaction.guild.get_channel(log_channel_id)
-        if not log_channel:
-            return await interaction.response.send_message("I couldn't find the game log channel. Please contact an admin.", ephemeral=True)
             
         embed = discord.Embed(
             title=f"📜 Game Log",
@@ -210,11 +203,11 @@ class EventCommands(commands.Cog):
         embed.set_footer(text="Another great event concluded!")
 
         try:
-            await log_channel.send(embed=embed)
-            await interaction.response.send_message(f"✅ Game log posted successfully to {log_channel.mention}!", ephemeral=True)
+            await channel.send(embed=embed)
+            await interaction.response.send_message(f"✅ Game log posted successfully to {channel.mention}!", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message("I don't have permission to send messages in the game log channel.", ephemeral=True)
 
 
 async def setup(bot):
-    await bot.add_cog(EventCommands(bot)) 
+    await bot.add_cog(EventCommands(bot))
