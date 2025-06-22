@@ -60,7 +60,7 @@ def create_wheel_image(options, title, winner=None):
         y = np.sin(np.deg2rad(ang))
         x = np.cos(np.deg2rad(ang))
         wrapped_label = '\n'.join(textwrap.wrap(options[i], 12, break_long_words=False))
-        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center', fontsize=22,
+        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center', fontsize=24,
                 fontweight='bold', color='white',
                 path_effects=[withStroke(linewidth=4, foreground='black')])
 
@@ -70,7 +70,7 @@ def create_wheel_image(options, title, winner=None):
     plt.tight_layout()
 
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', transparent=True)
+    plt.savefig(buf, format='png', transparent=True, dpi=300)
     buf.seek(0)
     plt.close(fig)
     return buf

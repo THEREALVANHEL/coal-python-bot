@@ -169,14 +169,14 @@ class EventCommands(commands.Cog):
         participants="A list of all participants in the event.",
         timings="The start and end times of the event.",
         summary="A summary of what happened in the event.",
-        picture="A URL to an image for the log (optional)."
+        picture="An image to attach to the log (optional)."
     )
     async def gamelog(self, interaction: discord.Interaction, 
                   channel: discord.TextChannel, host: str, participants: str, timings: str, summary: str,
                   cohost: Optional[str] = None, 
                   medic_team: Optional[str] = None, 
                   guide_team: Optional[str] = None, 
-                  picture: Optional[str] = None):
+                  picture: Optional[discord.Attachment] = None):
             
         embed = discord.Embed(
             title=f"📜 Game Log",
@@ -196,9 +196,7 @@ class EventCommands(commands.Cog):
         embed.add_field(name="⏱️ Timings", value=timings, inline=False)
         
         if picture:
-            # Basic URL validation
-            if picture.startswith("http://") or picture.startswith("https://"):
-                embed.set_image(url=picture)
+            embed.set_image(url=picture.url)
 
         embed.set_footer(text="Another great event concluded!")
 
