@@ -78,7 +78,7 @@ class Settings(commands.Cog):
         leveling = db.get_channel(guild_id, "leveling")
         suggestion = db.get_channel(guild_id, "suggestion")
         starboard_settings = db.get_starboard_settings(guild_id)
-        
+
         embed = discord.Embed(
             title="🔧 Server Settings",
             description="Here are your current channel settings:",
@@ -114,11 +114,9 @@ class Settings(commands.Cog):
             timestamp=datetime.utcnow()
         )
 
-        # Loaded Cogs
         loaded_cogs = ", ".join(self.bot.cogs.keys())
         embed.add_field(name="✅ Loaded Cogs", value=f"```\n{loaded_cogs}\n```", inline=False)
 
-        # Registered App Commands (fetch is safer)
         commands_list = await self.bot.tree.fetch_commands(guild=guild_obj)
         if commands_list:
             command_names = [f"/{cmd.name}" for cmd in commands_list]
@@ -142,6 +140,51 @@ class Settings(commands.Cog):
         embed.set_footer(text=f"Latency: {round(self.bot.latency * 1000)}ms")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
+    # ⭐ Starboard Listener
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        if payload.emoji.name != "⭐":
+            return
+
+        guild = self.bot.get_guild(payload.guild_id)
+        if not guild:
+            return
+
+        starboard_settings = db.get_starboard_settings(payload.guild_id)
+        if not starboard_settings:
+            return
+
+        starboard_channel_id = starboard_settings.get("starboard_channel")
+        required_stars = starboard_settings.get("starboard_star_count", 3)
+        starboard_channel = guild.get_channel(starboard_channel_id)
+        if not starboard_channel:
+            return
+
+        channel = guild.get_channel(payload.channel_id)
+        try:
+            message = await channel.fetch_message(payload.message_id)
+        except Exception:
+            return
+
+        star_reaction = next((r for r in message.reactions if r.emoji == "⭐"), None)
+        if not star_reaction or star_reaction.count < required_stars:
+            return
+
+        if message.author.bot:
+            return
+
+        embed = discord.Embed(
+            description=message.content or "*No text content*",
+            color=discord.Color.gold(),
+            timestamp=message.created_at
+        )
+        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+        embed.set_footer(text=f"⭐ {star_reaction.count} | #{channel.name}")
+
+        if message.attachments:
+            embed.set_image(url=message.attachments[0].url)
+
+        await starboard_channel.send(embed=embed)
 
 # Setup the Cog
 async def setup(bot):
