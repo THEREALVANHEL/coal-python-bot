@@ -21,6 +21,16 @@ def create_wheel_image(options, title, winner=None):
     """Generates a simple, flat image of a spinning wheel."""
 
     num_options = len(options)
+    
+    # --- Calculate rotation to land on the winner ---
+    start_angle = 90  # Default start angle if no winner is provided
+    winner_index = -1
+    if winner and winner in options:
+        winner_index = options.index(winner)
+        slice_degrees = 360 / num_options
+        # The pie is drawn clockwise. To align the middle of the winning slice with the
+        # arrow at 0 degrees, we set the start angle accordingly.
+        start_angle = (winner_index * slice_degrees) + (slice_degrees / 2)
 
     fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(aspect="equal"))
     fig.patch.set_alpha(0.0)
@@ -30,30 +40,31 @@ def create_wheel_image(options, title, winner=None):
     final_colors = (colors * (num_options // len(colors) + 1))[:num_options]
 
     explode = [0.0] * num_options
-    if winner and winner in options:
-        winner_index = options.index(winner)
+    if winner_index != -1:
         explode[winner_index] = 0.1
 
     wedges, _ = ax.pie(
         [1] * num_options,
         explode=explode,
         colors=final_colors,
-        startangle=90,
+        startangle=start_angle,
         counterclock=False,
         wedgeprops={'edgecolor': 'white', 'linewidth': 3}
     )
 
-    ax.set_title(title, fontsize=28, weight='bold', pad=30)
+    ax.set_title(title, fontsize=32, weight='bold', pad=40, color='#FFD700', path_effects=[withStroke(linewidth=2, foreground='black')])
 
     for i, p in enumerate(wedges):
-        ang = (p.theta2 - p.theta1)/2. + p.theta1
+        # Calculate the middle angle of the wedge for text placement
+        ang = (p.theta1 + p.theta2) / 2
         y = np.sin(np.deg2rad(ang))
         x = np.cos(np.deg2rad(ang))
         wrapped_label = '\n'.join(textwrap.wrap(options[i], 12, break_long_words=False))
-        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center', fontsize=16,
+        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center', fontsize=22,
                 fontweight='bold', color='white',
                 path_effects=[withStroke(linewidth=4, foreground='black')])
 
+    # The static arrow pointing at the winner
     ax.add_patch(plt.Polygon([[1.0, 0.1], [1.0, -0.1], [1.2, 0]], fc='#808080', ec='black', lw=1.5))
     ax.axis('equal')
     plt.tight_layout()
