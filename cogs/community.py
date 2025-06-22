@@ -142,10 +142,9 @@ class Community(commands.Cog):
     @app_commands.checks.has_any_role("Moderator 🚨🚓", "🚨 Lead moderator")
     @app_commands.describe(
         title="The title of the announcement.",
-        content="The main content of the announcement.",
-        picture="An optional picture to attach."
+        content="The main content of the announcement."
     )
-    async def announce(self, interaction: discord.Interaction, title: str, content: str, picture: discord.Attachment = None):
+    async def announce(self, interaction: discord.Interaction, title: str, content: str):
         channel = interaction.guild.get_channel(ANNOUNCEMENT_CHANNEL_ID)
 
         if not channel:
@@ -160,9 +159,6 @@ class Community(commands.Cog):
         )
         embed.set_author(name=f"Announcement by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         
-        if picture:
-            embed.set_image(url=picture.url)
-            
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         try:
