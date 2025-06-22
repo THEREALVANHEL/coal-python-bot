@@ -1,4 +1,3 @@
-
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -12,7 +11,6 @@ SUGGESTION_CHANNEL_ID = 1137000942544199742
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
-# Updated roles for announce command
 ANNOUNCE_ROLES = [
     "Moderator 🚨🚓",
     "🚨 Lead moderator",
@@ -83,8 +81,8 @@ class Community(commands.Cog):
     )
     async def announce(self, interaction: discord.Interaction, title: str, content: str, channel: discord.TextChannel):
         embed = discord.Embed(
-            title=f"🎉 {title}",
-            description=content,
+            title=f"📢 {title}",
+            description=f"**__{content}__**",  # enlarged & bold content
             color=discord.Color.blurple(),
             timestamp=datetime.utcnow()
         )
@@ -94,7 +92,7 @@ class Community(commands.Cog):
         try:
             await channel.send(embed=embed)
             confirm = discord.Embed(
-                description=f"🌟 Your announcement has been posted in {channel.mention}!",
+                description=f"✅ Your announcement has been posted in {channel.mention}!",
                 color=discord.Color.green()
             )
             confirm.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
@@ -128,14 +126,21 @@ class Community(commands.Cog):
     async def flip(self, interaction: discord.Interaction):
         result = random.choice(["Heads", "Tails"])
         emoji = "👑" if result == "Heads" else "🪙"
+        image_path = f"./assets/{result.lower()}.jpeg"
 
-        embed = discord.Embed(title=f"Coin Flip: It's {result}!", color=discord.Color.gold())
+        if not os.path.exists(image_path):
+            await interaction.response.send_message(f"❌ Image for {result} not found in assets.", ephemeral=True)
+            return
+
+        file = discord.File(image_path, filename="result.jpeg")
+
+        embed = discord.Embed(title=f"🪙 Coin Flip: It's {result}!", color=discord.Color.gold())
         embed.set_author(name=f"Flipped by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-        embed.set_thumbnail(url="https://i.imgur.com/s0z6E5C.gif")
+        embed.set_image(url="attachment://result.jpeg")
         embed.add_field(name="Result", value=f"{emoji} **{result}**")
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, file=file)
 
     @app_commands.command(name="spinawheel", description="Spin a wheel with a title and comma-separated options.")
     @app_commands.describe(title="The title of the wheel.", options="A comma-separated list of options.")
