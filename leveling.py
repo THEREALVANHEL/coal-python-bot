@@ -76,6 +76,8 @@ class Leveling(commands.Cog):
                         description=f"Congratulations {message.author.mention}, you've reached **Level {new_level}**!",
                         color=discord.Color.fuchsia()
                     )
+                    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+                    embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
                     await level_channel.send(embed=embed)
             
             # Handle role rewards
@@ -140,7 +142,7 @@ class Leveling(commands.Cog):
         xp_needed = self.get_xp_for_level(level)
         rank = db.get_user_leveling_rank(target_user.id)
 
-        embed = discord.Embed(title=f"Rank for {target_user.display_name}", color=target_user.color)
+        embed = discord.Embed(title=f"🏆 Rank for {target_user.display_name}", color=target_user.color)
         embed.set_thumbnail(url=target_user.display_avatar.url)
         embed.add_field(name="Level", value=f"**{level}**", inline=True)
         embed.add_field(name="Rank", value=f"**#{rank}**", inline=True)
@@ -150,6 +152,7 @@ class Leveling(commands.Cog):
         progress = int((xp / xp_needed) * 20)
         bar = "🟩" * progress + "⬛" * (20 - progress)
         embed.add_field(name="Progress", value=bar, inline=False)
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         await ctx.respond(embed=embed)
 
@@ -177,6 +180,8 @@ class Leveling(commands.Cog):
             description=f"Congratulations {target_user.mention}, you've reached **Level {level}**!",
             color=discord.Color.fuchsia()
         )
+        embed.set_author(name=target_user.display_name, icon_url=target_user.display_avatar.url)
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.send(embed=embed)
 
     @commands.slash_command(name="profile", description="Show your profile: cookies, level, XP, and rank.", guild_ids=[1370009417726169250])
@@ -211,7 +216,7 @@ class Leveling(commands.Cog):
         progress = int((xp / xp_needed) * 20) if xp_needed else 0
         bar = "🟦" * progress + "⬛" * (20 - progress)
         embed.add_field(name="Progress", value=bar, inline=False)
-        embed.set_footer(text="Powered by BLEK NEPHEW | UK Futurism", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.respond(embed=embed, ephemeral=True)
 
     @commands.slash_command(name="leveltop", description="Show the top users by level/XP.", guild_ids=[1370009417726169250])
@@ -238,7 +243,7 @@ class Leveling(commands.Cog):
             description=description,
             color=discord.Color.teal()
         )
-        embed.set_footer(text="Futuristic UK Leaderboard | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.respond(embed=embed, ephemeral=True)
 
 def setup(bot):

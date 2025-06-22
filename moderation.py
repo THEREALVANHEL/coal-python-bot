@@ -70,19 +70,20 @@ class Moderation(commands.Cog):
         db.add_warning(user_id=user.id, moderator_id=ctx.author.id, reason=reason)
         
         embed = discord.Embed(
-            title="User Warned",
+            title="🛡️ User Warned",
             description=f"**{user.mention}** has been warned by **{ctx.author.mention}**.",
             color=discord.Color.orange(),
             timestamp=datetime.utcnow()
         )
         embed.add_field(name="Reason", value=reason, inline=False)
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         
         await ctx.respond(embed=embed)
         
         try:
             # Also send a DM to the user
             dm_embed = discord.Embed(
-                title="You have been warned",
+                title="🚨 You Have Been Warned",
                 description=f"You have received a warning in **{ctx.guild.name}**.",
                 color=discord.Color.red(),
                 timestamp=datetime.utcnow()
@@ -109,7 +110,7 @@ class Moderation(commands.Cog):
             return
 
         embed = discord.Embed(
-            title=f"Warnings for {user.display_name}",
+            title=f"📜 Warnings for {user.display_name}",
             color=discord.Color.dark_orange()
         )
         embed.set_thumbnail(url=user.display_avatar.url)
@@ -125,6 +126,7 @@ class Moderation(commands.Cog):
                 inline=False
             )
         
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.respond(embed=embed, ephemeral=True)
 
 

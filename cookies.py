@@ -30,6 +30,7 @@ class LeaderboardView(discord.ui.View):
         total_users = db.get_total_users_in_leaderboard()
         if total_users == 0:
             embed = discord.Embed(title="🍪 Cookie Leaderboard", description="No one has any cookies yet!", color=discord.Color.blue())
+            embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
             await interaction.followup.edit_message(embed=embed, view=None)
             return
 
@@ -48,8 +49,11 @@ class LeaderboardView(discord.ui.View):
         if not description:
             description = "This page is empty."
 
-        embed = discord.Embed(title="🍪 Cookie Leaderboard", description=description, color=discord.Color.gold())
-        embed.set_footer(text=f"Page {self.current_page + 1} / {((total_users - 1) // limit) + 1}")
+        embed = discord.Embed(title="🏆 Cookie Leaderboard", description=description, color=discord.Color.gold())
+        
+        # Add a dynamic footer
+        footer_text = f"Page {self.current_page + 1} / {((total_users - 1) // limit) + 1} | BLECKOPS ON TOP"
+        embed.set_footer(text=footer_text, icon_url=interaction.client.user.display_avatar.url)
         
         # Enable/disable buttons based on page number
         self.children[0].disabled = (self.current_page == 0) # Previous button
@@ -107,7 +111,12 @@ class Cookies(commands.Cog):
     async def cookies(self, ctx: discord.ApplicationContext, user: discord.Member = None):
         target_user = user or ctx.author
         cookie_balance = db.get_cookies(target_user.id)
-        await ctx.respond(f"**{target_user.display_name}** has **{cookie_balance}** 🍪 cookies.", ephemeral=True)
+        
+        embed = discord.Embed(
+            description=f"**{target_user.display_name}** has **{cookie_balance}** 🍪 cookies.",
+            color=discord.Color.gold()
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
 
     @commands.slash_command(name="cookiesrank", description="Check your or another user's rank in the leaderboard.", guild_ids=[1370009417726169250])
     @option("user", description="The user to check the rank of.", type=discord.Member, required=False)
@@ -115,7 +124,12 @@ class Cookies(commands.Cog):
         target_user = user or ctx.author
         rank = db.get_user_rank(target_user.id)
         total_cookies = db.get_cookies(target_user.id)
-        await ctx.respond(f"**{target_user.display_name}** is rank **#{rank}** with **{total_cookies}** 🍪 cookies.", ephemeral=True)
+        
+        embed = discord.Embed(
+            description=f"**{target_user.display_name}** is rank **#{rank}** with **{total_cookies}** 🍪 cookies.",
+            color=discord.Color.gold()
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
 
     @commands.slash_command(name="top", description="Display the cookie leaderboard.", guild_ids=[1370009417726169250])
     async def top(self, ctx: discord.ApplicationContext):
@@ -146,7 +160,7 @@ class Cookies(commands.Cog):
             description=description,
             color=discord.Color.gold()
         )
-        embed.set_footer(text="Futuristic UK Cookieboard | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.respond(embed=embed, ephemeral=True)
 
     @commands.slash_command(name="addcookies", description="[Manager] Add cookies to a user.", guild_ids=[1370009417726169250])
@@ -162,7 +176,11 @@ class Cookies(commands.Cog):
             return
 
         db.add_cookies(user.id, amount)
-        await ctx.respond(f"Successfully added **{amount}** 🍪 to **{user.display_name}**.", ephemeral=True)
+        embed = discord.Embed(
+            description=f"Successfully added **{amount}** 🍪 to **{user.display_name}**.",
+            color=discord.Color.green()
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
 
 
     @commands.slash_command(name="removecookies", description="[Manager] Remove cookies from a user.", guild_ids=[1370009417726169250])
@@ -178,7 +196,11 @@ class Cookies(commands.Cog):
             return
 
         db.remove_cookies(user.id, amount)
-        await ctx.respond(f"Successfully removed **{amount}** 🍪 from **{user.display_name}**.", ephemeral=True)
+        embed = discord.Embed(
+            description=f"Successfully removed **{amount}** 🍪 from **{user.display_name}**.",
+            color=discord.Color.red()
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
 
 
     @commands.slash_command(name="cookiesgiveall", description="[Manager] Give a certain number of cookies to everyone.", guild_ids=[1370009417726169250])
@@ -197,7 +219,11 @@ class Cookies(commands.Cog):
         member_ids = [member.id for member in ctx.guild.members if not member.bot]
         db.give_cookies_to_all(amount, member_ids)
         
-        await ctx.followup.send(f"Successfully gave **{amount}** 🍪 to **{len(member_ids)}** members.")
+        embed = discord.Embed(
+            description=f"Successfully gave **{amount}** 🍪 to **{len(member_ids)}** members.",
+            color=discord.Color.green()
+        )
+        await ctx.followup.send(embed=embed)
 
 
     @commands.slash_command(name="cookiesreset", description="[Manager] Reset all cookies on the server to 0.", guild_ids=[1370009417726169250])

@@ -48,7 +48,7 @@ def create_wheel_image(options, title, winner=None):
         wedgeprops={'edgecolor': 'white', 'linewidth': 2}
     )
 
-    # Add more visible text labels, rotated with the wheel
+    # Add more visible text labels, without rotation
     for i, p in enumerate(wedges):
         ang = (p.theta2 - p.theta1)/2. + p.theta1
         y = np.sin(np.deg2rad(ang))
@@ -57,7 +57,7 @@ def create_wheel_image(options, title, winner=None):
         # Wrap long text
         wrapped_label = '\n'.join(textwrap.wrap(options[i], 10, break_long_words=False))
         
-        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center', rotation=ang, fontsize=16,
+        ax.text(x*0.65, y*0.65, wrapped_label, ha='center', va='center', fontsize=16,
                 fontweight='bold', color='white',
                 path_effects=[withStroke(linewidth=4, foreground='black')])
 
@@ -141,7 +141,7 @@ class Community(commands.Cog):
         if notes != "None":
             embed.add_field(name="📝 Additional Notes", value=notes, inline=False)
             
-        embed.set_footer(text="Please be respectful and follow all server rules during the event.")
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         try:
             await channel.send(embed=embed)
@@ -201,7 +201,7 @@ class Community(commands.Cog):
         if picture:
             embed.set_image(url=picture.url)
             
-        embed.set_footer(text="Thank you to all who participated!")
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         try:
             await channel.send(embed=embed)
@@ -237,7 +237,7 @@ class Community(commands.Cog):
         embed = discord.Embed(
             title=f"📊 {question}",
             description="Vote by reacting with the corresponding number!",
-            color=discord.Color.blurple(),
+            color=discord.Color.purple(),
             timestamp=datetime.utcnow()
         )
         
@@ -249,6 +249,7 @@ class Community(commands.Cog):
             
         embed.add_field(name="Options", value=poll_options_text, inline=False)
         embed.set_author(name=f"Poll by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         await interaction.response.send_message("Creating your poll...", ephemeral=True)
         poll_message = await interaction.channel.send(embed=embed)
@@ -291,7 +292,7 @@ class Community(commands.Cog):
                 color=discord.Color.blue()
             )
             embed.set_author(name=f"A question from {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="Powered by OpenAI")
+            embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
             
             await interaction.followup.send(embed=embed)
 
@@ -332,9 +333,9 @@ class Community(commands.Cog):
         result = random.choice(["Heads", "Tails"])
         
         embed = discord.Embed(
-            title="Coin Flip",
+            title="<:coin:1234567890> Coin Flip", # Placeholder, replace with a real coin emoji if you have one
             description=f"The coin landed on... **{result}**!",
-            color=discord.Color.gold() if result == "Heads" else discord.Color.dark_grey()
+            color=discord.Color.gold() if result == "Heads" else discord.Color.light_grey()
         )
         
         if result == "Heads":
@@ -343,6 +344,7 @@ class Community(commands.Cog):
             embed.set_thumbnail(url="https://i.imgur.com/B6aM4y0.png") # A simple tails image
             
         embed.set_author(name=f"{interaction.user.display_name} flipped a coin", icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         await interaction.response.send_message(embed=embed)
 
@@ -363,10 +365,11 @@ class Community(commands.Cog):
         embed = discord.Embed(
             title="💡 New Suggestion",
             description=suggestion,
-            color=discord.Color.light_grey(),
+            color=discord.Color.from_rgb(225, 225, 225), # Light Grey
             timestamp=datetime.utcnow()
         )
         embed.set_author(name=f"Suggested by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         
         try:
             message = await suggestion_channel.send(embed=embed)
@@ -402,10 +405,11 @@ class Community(commands.Cog):
         embed = discord.Embed(
             title=f"🎡 {title}",
             description=f"The wheel is spinning with {len(option_list)} options!",
-            color=discord.Color.gold()
+            color=discord.Color.dark_gold()
         )
         embed.set_image(url="attachment://wheel.png")
         embed.set_author(name=f"{interaction.user.display_name} is spinning...", icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         
         await interaction.response.send_message(embed=embed, file=wheel_file)
 
@@ -427,7 +431,7 @@ class Community(commands.Cog):
         result_embed.set_author(name=f"Spin result for {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         result_embed.add_field(name="Landed on:", value=f"**🎉 {winner} 🎉**", inline=False)
         result_embed.set_image(url="attachment://wheel_result.png")
-        result_embed.set_footer(text="Use /spinawheel again to play with new options!")
+        result_embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
 
         await interaction.edit_original_response(embed=result_embed, attachments=[result_file])
 
