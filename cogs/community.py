@@ -5,9 +5,9 @@ import random
 import os
 from datetime import datetime
 import google.generativeai as genai
+import database as db  # ✅ Importing the database module
 
 # --- Globals ---
-SUGGESTION_CHANNEL_ID = 1137000942544199742
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
@@ -55,9 +55,11 @@ class Community(commands.Cog):
     @app_commands.command(name="suggest", description="Submit a suggestion for the server.")
     @app_commands.describe(suggestion="Your suggestion.", notes="Any additional notes or details.")
     async def suggest(self, interaction: discord.Interaction, suggestion: str, notes: str = "None"):
-        channel = interaction.guild.get_channel(SUGGESTION_CHANNEL_ID)
+        channel_id = db.get_channel(interaction.guild.id, "suggestion")
+        channel = interaction.guild.get_channel(channel_id) if channel_id else None
+
         if not channel:
-            await interaction.response.send_message("Suggestion channel not found.", ephemeral=True)
+            await interaction.response.send_message("❌ Suggestion channel not set. Use `/setsuggestionchannel` first.", ephemeral=True)
             return
 
         embed = discord.Embed(title="💡 New Suggestion", description=suggestion, color=discord.Color.yellow(), timestamp=datetime.utcnow())
@@ -68,9 +70,11 @@ class Community(commands.Cog):
 
         try:
             await channel.send(embed=embed)
-            await interaction.response.send_message("Suggestion submitted successfully!", ephemeral=True)
+            await interaction.response.send_message("✅ Suggestion submitted successfully!", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("Permission error: Can't send message to suggestion channel.", ephemeral=True)
+            await interaction.response.send_message("❌ I don't have permission to send messages in that channel.", ephemeral=True)
+
+    # (All other commands like announce, poll, flip, spinawheel remain unchanged below)
 
     @app_commands.command(name="announce", description="[Moderator] Create a server announcement.")
     @app_commands.checks.has_any_role(*ANNOUNCE_ROLES)
