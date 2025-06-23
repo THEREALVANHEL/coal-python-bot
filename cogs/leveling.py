@@ -12,12 +12,12 @@ import database as db
 
 # --- Configuration ---
 LEVEL_ROLES = {
-    30: 1371032270361853962,
-    60: 1371032537740214302,
-    120: 1371032664026382427,
-    210: 1371032830217289748,
-    300: 1371032964938600521,
-    450: 1371033073038266429,
+    5: 1371032270361853962,
+    10: 1371032537740214302,
+    20: 1371032664026382427,
+    35: 1371032830217289748,
+    50: 1371032964938600521,
+    75: 1371033073038266429,
 }
 
 # Cooldown for XP gain (in seconds)
@@ -67,10 +67,10 @@ class LevelLeaderboardView(discord.ui.View):
             color=discord.Color.purple()
         )
         embed.set_footer(text=f"Page {self.current_page + 1}/{total_pages}")
-        
+
         self.children[0].disabled = (self.current_page == 0)
         self.children[1].disabled = (self.current_page >= total_pages - 1)
-        
+
         return embed
 
     async def update_message(self, interaction: discord.Interaction):
@@ -100,7 +100,7 @@ class Leveling(commands.Cog):
         self.xp_cooldowns = {}
 
     def get_xp_for_level(self, level):
-        return 10 * (5 * (level ** 2) + (50 * level) + 100)
+        return 3 * (5 * (level ** 2) + 50 * level + 100)
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -115,7 +115,6 @@ class Leveling(commands.Cog):
                 return
 
         self.xp_cooldowns[user_id] = current_time
-
         xp_to_add = random.randint(1, 3)
         db.update_user_xp(user_id, xp_to_add)
 
@@ -149,7 +148,6 @@ class Leveling(commands.Cog):
             return
         role_to_add = guild.get_role(role_to_add_id)
         if not role_to_add:
-            print(f"Error: Role ID {role_to_add_id} not found.")
             return
 
         roles_to_remove_ids = [role_id for level, role_id in LEVEL_ROLES.items() if level < new_level]
@@ -160,11 +158,9 @@ class Leveling(commands.Cog):
                 await member.remove_roles(*roles_to_remove, reason="Level up")
             await member.add_roles(role_to_add, reason=f"Reached Level {new_level}")
         except discord.Forbidden:
-            print(f"Error: Cannot manage roles for {member.display_name}.")
+            print(f"Missing permissions to update roles for {member.display_name}")
         except Exception as e:
-            print(f"An error occurred while updating roles: {e}")
-
-    # --- Slash Commands ---
+            print(f"Error updating roles: {e}")
 
     @app_commands.command(name="rank", description="Check your or another user's level and XP.")
     @app_commands.guilds(guild_obj)
@@ -199,7 +195,7 @@ class Leveling(commands.Cog):
         target_user = user or interaction.user
         user_data = db.get_user_level_data(target_user.id)
         if not user_data:
-            await interaction.response.send_message(f"**{target_user.display_name}** hasn't chatted yet.", ephemeral=True)
+            await interaction.response.send_message(f"**{target_user.display_name}** hasn't chatted yet, so they have no level roles.", ephemeral=True)
             return
 
         current_level = user_data.get('level', 0)
@@ -219,8 +215,9 @@ class Leveling(commands.Cog):
             if not role:
                 continue
             has_role = role in target_user.roles
-            if role_id == highest_achieved_role_id and not has_role:
-                roles_to_add.append(role)
+            if role_id == highest_achieved_role_id:
+                if not has_role:
+                    roles_to_add.append(role)
             elif has_role:
                 roles_to_remove.append(role)
 
@@ -232,7 +229,7 @@ class Leveling(commands.Cog):
         if not roles_to_add and not roles_to_remove:
             await interaction.response.send_message(f"✅ **{target_user.display_name}**'s roles are already up-to-date.", ephemeral=True)
         else:
-            await interaction.response.send_message(f"✅ Roles updated for **{target_user.display_name}**.", ephemeral=True)
+            await interaction.response.send_message(f"✅ Roles updated for **{target_user.display_name}** based on their current level.", ephemeral=True)
 
     @app_commands.command(name="chatlvlup", description="Announce your last level up in chat.")
     @app_commands.guilds(guild_obj)
@@ -260,7 +257,6 @@ class Leveling(commands.Cog):
         xp = user_data.get('xp', 0) if user_data else 0
         xp_needed = self.get_xp_for_level(level)
         rank = db.get_user_leveling_rank(target_user.id) if user_data else 'Unranked'
-
         cookie_balance = db.get_cookies(target_user.id)
         cookie_rank = db.get_user_rank(target_user.id)
 
@@ -270,15 +266,16 @@ class Leveling(commands.Cog):
         )
         embed.set_thumbnail(url=target_user.display_avatar.url)
         level_info = f"**Level:** {level}\n**Rank:** #{rank}\n**XP:** {xp} / {xp_needed}"
-        embed.add_field(name="🧬 Leveling Stats", value=level_info, inline=True)
         cookie_info = f"**Balance:** {cookie_balance} 🍪\n**Rank:** #{cookie_rank}"
+        embed.add_field(name="🧬 Leveling Stats", value=level_info, inline=True)
         embed.add_field(name="🍪 Cookie Stats", value=cookie_info, inline=True)
+
         if user_data:
             progress = int((xp / xp_needed) * 20) if xp_needed > 0 else 0
             bar = "🟩" * progress + "⬛" * (20 - progress)
             embed.add_field(name="Progress to Next Level", value=bar, inline=False)
-        embed.set_footer(text=f"Joined: {target_user.joined_at.strftime('%b %d, %Y')}")
 
+        embed.set_footer(text=f"Joined: {target_user.joined_at.strftime('%b %d, %Y')}")
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="leveltop", description="Show the top users by level/XP.")
