@@ -3,9 +3,21 @@ from discord.ext import commands
 from discord import app_commands
 import random
 import os
+import re
 from datetime import datetime
 import google.generativeai as genai
 import database as db  # ✅ Importing the database module
+from discord.ui import Button, View
+
+# --- Helpers for link and button handling ---
+def extract_urls(text):
+    return re.findall(r'(https?://\S+)', text)
+
+class LinkView(View):
+    def __init__(self, urls):
+        super().__init__()
+        for i, url in enumerate(urls[:5]):  # Max 5 buttons
+            self.add_item(Button(label=f"Link {i+1}", url=url))
 
 # --- Globals ---
 GUILD_ID = 1370009417726169250
@@ -37,6 +49,9 @@ class Community(commands.Cog):
             response = await model.generate_content_async(prompt)
             answer = response.text.strip() if hasattr(response, 'text') and response.text.strip() else "Hmm... I couldn't think of a clever answer this time. Try asking again later!"
 
+            urls = extract_urls(answer)
+            image_links = [url for url in urls if url.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
+
             embed = discord.Embed(
                 title=f"🤔 {interaction.user.display_name} asks...",
                 description=f"**{question}**",
@@ -44,9 +59,19 @@ class Community(commands.Cog):
                 timestamp=datetime.utcnow()
             )
             embed.set_author(name="Bleck Nephew AI", icon_url=self.bot.user.display_avatar.url)
-            embed.add_field(name="💡 Answer", value=answer, inline=False)
             embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-            await interaction.followup.send(embed=embed)
+
+            chunks = [answer[i:i+1024] for i in range(0, len(answer), 1024)]
+            for i, chunk in enumerate(chunks):
+                embed.add_field(name=f"💡 Answer Part {i+1}" if len(chunks) > 1 else "💡 Answer", value=chunk, inline=False)
+
+            if image_links:
+                embed.set_image(url=image_links[0])
+
+            if urls:
+                await interaction.followup.send(embed=embed, view=LinkView(urls))
+            else:
+                await interaction.followup.send(embed=embed)
 
         except Exception as e:
             print(f"Gemini error: {e}")
