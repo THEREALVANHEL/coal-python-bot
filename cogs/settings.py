@@ -5,6 +5,7 @@ import sys
 import os
 from datetime import datetime
 
+# Ensure parent directory is in path to import your database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
@@ -98,7 +99,10 @@ class Settings(commands.Cog):
             starboard_info = "Not set"
         embed.add_field(name="⭐ Starboard Channel", value=starboard_info, inline=False)
 
-        embed.set_footer(text="Futuristic UK Settings | BLEK NEPHEW", icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png")
+        embed.set_footer(
+            text="VANHELISMYSENSEI Settings | BLEK NEPHEW",
+            icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+        )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="botdebug", description="[Owner] Shows a debug panel with loaded cogs and commands.")
@@ -160,7 +164,6 @@ class Settings(commands.Cog):
         if not starboard_channel:
             return
 
-        # 🛑 Check if already starred
         if db.has_been_starred(payload.guild_id, payload.message_id):
             return
 
@@ -189,8 +192,8 @@ class Settings(commands.Cog):
             embed.set_image(url=message.attachments[0].url)
 
         await starboard_channel.send(embed=embed)
-        db.mark_as_starred(payload.guild_id, payload.message_id)  # ✅ Mark posted
+        db.mark_as_starred(payload.guild_id, payload.message_id)
 
-# Setup the Cog
+# Setup
 async def setup(bot):
     await bot.add_cog(Settings(bot))
