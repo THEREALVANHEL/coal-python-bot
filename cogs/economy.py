@@ -3,7 +3,6 @@ from discord.ext import commands
 from discord import app_commands
 import sys
 import os
-import random
 from datetime import datetime, timedelta
 
 # Add parent directory to path to import database
@@ -17,50 +16,54 @@ class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    # ────────────────────────────────────────────────────────────────────────────
+    # DAILY COMMAND (now public)
+    # ────────────────────────────────────────────────────────────────────────────
     @app_commands.command(name="daily", description="Claim your daily XP and build a streak!")
     @app_commands.guilds(guild_obj)
     async def daily(self, interaction: discord.Interaction):
         user_id = interaction.user.id
         daily_data = db.get_daily_data(user_id)
-        
-        # Cooldown: 22 hours
-        cooldown_hours = 22 
-        
+
+        cooldown_hours = 22  # 22-hour cooldown
+
+        # ── Cool-down check ─────────────────────────────────────────────────────
         if daily_data and 'last_checkin' in daily_data:
             last_checkin = daily_data['last_checkin']
             time_since_checkin = datetime.utcnow() - last_checkin
-            
+
             if time_since_checkin < timedelta(hours=cooldown_hours):
                 time_left = timedelta(hours=cooldown_hours) - time_since_checkin
                 hours, remainder = divmod(int(time_left.total_seconds()), 3600)
                 minutes, _ = divmod(remainder, 60)
-                await interaction.response.send_message(f"You've already claimed your daily reward! Try again in **{hours}h {minutes}m**.", ephemeral=True)
+                await interaction.response.send_message(
+                    f"⏳ {interaction.user.mention}, you've already claimed your daily reward! "
+                    f"Try again in **{hours}h {minutes}m**."
+                )
                 return
 
-        # --- Check and update streak ---
+        # ── Streak handling ─────────────────────────────────────────────────────
         current_streak = daily_data.get('streak', 0) if daily_data else 0
-        
-        # If last check-in was more than 44 hours ago (22*2), reset streak
         if daily_data and (datetime.utcnow() - daily_data['last_checkin']) > timedelta(hours=cooldown_hours * 2):
             new_streak = 1
         else:
             new_streak = current_streak + 1
 
-        # --- Calculate reward ---
+        # ── Reward calculation ──────────────────────────────────────────────────
         reward = 20
         bonus_message = ""
-        
+
         if new_streak == 7:
             bonus = 50
             reward += bonus
             bonus_message = f"🎉 You've reached a 7-day streak! You get a bonus of **{bonus} XP**."
-            # Reset streak after claiming the bonus
-            db.update_daily_checkin(user_id, 0) 
+            db.update_daily_checkin(user_id, 0)  # reset streak after bonus
         else:
             db.update_daily_checkin(user_id, new_streak)
 
         db.update_user_xp(user_id, reward)
 
+        # ── Level-up check ──────────────────────────────────────────────────────
         leveling_cog = self.bot.get_cog("Leveling")
         if leveling_cog:
             user_data = db.get_user_level_data(user_id)
@@ -68,30 +71,35 @@ class Economy(commands.Cog):
             user_xp = user_data.get('xp', 0)
             xp_needed = leveling_cog.get_xp_for_level(user_level)
             if user_xp >= xp_needed:
-                 # Announce level up
+                # Announce level up
                 level_channel_id = db.get_channel(interaction.guild.id, "leveling")
                 if level_channel_id:
                     level_channel = interaction.guild.get_channel(level_channel_id)
                     if level_channel:
-                        embed = discord.Embed(
+                        embed_lvl = discord.Embed(
                             title="🎉 Level Up!",
-                            description=f"Congratulations {interaction.user.mention}, you've reached **Level {user_level + 1}**!",
+                            description=f"Congratulations {interaction.user.mention}, "
+                                        f"you've reached **Level {user_level + 1}**!",
                             color=discord.Color.fuchsia()
                         )
-                        await level_channel.send(embed=embed)
+                        await level_channel.send(embed=embed_lvl)
                 await leveling_cog.update_user_roles(interaction.user, user_level + 1)
 
-
+        # ── Build response embed ────────────────────────────────────────────────
         embed = discord.Embed(
             title="🌞 Daily Reward Claimed!",
-            description=f"You received **{reward} XP**!\nYour current streak is now **{new_streak if new_streak != 7 else 0}** days.",
+            description=f"{interaction.user.mention} received **{reward} XP**!\n"
+                        f"Current streak: **{new_streak if new_streak != 7 else 0}** days.",
             color=discord.Color.green()
         )
         if bonus_message:
             embed.add_field(name="Streak Bonus!", value=bonus_message)
-        
+
         await interaction.response.send_message(embed=embed)
 
+    # ────────────────────────────────────────────────────────────────────────────
+    # DONATECOOKIES COMMAND (unchanged)
+    # ────────────────────────────────────────────────────────────────────────────
     @app_commands.command(name="donatecookies", description="Give some of your cookies to another user.")
     @app_commands.guilds(guild_obj)
     @app_commands.describe(
@@ -116,7 +124,11 @@ class Economy(commands.Cog):
 
         sender_balance = db.get_cookies(sender_id)
         if sender_balance < amount:
-            await interaction.response.send_message(f"You don't have enough cookies to donate that much. Your balance is **{sender_balance}** 🍪.", ephemeral=True)
+            await interaction.response.send_message(
+                f"You don't have enough cookies to donate that much. "
+                f"Your balance is **{sender_balance}** 🍪.",
+                ephemeral=True
+            )
             return
 
         # Perform the transaction
@@ -126,7 +138,6 @@ class Economy(commands.Cog):
         # Update cookie roles for both users
         cookies_cog = self.bot.get_cog("Cookies")
         if cookies_cog:
-            # Fetch the member objects to pass to the update function
             sender_member = interaction.guild.get_member(sender_id)
             receiver_member = user
             if sender_member:
@@ -137,9 +148,10 @@ class Economy(commands.Cog):
         embed = discord.Embed(
             title="🎁 Cookies Donated!",
             description=f"{interaction.user.mention} has donated **{amount}** 🍪 to {user.mention}!",
-            color=discord.Color.from_rgb(255, 182, 193) # Light pink
+            color=discord.Color.from_rgb(255, 182, 193)  # Light pink
         )
         await interaction.response.send_message(embed=embed)
 
+# ────────────────────────────────────────────────────────────────────────────────
 async def setup(bot):
-    await bot.add_cog(Economy(bot)) 
+    await bot.add_cog(Economy(bot))
