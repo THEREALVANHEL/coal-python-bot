@@ -1,36 +1,61 @@
-# Python
-venv/
+# === Python Cache ===
 __pycache__/
-*.pyc
 *.py[cod]
 *$py.class
 
-# Environment variables
-.env
-.venv
+# === Virtual Environments ===
 env/
+.venv/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# === Environment Variables ===
+.env
 .wget-hsts
 
-# IDE / Editor specific
+# === Build / Distribution ===
+build/
+dist/
+
+# === IDEs / Editors ===
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# Render specific
-.render.yaml
+# === OS Files ===
+.DS_Store
+Thumbs.db
 
-# System & User Files
+# === User/System Files ===
 .cache/
 .config/
 .local/
 .pm2/
 .var/
-snap/
+.pki/
+.Xauthority
+.bash_history
+.sudo_as_admin_successful
+.xsession-errors*
+.bashrc
+.gitconfig
+
+# === Render Deployment ===
+.render.yaml
+
+# === Cursor / Display ===
+.cursor/
+
+# === Project Folders to Ignore ===
+discord-cpp-bot/
+my-discord-bot/
+.fly/
+
+# === Optional Personal Folders (only if project is inside home dir) ===
 Downloads/
 Desktop/
 Documents/
@@ -39,34 +64,7 @@ Pictures/
 Public/
 Templates/
 Videos/
-.Xauthority
-.bash_history
-.sudo_as_admin_successful
-.xsession-errors*
-*~
-*.swp
-*.swo
 
-# Embedded repos that should be submodules
-discord-cpp-bot/
-
-# Build artifacts
-build/
-dist/
-
-# OS-specific
-.DS_Store
-Thumbs.db
-
-# Cursor-specific
-.cursor/
-
-# User-specific files
-.bashrc
-.gitconfig
-.pki/
-coal.txt
-
-# Other projects
-my-discord-bot/
-.fly/
+# === Logs ===
+*.log
+*.tmp
