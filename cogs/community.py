@@ -1,3 +1,4 @@
+# (top unchanged)
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -6,20 +7,18 @@ import os
 import re
 from datetime import datetime
 import google.generativeai as genai
-import database as db  # ✅ Importing the database module
+import database as db
 from discord.ui import Button, View
 
-# --- Helpers for link and button handling ---
 def extract_urls(text):
     return re.findall(r'(https?://\S+)', text)
 
 class LinkView(View):
     def __init__(self, urls):
         super().__init__()
-        for i, url in enumerate(urls[:5]):  # Max 5 buttons
+        for i, url in enumerate(urls[:5]):
             self.add_item(Button(label=f"Link {i+1}", url=url))
 
-# --- Globals ---
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
@@ -41,6 +40,7 @@ class Community(commands.Cog):
 
     @app_commands.command(name="askblecknephew", description="Ask Bleck Nephew anything! (Powered by AI)")
     @app_commands.describe(question="The question you want to ask.")
+    @app_commands.guilds(guild_obj)
     async def askblecknephew(self, interaction: discord.Interaction, question: str):
         await interaction.response.defer()
         try:
@@ -79,6 +79,7 @@ class Community(commands.Cog):
 
     @app_commands.command(name="suggest", description="Submit a suggestion for the server.")
     @app_commands.describe(suggestion="Your suggestion.")
+    @app_commands.guilds(guild_obj)
     async def suggest(self, interaction: discord.Interaction, suggestion: str):
         channel_id = db.get_channel(interaction.guild.id, "suggestion")
         channel = interaction.guild.get_channel(channel_id) if channel_id else None
@@ -111,6 +112,7 @@ class Community(commands.Cog):
         content="The main content of the announcement.",
         channel="The channel where the announcement should be sent."
     )
+    @app_commands.guilds(guild_obj)
     async def announce(self, interaction: discord.Interaction, title: str, content: str, channel: discord.TextChannel):
         embed = discord.Embed(
             title=f"📢 {title}",
@@ -134,6 +136,7 @@ class Community(commands.Cog):
 
     @app_commands.command(name="poll", description="Create a simple poll.")
     @app_commands.describe(question="The poll question.", options="Up to 10 options, separated by commas.")
+    @app_commands.guilds(guild_obj)
     async def poll(self, interaction: discord.Interaction, question: str, options: str):
         option_list = [opt.strip() for opt in options.split(',')]
         if len(option_list) > 10:
@@ -155,6 +158,7 @@ class Community(commands.Cog):
         await interaction.delete_original_response()
 
     @app_commands.command(name="flip", description="Flip a coin.")
+    @app_commands.guilds(guild_obj)
     async def flip(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
@@ -178,6 +182,7 @@ class Community(commands.Cog):
 
     @app_commands.command(name="spinawheel", description="Spin a wheel with a title and comma-separated options.")
     @app_commands.describe(title="The title of the wheel.", options="A comma-separated list of options.")
+    @app_commands.guilds(guild_obj)
     async def spinawheel(self, interaction: discord.Interaction, title: str, options: str):
         await interaction.response.defer()
 
@@ -243,5 +248,6 @@ class Community(commands.Cog):
 
         await interaction.followup.send(embed=embed, file=wheel_file)
 
+# ───────────────────────────────────────────────────────────────────────────────
 async def setup(bot):
     await bot.add_cog(Community(bot), guilds=[guild_obj])
