@@ -199,4 +199,4 @@ class Leveling(commands.Cog):
 
 # ───────────────────────────────────────────────────────────────────────────────
 async def setup(bot):
-    await bot.add_cog(Leveling(bot))
+    await bot.add_cog(Leveling(bot), guilds=[guild_obj])
