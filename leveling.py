@@ -26,35 +26,30 @@ XP_COOLDOWN = 60
 class Leveling(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.xp_cooldowns = {} # user_id: timestamp
+        self.xp_cooldowns = {}  # user_id: timestamp
 
     def get_xp_for_level(self, level):
-        """Calculate the XP needed to reach a certain level."""
-        # A much harder formula
-        return 25 * (level ** 2) + (100 * level) + 150
+        """Reduced XP curve for level progression."""
+        return 15 * (level ** 2) + (50 * level) + 100
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        # Ignore bots and DMs
         if message.author.bot or not message.guild:
             return
+
+        if len(message.content.strip()) < 5:
+            return  # Ignore very short/spam messages
 
         user_id = message.author.id
         current_time = asyncio.get_event_loop().time()
 
-        # Check for cooldown
-        if user_id in self.xp_cooldowns:
-            if current_time - self.xp_cooldowns[user_id] < XP_COOLDOWN:
-                return # User is on cooldown
-        
-        # Update cooldown timestamp
+        if user_id in self.xp_cooldowns and current_time - self.xp_cooldowns[user_id] < XP_COOLDOWN:
+            return
+
         self.xp_cooldowns[user_id] = current_time
-        
-        # Grant XP (reduced amount)
         xp_to_add = random.randint(1, 5)
         db.update_user_xp(user_id, xp_to_add)
 
-        # Check for level up
         user_data = db.get_user_level_data(user_id)
         user_level = user_data.get('level', 0)
         user_xp = user_data.get('xp', 0)
@@ -62,11 +57,9 @@ class Leveling(commands.Cog):
         xp_needed = self.get_xp_for_level(user_level)
 
         if user_xp >= xp_needed:
-            # LEVEL UP!
             new_level = user_level + 1
             db.set_user_level(user_id, new_level)
-            
-            # Announce it
+
             level_channel_id = db.get_channel(message.guild.id, "leveling")
             if level_channel_id:
                 level_channel = message.guild.get_channel(level_channel_id)
@@ -79,35 +72,26 @@ class Leveling(commands.Cog):
                     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
                     embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
                     await level_channel.send(embed=embed)
-            
-            # Handle role rewards
+
             if new_level in LEVEL_ROLES:
                 await self.update_user_roles(message.author)
 
     async def update_user_roles(self, member: discord.Member):
-        """Assigns the correct level role based on the member's current level and removes other level roles."""
         user_data = db.get_user_level_data(member.id)
         if not user_data:
-            return # No data for this user
+            return
 
         level = user_data.get('level', 0)
         guild = member.guild
 
-        # Find the highest role the user should have
         highest_role_to_keep_id = None
-        # Iterate from highest level to lowest
         for role_level, role_id in sorted(LEVEL_ROLES.items(), key=lambda item: item[0], reverse=True):
             if level >= role_level:
                 highest_role_to_keep_id = role_id
                 break
-        
-        # Determine which roles to add and remove
+
         level_role_ids = set(LEVEL_ROLES.values())
-        roles_to_remove = []
-        
-        for role in member.roles:
-            if role.id in level_role_ids and role.id != highest_role_to_keep_id:
-                roles_to_remove.append(role)
+        roles_to_remove = [role for role in member.roles if role.id in level_role_ids and role.id != highest_role_to_keep_id]
 
         role_to_add = None
         if highest_role_to_keep_id:
@@ -121,17 +105,16 @@ class Leveling(commands.Cog):
             if role_to_add:
                 await member.add_roles(role_to_add, reason=f"Level role update for Level {level}")
         except discord.Forbidden:
-            print(f"Error: Bot does not have permissions to manage roles for {member.display_name}.")
+            print(f"Missing permissions to modify roles for {member.display_name}.")
         except Exception as e:
-            print(f"An error occurred while updating roles for {member.display_name}: {e}")
+            print(f"Role update error for {member.display_name}: {e}")
 
-    # --- Commands ---
-    
+    # --- Slash Commands ---
+
     @commands.slash_command(name="rank", description="Check your or another user's level and XP.", guild_ids=[1370009417726169250])
     @option("user", description="The user to check the rank of.", type=discord.Member, required=False)
     async def rank(self, ctx: discord.ApplicationContext, user: discord.Member = None):
         target_user = user or ctx.author
-        
         user_data = db.get_user_level_data(target_user.id)
         if not user_data:
             await ctx.respond(f"**{target_user.display_name}** hasn't chatted yet!", ephemeral=True)
@@ -147,37 +130,30 @@ class Leveling(commands.Cog):
         embed.add_field(name="Level", value=f"**{level}**", inline=True)
         embed.add_field(name="Rank", value=f"**#{rank}**", inline=True)
         embed.add_field(name="XP", value=f"`{xp} / {xp_needed}`", inline=False)
-        
-        # Progress bar
-        progress = int((xp / xp_needed) * 20)
-        bar = "🟩" * progress + "⬛" * (20 - progress)
+        bar = "🟩" * int((xp / xp_needed) * 20) + "⬛" * (20 - int((xp / xp_needed) * 20))
         embed.add_field(name="Progress", value=bar, inline=False)
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-
         await ctx.respond(embed=embed)
 
     @commands.slash_command(name="updateroles", description="Update your roles based on your current level.", guild_ids=[1370009417726169250])
     @option("user", description="The user whose roles you want to update.", type=discord.Member, required=False)
     async def updateroles(self, ctx: discord.ApplicationContext, user: discord.Member = None):
         target_user = user or ctx.author
-        
         await ctx.defer(ephemeral=True)
-        
         await self.update_user_roles(target_user)
-        
-        await ctx.followup.send(f"Roles have been updated for **{target_user.display_name}** based on their current level.")
+        await ctx.followup.send(f"Roles updated for **{target_user.display_name}**.")
 
     @commands.slash_command(name="chatlvlup", description="Announce your last level up in chat.", guild_ids=[1370009417726169250])
     async def chatlvlup(self, ctx: discord.ApplicationContext, user: discord.Member = None):
         target_user = user or ctx.author
         user_data = db.get_user_level_data(target_user.id)
         if not user_data:
-            await ctx.respond(f"**{target_user.display_name}** hasn't chatted yet!", ephemeral=True)
+            await ctx.respond(f"{target_user.display_name} hasn't chatted yet.", ephemeral=True)
             return
         level = user_data.get('level', 0)
         embed = discord.Embed(
             title="🎉 Level Up!",
-            description=f"Congratulations {target_user.mention}, you've reached **Level {level}**!",
+            description=f"{target_user.mention}, you're at **Level {level}**!",
             color=discord.Color.fuchsia()
         )
         embed.set_author(name=target_user.display_name, icon_url=target_user.display_avatar.url)
@@ -193,7 +169,7 @@ class Leveling(commands.Cog):
         if not user_data:
             embed = discord.Embed(
                 title="🚀 User Profile",
-                description=f"**{target_user.display_name}** hasn't chatted yet!",
+                description=f"{target_user.display_name} hasn't chatted yet!",
                 color=discord.Color.dark_purple()
             )
             embed.set_thumbnail(url=target_user.display_avatar.url)
@@ -205,7 +181,6 @@ class Leveling(commands.Cog):
         rank = db.get_user_leveling_rank(target_user.id)
         embed = discord.Embed(
             title=f"🌌 {target_user.display_name}'s HyperProfile",
-            description=f"A glimpse into the future of Discord engagement.",
             color=discord.Color.blurple()
         )
         embed.set_thumbnail(url=target_user.display_avatar.url)
@@ -213,8 +188,7 @@ class Leveling(commands.Cog):
         embed.add_field(name="🏆 Rank", value=f"`#{rank}`", inline=True)
         embed.add_field(name="💠 XP", value=f"`{xp} / {xp_needed}`", inline=True)
         embed.add_field(name="🍪 Cookies", value=f"`{cookies}`", inline=True)
-        progress = int((xp / xp_needed) * 20) if xp_needed else 0
-        bar = "🟦" * progress + "⬛" * (20 - progress)
+        bar = "🟦" * int((xp / xp_needed) * 20) + "⬛" * (20 - int((xp / xp_needed) * 20))
         embed.add_field(name="Progress", value=bar, inline=False)
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.respond(embed=embed, ephemeral=True)
@@ -238,11 +212,7 @@ class Leveling(commands.Cog):
             level = entry.get('level', 0)
             xp = entry.get('xp', 0)
             description += f"**{i+1}.** {username} — 🧬 Level `{level}` | 💠 XP `{xp}`\n"
-        embed = discord.Embed(
-            title="🌌 Level Leaderboard",
-            description=description,
-            color=discord.Color.teal()
-        )
+        embed = discord.Embed(title="🌌 Level Leaderboard", description=description, color=discord.Color.teal())
         embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.respond(embed=embed, ephemeral=True)
 
