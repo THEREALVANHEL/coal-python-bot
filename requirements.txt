@@ -1,7 +1,20 @@
+# Discord bot core
 discord.py>=2.3.2
-pymongo[srv]
-python-dotenv
-Flask
-matplotlib
-numpy
-google-generativeai
+
+# Database
+pymongo[srv]>=4.7.1   # [srv] installs dnspython automatically
+
+# Environment variables
+python-dotenv>=1.0.1
+
+# Web keep-alive for Render/UptimeRobot
+Flask>=3.0.2
+
+# Wheel-spinning + AI utilities
+matplotlib>=3.8.4
+numpy>=1.26.4
+google-generativeai>=0.3.2
+
+# ── Optional but recommended ─────────────────────────
+# Gunicorn is handy for Render if you ever serve Flask directly
+gunicorn>=22.0.0
