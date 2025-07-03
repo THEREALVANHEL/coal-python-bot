@@ -6,45 +6,44 @@ from flask import Flask
 from threading import Thread
 from discord import app_commands
 
-# --- Keep-alive server for Render/UptimeRobot ---
+# --- Keep-alive server (for Render/UptimeRobot/Glitch etc.) ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "I'm alive"
+    return "✅ Bot is alive!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
-    t = Thread(target=run_flask)
-    t.start()
+    Thread(target=run_flask).start()
 
 # --- Load Environment Variables ---
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 MONGODB_URI = os.getenv('MONGODB_URI')
 
-# --- Bot Setup ---
+# --- Discord Bot Setup ---
 intents = discord.Intents.default()
-intents.members = True
 intents.message_content = True
+intents.members = True  # Needed for member updates and roles
 
-GUILD_ID = 1370009417726169250
+GUILD_ID = 1370009417726169250  # Your guild/server ID
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
-    print("-------------------")
+    print(f"✅ Logged in as {bot.user} ({bot.user.id})")
     print("🔄 Loading cogs...")
 
-    # Load all cogs from /cogs directory
     cogs_dir = os.path.join(os.path.dirname(__file__), 'cogs')
     for filename in os.listdir(cogs_dir):
         if filename.endswith('.py') and filename != '__init__.py':
+            cog_name = filename[:-3]
             try:
-                await bot.load_extension(f'cogs.{filename[:-3]}')
+                await bot.load_extension(f'cogs.{cog_name}')
                 print(f"✅ Loaded cog: {filename}")
             except Exception as e:
                 print(f"❌ Failed to load {filename}: {e}")
@@ -54,16 +53,16 @@ async def on_ready():
         synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
         print(f"✅ Synced {len(synced)} command(s) to guild {GUILD_ID}")
     except Exception as e:
-        print(f"❌ Error syncing slash commands: {e}")
+        print(f"❌ Failed to sync commands: {e}")
 
-# --- Run Bot ---
+# --- Run the Bot ---
 if __name__ == "__main__":
     if not DISCORD_TOKEN:
-        print("❌ DISCORD_TOKEN is missing in .env file.")
+        print("❌ DISCORD_TOKEN is missing in the .env file.")
     elif not MONGODB_URI:
-        print("❌ MONGODB_URI is missing in .env file.")
+        print("❌ MONGODB_URI is missing in the .env file.")
     else:
         print("🌐 Starting Flask keep-alive server...")
         keep_alive()
-        print("🤖 Starting bot...")
+        print("🤖 Starting Discord bot...")
         bot.run(DISCORD_TOKEN)
