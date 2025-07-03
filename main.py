@@ -14,67 +14,56 @@ def home():
     return "I'm alive"
 
 def run_flask():
-  # Make sure to run on 0.0.0.0 to be accessible externally
-  app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
     t = Thread(target=run_flask)
     t.start()
 
-# --- Bot Setup ---
-
-# Load environment variables from a .env file
+# --- Load Environment Variables ---
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-MONGODB_URI = os.getenv('MONGODB_URI') # We'll use this in our database file
+MONGODB_URI = os.getenv('MONGODB_URI')
 
-# Define the bot's intents
+# --- Bot Setup ---
 intents = discord.Intents.default()
-intents.members = True          # Required for welcome/leave messages
-intents.message_content = True  # Required for message logging
+intents.members = True
+intents.message_content = True
 
-# Create the bot instance
 GUILD_ID = 1370009417726169250
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    """Event that runs when the bot is ready."""
-    print(f"Logged in as {bot.user}")
+    print(f"✅ Logged in as {bot.user}")
     print("-------------------")
-    print("Loading cogs...")
+    print("🔄 Loading cogs...")
 
-    # Build an absolute path to the 'cogs' directory
+    # Load all cogs from /cogs directory
     cogs_dir = os.path.join(os.path.dirname(__file__), 'cogs')
-
-    # Load all .py files from the 'cogs' directory
     for filename in os.listdir(cogs_dir):
         if filename.endswith('.py') and filename != '__init__.py':
             try:
                 await bot.load_extension(f'cogs.{filename[:-3]}')
                 print(f"✅ Loaded cog: {filename}")
             except Exception as e:
-                print(f"❌ Failed to load cog {filename}: {e}")
-                print(type(e))
+                print(f"❌ Failed to load {filename}: {e}")
 
-    print("-------------------")
-    # Sync slash commands to the specified guild
+    print("🔄 Syncing slash commands...")
     try:
-        guild = discord.Object(id=GUILD_ID)
-        await bot.tree.sync(guild=guild)
-        print(f" Slash commands synced successfully to guild {GUILD_ID}.")
+        synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+        print(f"✅ Synced {len(synced)} command(s) to guild {GUILD_ID}")
     except Exception as e:
-        print(f" Error syncing commands: {e}")
+        print(f"❌ Error syncing slash commands: {e}")
 
-# --- Main Execution ---
+# --- Run Bot ---
 if __name__ == "__main__":
-    # Validate that the token is present
     if not DISCORD_TOKEN:
-        print("CRITICAL: DISCORD_TOKEN is not set in your environment or .env file.")
+        print("❌ DISCORD_TOKEN is missing in .env file.")
     elif not MONGODB_URI:
-         print("CRITICAL: MONGODB_URI is not set in your environment or .env file.")
+        print("❌ MONGODB_URI is missing in .env file.")
     else:
-        print("Starting web server for keep-alive...")
+        print("🌐 Starting Flask keep-alive server...")
         keep_alive()
-        print("Starting bot...")
+        print("🤖 Starting bot...")
         bot.run(DISCORD_TOKEN)
