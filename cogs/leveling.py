@@ -1,238 +1,209 @@
-from __future__ import annotations
-
-import asyncio
-import os
-import random
-import sys
-from typing import Final
-
 import discord
-from discord import option
 from discord.ext import commands
+from discord import app_commands
+import matplotlib.pyplot as plt
+import numpy as np
+from datetime import datetime
+import os, sys
+import io
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Local import
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
-GUILD_ID: Final[int] = 1370009417726169250
-guild_obj: Final[discord.Object] = discord.Object(id=GUILD_ID)
-
-LEVEL_ROLES: Final[dict[int, int]] = {
-    5: 1371032270361853962,
-    10: 1371032537740214302,
-    20: 1371032664026382427,
-    35: 1371032830217289748,
-    50: 1371032964938600521,
-    75: 1371033073038266429,
-}
-XP_COOLDOWN: Final[int] = 60
-
-class LevelLeaderboardView(discord.ui.View):
-    def __init__(self, author: discord.Member, interaction: discord.Interaction):
-        super().__init__(timeout=180)
-        self.author = author
-        self.interaction = interaction
-        self.current_page = 0
-        self.per_page = 10
-
-    async def embed_for_page(self) -> discord.Embed:
-        total = db.get_total_users_in_leveling()
-        if total == 0:
-            return discord.Embed(title="🚀 Level Leaderboard", description="No XP yet!", color=discord.Color.blue())
-
-        pages = (total + self.per_page - 1) // self.per_page
-        self.current_page = max(0, min(self.current_page, pages - 1))
-        skip = self.current_page * self.per_page
-        rows = db.get_leveling_leaderboard(skip=skip, limit=self.per_page)
-
-        desc = "\n".join(
-            f"**{skip+i+1}.** <@{row['user_id']}> — **Lvl {row.get('level',0)}** ({row.get('xp',0)} XP)"
-            for i, row in enumerate(rows)
-        )
-        embed = discord.Embed(title="🚀 Top Adventurers", description=desc, color=discord.Color.purple())
-        embed.set_footer(text=f"Page {self.current_page+1}/{pages}")
-        self.prev.disabled = self.current_page == 0
-        self.next.disabled = self.current_page >= pages - 1
-        return embed
-
-    async def on_timeout(self):
-        for child in self.children:
-            child.disabled = True
-        try:
-            await self.interaction.edit_original_response(view=self)
-        except discord.NotFound:
-            pass
-    @discord.ui.button(label="⬅️ Previous", style=discord.ButtonStyle.grey)
-    async def prev(self, interaction: discord.Interaction, _btn):
-        if interaction.user.id != self.author.id:
-            return await interaction.response.send_message("This isn't for you!", ephemeral=True)
-        self.current_page -= 1
-        await interaction.response.edit_message(embed=await self.embed_for_page(), view=self)
-
-    @discord.ui.button(label="Next ➡️", style=discord.ButtonStyle.grey)
-    async def next(self, interaction: discord.Interaction, _btn):
-        if interaction.user.id != self.author.id:
-            return await interaction.response.send_message("This isn't for you!", ephemeral=True)
-        self.current_page += 1
-        await interaction.response.edit_message(embed=await self.embed_for_page(), view=self)
+GUILD_ID = 1370009417726169250
 
 class Leveling(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.xp_cooldowns: dict[int, float] = {}
 
     async def cog_load(self):
-        print("[Leveling] Cog loaded successfully.")
+        print("[Leveling] Loaded successfully.")
 
-    @staticmethod
-    def get_xp_for_level(level: int) -> int:
-        return 15 * level * level + 50 * level + 100
+    def calculate_xp_for_level(self, level: int) -> int:
+        return int(100 * (level ** 1.5))
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if message.author.bot or not message.guild or len(message.content.strip()) < 5:
-            return
-        uid = message.author.id
-        now = asyncio.get_running_loop().time()
-        if uid in self.xp_cooldowns and now - self.xp_cooldowns[uid] < XP_COOLDOWN:
-            return
-        self.xp_cooldowns[uid] = now
+    def calculate_level_from_xp(self, xp: int) -> int:
+        return int((xp / 100) ** (2/3))
 
-        db.update_user_xp(uid, random.randint(1, 5))
-        data = db.get_user_level_data(uid) or {}
-        lvl, xp = data.get("level", 0), data.get("xp", 0)
-        needed = self.get_xp_for_level(lvl)
-        if xp >= needed:
-            new_lvl = lvl + 1
-            db.set_user_level(uid, new_lvl)
-
-            ch_id = db.get_channel(message.guild.id, "leveling")
-            if ch_id and (ch := message.guild.get_channel(ch_id)):
-                em = discord.Embed(
-                    title="🎉 Level Up!",
-                    description=f"{message.author.mention} reached **Level {new_lvl}**!",
-                    color=discord.Color.fuchsia(),
-                )
-                em.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-                await ch.send(embed=em)
-
-            if new_lvl in LEVEL_ROLES:
-                await self.update_user_roles(message.author)
-
-    async def update_user_roles(self, member: discord.Member):
-        data = db.get_user_level_data(member.id) or {}
-        lvl = data.get("level", 0)
-        highest = next((rid for lv, rid in sorted(LEVEL_ROLES.items(), reverse=True) if lvl >= lv), None)
-        if highest is None:
-            return
-
-        lvl_role_ids = set(LEVEL_ROLES.values())
-        to_remove = [r for r in member.roles if r.id in lvl_role_ids and r.id != highest]
-        to_add = member.guild.get_role(highest)
+    @app_commands.command(name="rank", description="Shows your current level, XP, and server rank")
+    @app_commands.describe(user="User to check rank for")
+    async def rank(self, interaction: discord.Interaction, user: discord.Member = None):
+        target = user or interaction.user
+        
         try:
-if to_remove:
-                await member.remove_roles(*to_remove, reason="Level role update")
-            if to_add and to_add not in member.roles:
-                await member.add_roles(to_add, reason=f"Reached level {lvl}")
-        except discord.Forbidden:
-            print(f"[Leveling] Missing permissions for {member}")
-        except Exception as exc:
-            print(f"[Leveling] Role update error: {exc}")
+            user_data = db.get_user_data(target.id)
+            xp = user_data.get('xp', 0)
+            level = self.calculate_level_from_xp(xp)
+            
+            # Calculate XP for current and next level
+            current_level_xp = self.calculate_xp_for_level(level)
+            next_level_xp = self.calculate_xp_for_level(level + 1)
+            xp_needed = next_level_xp - xp
+            xp_progress = xp - current_level_xp
 
-    @commands.slash_command(name="rank", description="Check your level & XP", guild_ids=[GUILD_ID])
-    @option("user", description="Target user", required=False, type=discord.Member)
-    async def rank(self, ctx: discord.ApplicationContext, user: discord.Member = None):
-        target = user or ctx.author
-        data = db.get_user_level_data(target.id)
-        if not data:
-            return await ctx.respond(f"{target.display_name} has no XP yet.", ephemeral=True)
+            # Get rank
+            all_users = db.get_leaderboard('xp')
+            rank = next((i + 1 for i, u in enumerate(all_users) if u['user_id'] == target.id), 'N/A')
 
-        lvl, xp = data["level"], data["xp"]
-        need = self.get_xp_for_level(lvl)
-        rnk = db.get_user_leveling_rank(target.id)
-        prog = int((xp / need) * 20)
+            embed = discord.Embed(
+                title=f"📊 Rank Card - {target.display_name}",
+                color=target.accent_color or 0x7289da
+            )
+            embed.set_thumbnail(url=target.display_avatar.url)
+            
+            embed.add_field(name="🏆 Level", value=level, inline=True)
+            embed.add_field(name="⭐ Total XP", value=f"{xp:,}", inline=True)
+            embed.add_field(name="📈 Rank", value=f"#{rank}", inline=True)
+            embed.add_field(name="🎯 Progress", value=f"{xp_progress}/{next_level_xp - current_level_xp} XP", inline=True)
+            embed.add_field(name="🚀 XP Needed", value=f"{xp_needed:,} XP", inline=True)
+            embed.add_field(name="📊 Next Level", value=level + 1, inline=True)
 
-        em = discord.Embed(title=f"🏆 Rank for {target.display_name}", color=target.color)
-        em.set_thumbnail(url=target.display_avatar.url)
-        em.add_field(name="Level", value=str(lvl), inline=True)
-        em.add_field(name="Rank", value=f"#{rnk}", inline=True)
-        em.add_field(name="XP", value=f"`{xp}/{need}`", inline=False)
-        em.add_field(name="Progress", value="🟩" * prog + "⬛" * (20 - prog), inline=False)
-        await ctx.respond(embed=em)
+            await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command(name="profile", description="Show level & cookies", guild_ids=[GUILD_ID])
-    @option("user", description="Target user", required=False, type=discord.Member)
-    async def profile(self, ctx: discord.ApplicationContext, user: discord.Member = None):
-        target = user or ctx.author
-        data = db.get_user_level_data(target.id)
-        cookies = db.get_cookies(target.id)
-        if not data:
-            return await ctx.respond(f"{target.display_name} has no profile yet.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error getting rank data: {str(e)}", ephemeral=True)
 
-        lvl, xp = data["level"], data["xp"]
-        need = self.get_xp_for_level(lvl)
-        rnk = db.get_user_leveling_rank(target.id)
-        prog = int((xp / need) * 20)
+    @app_commands.command(name="leveltop", description="Displays the top 10 users by level")
+    async def leveltop(self, interaction: discord.Interaction):
+        try:
+            leaderboard = db.get_leaderboard('xp', limit=10)
+            if not leaderboard:
+                await interaction.response.send_message("❌ No leaderboard data available!", ephemeral=True)
+                return
 
-        em = discord.Embed(title=f"🌌 {target.display_name}'s Profile", color=discord.Color.blurple())
-        em.set_thumbnail(url=target.display_avatar.url)
-        em.add_field(name="Level", value=str(lvl), inline=True)
-        em.add_field(name="Rank", value=f"#{rnk}", inline=True)
-        em.add_field(name="XP", value=f"{xp}/{need}", inline=True)
-        em.add_field(name="Cookies", value=str(cookies), inline=True)
-        em.add_field(name="Progress", value="🟦" * prog + "⬛" * (20 - prog), inline=False)
-        await ctx.respond(embed=em, ephemeral=True)
+            embed = discord.Embed(
+                title="🥇 Level Leaderboard - Top 10",
+                color=0xffd700
+            )
 
-    @commands.slash_command(name="leveltop", description="Leaderboard – top 10 by level", guild_ids=[GUILD_ID])
-    async def leveltop(self, ctx: discord.ApplicationContext):
-        view = LevelLeaderboardView(ctx.author, ctx.interaction)
-        await ctx.respond(embed=await view.embed_for_page(), view=view)
+            leaderboard_text = []
+            for i, user_data in enumerate(leaderboard, 1):
+                user_id = user_data['user_id']
+                xp = user_data.get('xp', 0)
+                level = self.calculate_level_from_xp(xp)
+                
+                try:
+                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                    username = user.display_name if hasattr(user, 'display_name') else user.name
+                except:
+                    username = f"User {user_id}"
 
-    @commands.slash_command(name="updateroles", description="Update your level role", guild_ids=[GUILD_ID])
-    async def updateroles(self, ctx: discord.ApplicationContext):
-        await self.update_user_roles(ctx.author)
-        await ctx.respond("✅ Your roles have been updated based on your level!", ephemeral=True)
-@commands.slash_command(name="chatlvlup", description="Announce your last level up", guild_ids=[GUILD_ID])
-    async def chatlvlup(self, ctx: discord.ApplicationContext):
-        data = db.get_user_level_data(ctx.author.id)
-        if not data:
-            return await ctx.respond("You haven't gained any XP yet!", ephemeral=True)
-        lvl = data.get("level", 0)
-        em = discord.Embed(
-            title="📢 Level-Up!",
-            description=f"{ctx.author.mention} just reached **Level {lvl}**!",
-            color=discord.Color.gold()
-        )
-        await ctx.respond(embed=em)
+                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                leaderboard_text.append(f"{medal} **{username}** - Level {level} ({xp:,} XP)")
 
-    @commands.slash_command(name="userinfo", description="Show user info", guild_ids=[GUILD_ID])
-    @option("user", description="User to inspect", required=False, type=discord.Member)
-    async def userinfo(self, ctx: discord.ApplicationContext, user: discord.Member = None):
-        user = user or ctx.author
-        em = discord.Embed(title=f"👤 Info for {user}", color=discord.Color.teal())
-        em.set_thumbnail(url=user.display_avatar.url)
-        em.add_field(name="Username", value=str(user), inline=True)
-        em.add_field(name="ID", value=user.id, inline=True)
-        em.add_field(name="Account Created", value=user.created_at.strftime("%Y-%m-%d"), inline=True)
-        em.add_field(name="Joined Server", value=user.joined_at.strftime("%Y-%m-%d"), inline=True)
-        em.add_field(name="Roles", value=", ".join([r.name for r in user.roles if r.name != "@everyone"]) or "None", inline=False)
-        await ctx.respond(embed=em)
+            embed.description = "\n".join(leaderboard_text)
+            embed.set_footer(text="Keep chatting to climb the ranks!")
 
-    @commands.slash_command(name="serverinfo", description="Show server info", guild_ids=[GUILD_ID])
-    async def serverinfo(self, ctx: discord.ApplicationContext):
-        guild = ctx.guild
-        em = discord.Embed(title=f"📈 Server Info: {guild.name}", color=discord.Color.green())
-        em.set_thumbnail(url=guild.icon.url if guild.icon else None)
-        em.add_field(name="Server ID", value=guild.id)
-        em.add_field(name="Owner", value=guild.owner)
-        em.add_field(name="Members", value=guild.member_count)
-        em.add_field(name="Channels", value=len(guild.channels))
-        em.add_field(name="Created", value=guild.created_at.strftime("%Y-%m-%d"))
-        await ctx.respond(embed=em)
+            await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command(name="ping", description="Show bot latency", guild_ids=[GUILD_ID])
-    async def ping(self, ctx: discord.ApplicationContext):
-        latency_ms = round(self.bot.latency * 1000)
-        await ctx.respond(f"🏓 Pong! Latency: `{latency_ms}ms`")
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="profile", description="Shows your level and cookie stats in one profile")
+    @app_commands.describe(user="User to check profile for")
+    async def profile(self, interaction: discord.Interaction, user: discord.Member = None):
+        target = user or interaction.user
+        
+        try:
+            user_data = db.get_user_data(target.id)
+            xp = user_data.get('xp', 0)
+            cookies = user_data.get('cookies', 0)
+            level = self.calculate_level_from_xp(xp)
+            
+            # Get ranks
+            xp_leaderboard = db.get_leaderboard('xp')
+            cookie_leaderboard = db.get_leaderboard('cookies')
+            
+            xp_rank = next((i + 1 for i, u in enumerate(xp_leaderboard) if u['user_id'] == target.id), 'N/A')
+            cookie_rank = next((i + 1 for i, u in enumerate(cookie_leaderboard) if u['user_id'] == target.id), 'N/A')
+
+            embed = discord.Embed(
+                title=f"👤 Profile - {target.display_name}",
+                color=target.accent_color or 0x7289da,
+                timestamp=datetime.now()
+            )
+            embed.set_thumbnail(url=target.display_avatar.url)
+            
+            # Level section
+            current_level_xp = self.calculate_xp_for_level(level)
+            next_level_xp = self.calculate_xp_for_level(level + 1)
+            xp_progress = xp - current_level_xp
+            progress_bar_length = 10
+            progress_filled = int((xp_progress / (next_level_xp - current_level_xp)) * progress_bar_length)
+            progress_bar = "█" * progress_filled + "░" * (progress_bar_length - progress_filled)
+            
+            embed.add_field(
+            name="📊 Level Stats",
+                value=f"**Level:** {level}\n**XP:** {xp:,}\n**Rank:** #{xp_rank}\n**Progress:** {progress_bar} {xp_progress}/{next_level_xp - current_level_xp}",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🍪 Cookie Stats", 
+                value=f"**Cookies:** {cookies:,}\n**Rank:** #{cookie_rank}",
+                inline=False
+            )
+
+            # Additional stats
+            embed.add_field(name="📅 Account Created", value=f"<t:{int(target.created_at.timestamp())}:R>", inline=True)
+            embed.add_field(name="📅 Joined Server", value=f"<t:{int(target.joined_at.timestamp())}:R>", inline=True)
+
+            await interaction.response.send_message(embed=embed)
+
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error getting profile data: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="chatlvlup", description="Announces your latest level-up in chat")
+    async def chatlvlup(self, interaction: discord.Interaction):
+        try:
+            user_data = db.get_user_data(interaction.user.id)
+            xp = user_data.get('xp', 0)
+            level = self.calculate_level_from_xp(xp)
+
+            embed = discord.Embed(
+                title="🎉 Level Up Announcement!",
+                description=f"🎊 **{interaction.user.display_name}** has reached **Level {level}**! 🎊",
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            embed.set_thumbnail(url=interaction.user.display_avatar.url)
+            embed.add_field(name="📊 Stats", value=f"**Total XP:** {xp:,}\n**Level:** {level}", inline=True)
+            embed.set_footer(text="Keep chatting to level up even more!")
+
+            await interaction.response.send_message(embed=embed)
+
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error announcing level: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="daily", description="Claim your daily XP bonus")
+    async def daily(self, interaction: discord.Interaction):
+        try:
+            result = db.claim_daily_xp(interaction.user.id)
+            
+            if result['success']:
+                embed = discord.Embed(
+                    title="🎁 Daily Bonus Claimed!",
+                    description=f"**XP Gained:** {result['xp_gained']}\n**Streak:** {result['streak']} day(s)",
+                    color=0x00ff00
+                )
+                
+                if result['streak'] % 7 == 0:
+                    embed.add_field(name="🎉 Streak Bonus!", value="You got extra XP for your 7-day streak!", inline=False)
+                
+                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+                await interaction.response.send_message(embed=embed)
+            else:
+                time_left = result.get('time_left', 'some time')
+                embed = discord.Embed(
+                    title="⏰ Daily Already Claimed",
+                    description=f"You can claim your next daily bonus in {time_left}",
+                    color=0xff9900
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error claiming daily: {str(e)}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Leveling(bot), guilds=[guild_obj])
+    await bot.add_cog(Leveling(bot))
