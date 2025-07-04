@@ -1,210 +1,223 @@
-import discord
-from discord.ext import commands
-from discord import app_commands
-from datetime import datetime, timedelta
-import sys
+# cogs/event_commands.py
+# Pycord-only slash commands with **instant guild sync**
+# – /shout  (event announcement)
+# – /gamelog  (post-event summary)
+# – Uses custom host-role check
+# – Persistent “Join Event” button view
+
+from __future__ import annotations
+
 import os
 import re
+import sys
+from datetime import datetime, timedelta
 from typing import Optional
 
-# Allow importing from parent directory
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import database as db
+import discord
+from discord import option                        # Pycord slash option helper
+from discord.ext import commands
 
+# ── project imports ───────────────────────────────────────
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import database as db  # noqa: E402
+
+# ── Config ───────────────────────────────────────────────
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
-# ────────────────────────────────────────────────────────────────────────────────
-# Helper: Time string parser
-# ────────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
+# helper: parse time strings like “in 1 hour” or “1h30m”
+# ─────────────────────────────────────────────────────────
 def parse_time(time_str: str) -> Optional[datetime]:
-    """Parses a time string like '1h30m' or 'in 1 hour' into a future datetime."""
-    match = re.match(r'in\s+(\d+)\s+(hour|minute|day)s?', time_str, re.IGNORECASE)
+    match = re.match(r"in\s+(\d+)\s+(hour|minute|day)s?", time_str, re.I)
     if match:
-        value = int(match.group(1))
-        unit = match.group(2).lower()
-        if unit == 'hour':
-            return datetime.utcnow() + timedelta(hours=value)
-        elif unit == 'minute':
-            return datetime.utcnow() + timedelta(minutes=value)
-        elif unit == 'day':
-            return datetime.utcnow() + timedelta(days=value)
+        val, unit = int(match[1]), match[2].lower()
+        if unit == "hour":
+            return datetime.utcnow() + timedelta(hours=val)
+        if unit == "minute":
+            return datetime.utcnow() + timedelta(minutes=val)
+        if unit == "day":
+            return datetime.utcnow() + timedelta(days=val)
 
-    # Format like "1h30m", "2d", "15m"
     seconds = 0
-    matches = re.findall(r'(\d+)\s*(d|h|m|s)', time_str, re.IGNORECASE)
-    if not matches:
-        return None
-
-    for value, unit in matches:
+    for value, unit in re.findall(r"(\d+)\s*(d|h|m|s)", time_str, re.I):
         value = int(value)
-        if unit == 'd':
-            seconds += value * 86400
-        elif unit == 'h':
-            seconds += value * 3600
-        elif unit == 'm':
-            seconds += value * 60
-        elif unit == 's':
-            seconds += value
+        seconds += value * {"d": 86400, "h": 3600, "m": 60, "s": 1}[unit.lower()]
+    return datetime.utcnow() + timedelta(seconds=seconds) if seconds else None
 
-    return datetime.utcnow() + timedelta(seconds=seconds)
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Event Join Button View
-# ────────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
+# persistent “Join Event” button
+# ─────────────────────────────────────────────────────────
 class EventJoinView(discord.ui.View):
     def __init__(self, host: Optional[discord.Member], title: str):
-        super().__init__(timeout=None)  # Persistent view
+        super().__init__(timeout=None)  # persistent
         self.host = host
         self.title = title
-        self.participants = []
+        self.participants: list[int] = []
 
-    def generate_embed(self, interaction: discord.Interaction):
-        original_embed = interaction.message.embeds[0]
-        participant_list = (
-            "\n".join([f"- <@{p_id}>" for p_id in self.participants])
-            if self.participants else "No one has joined yet."
-        )
-
-        for i, field in enumerate(original_embed.fields):
-            if field.name == "👥 Participants":
-                original_embed.set_field_at(i, name="👥 Participants", value=participant_list, inline=False)
+    # helper to rebuild embed w/ participant list
+    def _embed_with_participants(self, interaction: discord.Interaction) -> discord.Embed:
+        embed = interaction.message.embeds[0]
+        plist = "\n".join(f"- <@{pid}>" for pid in self.participants) or "No one has joined yet."
+        # replace / add field
+        for idx, fld in enumerate(embed.fields):
+            if fld.name == "👥 Participants":
+                embed.set_field_at(idx, name="👥 Participants", value=plist, inline=False)
                 break
         else:
-            original_embed.add_field(name="👥 Participants", value=participant_list, inline=False)
-
-        return original_embed
+            embed.add_field(name="👥 Participants", value=plist, inline=False)
+        return embed
 
     @discord.ui.button(label="Join Event", style=discord.ButtonStyle.success, custom_id="event_join_button")
-    async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user_id = interaction.user.id
-        if user_id in self.participants:
-            await interaction.response.send_message("⚠️ You've already joined this event!", ephemeral=True)
-            return
+    async def join(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+        uid = interaction.user.id
+        if uid in self.participants:
+            return await interaction.response.send_message("⚠️ You already joined!", ephemeral=True)
+        self.participants.append(uid)
+        await interaction.response.edit_message(embed=self._embed_with_participants(interaction))
 
-        self.participants.append(user_id)
-        embed = self.generate_embed(interaction)
-        await interaction.response.edit_message(embed=embed)
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Role Check for Event Hosts
-# ────────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
+# host-role check decorator
+# ─────────────────────────────────────────────────────────
 def is_event_host():
-    async def predicate(interaction: discord.Interaction) -> bool:
-        if interaction.user.guild_permissions.administrator:
+    async def predicate(ctx: discord.ApplicationContext) -> bool:
+        if ctx.author.guild_permissions.administrator:
             return True
-
-        host_roles = ["Host", "Head Host 🍵", "Guide", "Medic"]
-        if any(role.name in host_roles for role in interaction.user.roles):
+        host_roles = {"Host", "Head Host 🍵", "Guide", "Medic"}
+        if any(r.name in host_roles for r in ctx.author.roles):
             return True
-
-        await interaction.response.send_message("❌ You don't have the required role to use this command.", ephemeral=True)
+        await ctx.respond("❌ You don't have the required role.", ephemeral=True)
         return False
-    return app_commands.check(predicate)
+    return commands.check(predicate)
 
-# ────────────────────────────────────────────────────────────────────────────────
-# Main EventCommands Cog
-# ────────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
+# Cog
+# ─────────────────────────────────────────────────────────
 class EventCommands(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
-        # Register persistent view once
-        if not hasattr(bot, 'persistent_views_added'):
+        # add persistent view once
+        if not getattr(bot, "event_views_added", False):
             bot.add_view(EventJoinView(host=None, title=""))
-            bot.persistent_views_added = True
+            bot.event_views_added = True
 
-    @app_commands.command(name="shout", description="[Host] Create and send a formatted event announcement.")
-    @app_commands.guilds(guild_obj)
-    @is_event_host()
-    @app_commands.describe(
-        gamename="The name/title of the event.",
-        description="A description of the event.",
-        time="When the event starts (e.g., 'in 1 hour', '1h30m').",
-        channel="The channel to send the announcement to.",
-        host="The host(s) for the event.",
-        cohost="The co-host(s) for the event (optional).",
-        medic_team="The medic team for the event (optional).",
-        guide_team="The guide team for the event (optional).",
-        joining_option="Information on how to join the event (optional)."
+    # instant guild sync
+    async def cog_load(self):
+        await self.bot.sync_commands(guild_ids=[GUILD_ID])
+        print("[Events] Slash commands synced to guild.")
+
+    # ──────────────────────────────────────────────────────
+    # /shout  – event announcement
+    # ──────────────────────────────────────────────────────
+    @commands.slash_command(
+        name="shout",
+        description="[Host] Create a formatted event announcement.",
+        guild_ids=[GUILD_ID],
     )
-    async def shout(self, interaction: discord.Interaction,
-                    gamename: str, description: str, time: str, channel: discord.TextChannel, host: str,
-                    cohost: Optional[str] = None, medic_team: Optional[str] = None,
-                    guide_team: Optional[str] = None, joining_option: Optional[str] = None):
+    @is_event_host()
+    @option("gamename",      description="Name of the event")
+    @option("description",   description="Event description")
+    @option("time",          description="When it starts (e.g. 'in 1 hour', '1h30m')")
+    @option("channel",       description="Channel to post in",     type=discord.TextChannel)
+    @option("host",          description="Host(s) of the event")
+    @option("cohost",        description="Co-host(s)",             required=False)
+    @option("medic_team",    description="Medic team",             required=False)
+    @option("guide_team",    description="Guide team",             required=False)
+    @option("joining_option",description="How to join",            required=False)
+    async def shout(
+        self,
+        ctx: discord.ApplicationContext,
+        gamename: str,
+        description: str,
+        time: str,
+        channel: discord.TextChannel,
+        host: str,
+        cohost: Optional[str] = None,
+        medic_team: Optional[str] = None,
+        guide_team: Optional[str] = None,
+        joining_option: Optional[str] = None,
+    ):
+        start_dt = parse_time(time)
+        if not start_dt:
+            return await ctx.respond("⏱️ Invalid time format.", ephemeral=True)
 
-        start_time_obj = parse_time(time)
-        if not start_time_obj:
-            await interaction.response.send_message("⏱️ Invalid time format. Use 'in 1 hour' or '1h30m'.", ephemeral=True)
-            return
-
-        unix_timestamp = int(start_time_obj.timestamp())
-
+        ts = int(start_dt.timestamp())
         embed = discord.Embed(
             title=f"🎉 {gamename} 🎉",
             description=description,
-            color=discord.Color.blurple()
+            color=discord.Color.blurple(),
         )
-        embed.set_author(name="Event Announcement", icon_url=interaction.guild.icon.url)
+        embed.set_author(name="Event Announcement", icon_url=ctx.guild.icon.url if ctx.guild.icon else None)
 
-        staff_details = f"**Host:** {host}\n"
+        staff = f"**Host:** {host}\n"
         if cohost:
-            staff_details += f"**Co-Host:** {cohost}\n"
+            staff += f"**Co-Host:** {cohost}\n"
         if medic_team:
-            staff_details += f"**Medic Team:** {medic_team}\n"
+            staff += f"**Medic Team:** {medic_team}\n"
         if guide_team:
-            staff_details += f"**Guide Team:** {guide_team}"
-        embed.add_field(name="📋 Event Staff", value=staff_details, inline=False)
+            staff += f"**Guide Team:** {guide_team}"
+        embed.add_field(name="📋 Event Staff", value=staff, inline=False)
 
-        embed.add_field(name="⏰ Starts", value=f"<t:{unix_timestamp}:F> (<t:{unix_timestamp}:R>)", inline=False)
-
+        embed.add_field(name="⏰ Starts", value=f"<t:{ts}:F> (<t:{ts}:R>)", inline=False)
         if joining_option:
             embed.add_field(name="🔗 How to Join", value=joining_option, inline=False)
 
         try:
             await channel.send(embed=embed)
-            await interaction.response.send_message(f"✅ Announcement sent to {channel.mention}!", ephemeral=True)
+            await ctx.respond(f"✅ Announcement posted in {channel.mention}!", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("🚫 I lack permission to send messages in that channel.", ephemeral=True)
+            await ctx.respond("🚫 Can't send messages in that channel.", ephemeral=True)
 
-    @app_commands.command(name="gamelog", description="[Host] Post a summary log of a completed game event.")
-    @app_commands.guilds(guild_obj)
-    @is_event_host()
-    @app_commands.describe(
-        channel="The channel to send the game log to.",
-        host="The host(s) of the game.",
-        cohost="The co-host(s) of the game (optional).",
-        medic_team="The medic team of the game (optional).",
-        guide_team="The guide team of the game (optional).",
-        participants="A list of all participants in the event.",
-        timings="The start and end times of the event.",
-        summary="A summary of what happened in the event.",
-        picture="An image to attach to the log (optional)."
+    # ──────────────────────────────────────────────────────
+    # /gamelog  – post-event summary
+    # ──────────────────────────────────────────────────────
+    @commands.slash_command(
+        name="gamelog",
+        description="[Host] Post a summary log of a completed event.",
+        guild_ids=[GUILD_ID],
     )
-    async def gamelog(self, interaction: discord.Interaction,
-                      channel: discord.TextChannel, host: str, participants: str, timings: str, summary: str,
-                      cohost: Optional[str] = None, medic_team: Optional[str] = None,
-                      guide_team: Optional[str] = None, picture: Optional[discord.Attachment] = None):
-
+    @is_event_host()
+    @option("channel",       description="Channel to post log",   type=discord.TextChannel)
+    @option("host",          description="Host(s) of the game")
+    @option("participants",  description="List of participants")
+    @option("timings",       description="Start & end times")
+    @option("summary",       description="What happened")
+    @option("cohost",        description="Co-host(s)",           required=False)
+    @option("medic_team",    description="Medic team",           required=False)
+    @option("guide_team",    description="Guide team",           required=False)
+    @option("picture",       description="Image attachment",     type=discord.Attachment, required=False)
+    async def gamelog(
+        self,
+        ctx: discord.ApplicationContext,
+        channel: discord.TextChannel,
+        host: str,
+        participants: str,
+        timings: str,
+        summary: str,
+        cohost: Optional[str] = None,
+        medic_team: Optional[str] = None,
+        guide_team: Optional[str] = None,
+        picture: Optional[discord.Attachment] = None,
+    ):
         embed = discord.Embed(
             title="📜 Game Log",
             description=summary,
             color=discord.Color.from_rgb(153, 102, 204),
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
-        embed.set_author(name=f"Logged by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        embed.set_author(name=f"Logged by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
 
-        staff_info = f"**Host:** {host}\n"
+        staff = f"**Host:** {host}\n"
         if cohost:
-            staff_info += f"**Co-host:** {cohost}\n"
+            staff += f"**Co-host:** {cohost}\n"
         if guide_team:
-            staff_info += f"**Guide Team:** {guide_team}\n"
+            staff += f"**Guide Team:** {guide_team}\n"
         if medic_team:
-            staff_info += f"**Medic Team:** {medic_team}"
-        embed.add_field(name="👑 Staff", value=staff_info, inline=False)
+            staff += f"**Medic Team:** {medic_team}"
+        embed.add_field(name="👑 Staff", value=staff, inline=False)
 
         embed.add_field(name="👥 Participants", value=participants, inline=False)
         embed.add_field(name="⏱️ Timings", value=timings, inline=False)
-
         if picture:
             embed.set_image(url=picture.url)
 
@@ -212,10 +225,10 @@ class EventCommands(commands.Cog):
 
         try:
             await channel.send(embed=embed)
-            await interaction.response.send_message(f"✅ Game log posted successfully to {channel.mention}!", ephemeral=True)
+            await ctx.respond(f"✅ Game log posted in {channel.mention}!", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("🚫 I lack permission to send messages in that channel.", ephemeral=True)
+            await ctx.respond("🚫 Can't send messages in that channel.", ephemeral=True)
 
-# ────────────────────────────────────────────────────────────────────────────────
-async def setup(bot):
-    await bot.add_cog(EventCommands(bot))
+# ─────────────────────────────────────────────────────────
+async def setup(bot: commands.Bot):
+    await bot.add_cog(EventCommands(bot), guilds=[guild_obj])
