@@ -1,7 +1,7 @@
 # cogs/moderation.py
 import discord
 from discord.ext import commands
-from discord import app_commands
+from discord import option  # Added for Pycord slash command options
 from datetime import datetime
 import os, sys
 
@@ -16,19 +16,14 @@ guild_obj = discord.Object(id=GUILD_ID)
 MODERATOR_ROLES = ["Moderator 🚨🚓", "🚨 Lead moderator"]   # custom mod roles
 FOOTER_TXT      = "VANHELISMYSENSEI ON TOP"
 
-# ── Permission check decorator ------------------------------------------------
-def is_moderator():
-    async def predicate(inter: discord.Interaction) -> bool:
-        if inter.user.guild_permissions.administrator:
-            return True
-        if any(r.name in MODERATOR_ROLES for r in inter.user.roles):
-            return True
-        await inter.response.send_message(
-            "You don’t have the required role to use this command.",
-            ephemeral=True
-        )
-        return False
-    return app_commands.check(predicate)
+# ── Permission check helper ---------------------------------------------------
+def has_moderator_role(ctx: discord.ApplicationContext) -> bool:
+    """Check if user has moderator permissions"""
+    if ctx.user.guild_permissions.administrator:
+        return True
+    if any(r.name in MODERATOR_ROLES for r in ctx.user.roles):
+        return True
+    return False
 
 # ── Cog -----------------------------------------------------------------------
 class Moderation(commands.Cog):
@@ -41,71 +36,75 @@ class Moderation(commands.Cog):
     # -------------------------------------------------------------------------
     # /modclear
     # -------------------------------------------------------------------------
-    @app_commands.command(
-        name        ="modclear",
-        description ="[Moderator] Delete a number of recent messages."
+    @commands.slash_command(
+        name="modclear",
+        description="[Moderator] Delete a number of recent messages.",
+        guild_ids=[GUILD_ID]
     )
-    @app_commands.guilds(guild_obj)
-    @is_moderator()
-    @app_commands.describe(amount="Number of messages to delete (1-100)")
+    @option("amount", description="Number of messages to delete (1-100)", min_value=1, max_value=100)
     async def modclear(
         self,
-        inter : discord.Interaction,
-        amount: app_commands.Range[int, 1, 100]
+        ctx: discord.ApplicationContext,
+        amount: int
     ):
-        await inter.response.defer(ephemeral=True)
+        if not has_moderator_role(ctx):
+            await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
+            return
 
-        deleted = await inter.channel.purge(limit=amount)
-        await inter.followup.send(
+        await ctx.response.defer(ephemeral=True)
+
+        deleted = await ctx.channel.purge(limit=amount)
+        await ctx.followup.send(
             f"🧹 Cleared **{len(deleted)}** messages.",
             ephemeral=True
         )
 
         # optional mod-log
-        modlog_id = db.get_channel(inter.guild.id, "modlog")
+        modlog_id = db.get_channel(ctx.guild.id, "modlog")
         if modlog_id:
-            ch = inter.guild.get_channel(modlog_id)
+            ch = ctx.guild.get_channel(modlog_id)
             if ch:
                 embed = discord.Embed(
                     title       ="🧹 Messages Cleared",
-                    description =f"**{len(deleted)}** messages removed in {inter.channel.mention}",
+                    description =f"**{len(deleted)}** messages removed in {ctx.channel.mention}",
                     color       =discord.Color.orange(),
                     timestamp   =datetime.utcnow()
                 )
-                embed.set_footer(text=f"Moderator: {inter.user.display_name}")
+                embed.set_footer(text=f"Moderator: {ctx.user.display_name}")
                 try:    await ch.send(embed=embed)
                 except discord.Forbidden: pass
 
     # -------------------------------------------------------------------------
     # /warn
     # -------------------------------------------------------------------------
-    @app_commands.command(
-        name        ="warn",
-        description ="[Moderator] Issue a warning to a user."
+    @commands.slash_command(
+        name="warn",
+        description="[Moderator] Issue a warning to a user.",
+        guild_ids=[GUILD_ID]
     )
-    @app_commands.guilds(guild_obj)
-    @is_moderator()
-    @app_commands.describe(
-        user   ="User to warn",
-        reason ="Reason for the warning"
-    )
+    @option("user", description="User to warn", type=discord.Member)
+    @option("reason", description="Reason for the warning", default="No reason provided.")
     async def warn(
         self,
-        inter : discord.Interaction,
-        user  : discord.Member,
+        ctx: discord.ApplicationContext,
+        user: discord.Member,
         reason: str = "No reason provided."
     ):
-        if user.bot or user == inter.user:
-            return await inter.response.send_message("⚠️ Invalid target user.", ephemeral=True)
+        if not has_moderator_role(ctx):
+            await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
+            return
 
-        db.add_warning(user.id, inter.user.id, reason)
+        if user.bot or user == ctx.user:
+            return await ctx.respond("⚠️ Invalid target user.", ephemeral=True)
+
+        db.add_warning(user.id, ctx.user.id, reason)
 
         # DM (best-effort)
         dm_ok = True
         try:
             dm = discord.Embed(
                 title       ="🚨 You Have Been Warned",
-                description =f"You received a warning in **{inter.guild.name}**.",
+                description =f"You received a warning in **{ctx.guild.name}**.",
                 color       =discord.Color.red(),
                 timestamp   =datetime.utcnow()
             )
@@ -122,26 +121,29 @@ class Moderation(commands.Cog):
             timestamp   =datetime.utcnow()
         )
         embed.add_field(name="Reason", value=reason, inline=False)
-        embed.set_footer(text=f"Moderator: {inter.user.display_name} • {FOOTER_TXT}")
-        await inter.response.send_message(embed=embed)
+        embed.set_footer(text=f"Moderator: {ctx.user.display_name} • {FOOTER_TXT}")
+        await ctx.respond(embed=embed)
 
         if not dm_ok:
-            await inter.followup.send("(Could not DM the user.)", ephemeral=True)
+            await ctx.followup.send("(Could not DM the user.)", ephemeral=True)
 
     # -------------------------------------------------------------------------
     # /warnlist
     # -------------------------------------------------------------------------
-    @app_commands.command(
-        name        ="warnlist",
-        description ="[Moderator] List a user’s warnings."
+    @commands.slash_command(
+        name="warnlist",
+        description="[Moderator] List a user's warnings.",
+        guild_ids=[GUILD_ID]
     )
-    @app_commands.guilds(guild_obj)
-    @is_moderator()
-    @app_commands.describe(user="User to view warnings for")
-    async def warnlist(self, inter: discord.Interaction, user: discord.Member):
+    @option("user", description="User to view warnings for", type=discord.Member)
+    async def warnlist(self, ctx: discord.ApplicationContext, user: discord.Member):
+        if not has_moderator_role(ctx):
+            await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
+            return
+
         warnings = db.get_warnings(user.id)
         if not warnings:
-            return await inter.response.send_message(
+            return await ctx.respond(
                 f"**{user.display_name}** has no warnings.",
                 ephemeral=True
             )
@@ -153,7 +155,7 @@ class Moderation(commands.Cog):
         embed.set_thumbnail(url=user.display_avatar.url)
 
         for w in warnings:
-            mod  = inter.guild.get_member(w["moderator_id"])
+            mod  = ctx.guild.get_member(w["moderator_id"])
             name = mod.display_name if mod else "Unknown mod"
             ts   = w["timestamp"].strftime("%Y-%m-%d %H:%M UTC")
             embed.add_field(
@@ -163,22 +165,25 @@ class Moderation(commands.Cog):
             )
 
         embed.set_footer(text=FOOTER_TXT)
-        await inter.response.send_message(embed=embed, ephemeral=True)
+        await ctx.respond(embed=embed, ephemeral=True)
 
     # -------------------------------------------------------------------------
     # /removewarnlist
     # -------------------------------------------------------------------------
-    @app_commands.command(
-        name        ="removewarnlist",
-        description ="[Moderator] Clear all warnings for a user."
+    @commands.slash_command(
+        name="removewarnlist",
+        description="[Moderator] Clear all warnings for a user.",
+        guild_ids=[GUILD_ID]
     )
-    @app_commands.guilds(guild_obj)
-    @is_moderator()
-    @app_commands.describe(user="User whose warnings to clear")
-    async def removewarnlist(self, inter: discord.Interaction, user: discord.Member):
+    @option("user", description="User whose warnings to clear", type=discord.Member)
+    async def removewarnlist(self, ctx: discord.ApplicationContext, user: discord.Member):
+        if not has_moderator_role(ctx):
+            await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
+            return
+
         warnings = db.get_warnings(user.id)
         if not warnings:
-            return await inter.response.send_message(
+            return await ctx.respond(
                 f"**{user.display_name}** has no warnings.",
                 ephemeral=True
             )
@@ -189,7 +194,7 @@ class Moderation(commands.Cog):
         btn_cancel  = discord.ui.Button(label="Cancel",  style=discord.ButtonStyle.secondary)
 
         async def confirm(btn_inter: discord.Interaction):
-            if btn_inter.user != inter.user:
+            if btn_inter.user != ctx.user:
                 return await btn_inter.response.send_message("Not your confirmation.", ephemeral=True)
             db.clear_warnings(user.id)
             await btn_inter.response.edit_message(
@@ -205,7 +210,7 @@ class Moderation(commands.Cog):
         view.add_item(btn_confirm)
         view.add_item(btn_cancel)
 
-        await inter.response.send_message(
+        await ctx.respond(
             f"⚠️ Clear **{len(warnings)}** warning(s) for **{user.display_name}**?",
             view=view,
             ephemeral=True
