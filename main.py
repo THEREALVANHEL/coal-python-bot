@@ -33,7 +33,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-GUILD_ID = 1370009417726169250
+GUILD_ID = 1370009417726169250  # Update if your server ID changes
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -82,9 +82,11 @@ bot = MyBot()
 async def main():
     if not DISCORD_TOKEN:
         print("❌ DISCORD_TOKEN is missing in environment variables")
+        print("💡 Make sure to set DISCORD_TOKEN in your Render dashboard")
         return
     elif not MONGODB_URI:
         print("❌ MONGODB_URI is missing in environment variables")
+        print("💡 Make sure to set MONGODB_URI in your Render dashboard")
         return
     
     print("🌐 Starting keep-alive server...")
