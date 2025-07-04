@@ -50,21 +50,28 @@ Thumbs.db
 # === Cursor / Display ===
 .cursor/
 
+# === Python Tools ===
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# === Databases (if used locally) ===
+*.sqlite3
+*.db
+
+# === Logs / Temp Files ===
+*.log
+*.tmp
+
+# === Backup Files ===
+*.bak
+*~
+
+# === Node (if dashboard or frontend is in project) ===
+node_modules/
+
 # === Project Folders to Ignore ===
 discord-cpp-bot/
 my-discord-bot/
 .fly/
-
-# === Optional Personal Folders (only if project is inside home dir) ===
-Downloads/
-Desktop/
-Documents/
-Music/
-Pictures/
-Public/
-Templates/
-Videos/
-
-# === Logs ===
-*.log
-*.tmp
