@@ -65,7 +65,9 @@ class MyBot(commands.Bot):
                 print("🎉 Bot is ready and commands are synced!")
             except Exception as e:
                 print(f"❌ Failed to sync commands: {e}")
-                bot = MyBot()
+
+# ✅ Instantiate the bot globally
+bot = MyBot()
 
 async def main():
     if not DISCORD_TOKEN:
