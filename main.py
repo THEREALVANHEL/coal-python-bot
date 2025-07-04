@@ -35,101 +35,93 @@ intents.message_content = True
 intents.members = True
 
 GUILD_ID = 1370009417726169250  # Update if your server ID changes
-bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Flag to prevent multiple syncs
-synced = False
+class MyBot(commands.Bot):
+    def __init__(self):
+        super().__init__(command_prefix="!", intents=intents)
+        self.synced = False
 
-# --- Ready Event ---
-@bot.event
-async def on_ready():
-    global synced
-    print(f"✅ Logged in as {bot.user} ({bot.user.id})")
-    print("🔄 Loading cogs...")
-
-    cogs_dir = os.path.join(os.path.dirname(__file__), 'cogs')
-    for filename in os.listdir(cogs_dir):
-        if filename.endswith('.py') and filename != '__init__.py':
-            cog_name = filename[:-3]
-            try:
-                await bot.load_extension(f'cogs.{cog_name}')
-                print(f"✅ Loaded cog: {filename}")
-            except Exception as e:
-                print(f"❌ Failed to load {filename}: {e}")
-
-    # Only sync once when bot starts
-    if not synced:
-        print("🔄 Syncing slash commands...")
-        try:
-            # Add a delay to avoid rate limiting
-            await asyncio.sleep(2)
-            
-            # Try guild sync first
-            guild = discord.Object(id=GUILD_ID)
-            synced_commands = await bot.tree.sync(guild=guild)
-            print(f"✅ Synced {len(synced_commands)} command(s) to guild {GUILD_ID}")
-            
-            # Wait a bit more before global sync
-            await asyncio.sleep(3)
-            
-            # Also sync globally for DMs and other guilds
-            global_synced = await bot.tree.sync()
-            print(f"✅ Synced {len(global_synced)} command(s) globally")
-            
-            synced = True
-            
-        except discord.HTTPException as e:
-            if e.status == 429:  # Rate limited
-                print(f"❌ Rate limited during sync. Waiting 60 seconds...")
-                await asyncio.sleep(60)
+    async def setup_hook(self):
+        """This is called when the bot is starting up"""
+        print("🔄 Loading cogs...")
+        
+        cogs_dir = os.path.join(os.path.dirname(__file__), 'cogs')
+        for filename in os.listdir(cogs_dir):
+            if filename.endswith('.py') and filename != '__init__.py':
+                cog_name = filename[:-3]
                 try:
-                    synced_commands = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-                    print(f"✅ Synced {len(synced_commands)} command(s) after retry")
-                    synced = True
-                except Exception as retry_e:
-                    print(f"❌ Failed to sync after retry: {retry_e}")
-            else:
-                print(f"❌ HTTP error during sync: {e}")
-        except Exception as e:
-            print(f"❌ Failed to sync commands: {e}")
+                    await self.load_extension(f'cogs.{cog_name}')
+                    print(f"✅ Loaded cog: {filename}")
+                except Exception as e:
+                    print(f"❌ Failed to load {filename}: {e}")
 
-# Add error handler for rate limiting
-@bot.event
-async def on_error(event, *args, **kwargs):
-    print(f"❌ Error in {event}: {args}, {kwargs}")
+    async def on_ready(self):
+        print(f"✅ Logged in as {self.user} ({self.user.id})")
+        
+        # Only sync once when bot starts
+        if not self.synced:
+            print("🔄 Syncing slash commands...")
+            try:
+                # Add a delay to avoid rate limiting
+                await asyncio.sleep(3)
+                
+                # Try guild sync first (faster and less likely to be rate limited)
+                guild = discord.Object(id=GUILD_ID)
+                synced_commands = await self.tree.sync(guild=guild)
+                print(f"✅ Synced {len(synced_commands)} command(s) to guild {GUILD_ID}")
+                
+                self.synced = True
+                print("🎉 Bot is ready and commands are synced!")
+                
+            except discord.HTTPException as e:
+                if e.status == 429:  # Rate limited
+                    print(f"❌ Rate limited during sync. This is usually temporary.")
+                    print("💡 Commands will sync automatically when rate limit expires.")
+                else:
+                    print(f"❌ HTTP error during sync: {e}")
+            except Exception as e:
+                print(f"❌ Failed to sync commands: {e}")
+
+bot = MyBot()
 
 # --- Run the Bot ---
 async def main():
     if not DISCORD_TOKEN:
-        print("❌ DISCORD_TOKEN is missing in .env")
+        print("❌ DISCORD_TOKEN is missing in environment variables")
+        print("💡 Make sure to set DISCORD_TOKEN in your Render dashboard")
         return
     elif not MONGODB_URI:
-        print("❌ MONGODB_URI is missing in .env")
+        print("❌ MONGODB_URI is missing in environment variables")
+        print("💡 Make sure to set MONGODB_URI in your Render dashboard")
         return
     
     print("🌐 Starting keep-alive server...")
     keep_alive()
     print("🤖 Starting bot...")
     
-    # Add retry logic for initial connection
-    max_retries = 3
+    # Add retry logic for initial connection with exponential backoff
+    max_retries = 5
     for attempt in range(max_retries):
         try:
-            await bot.start(DISCORD_TOKEN)
+            async with bot:
+                await bot.start(DISCORD_TOKEN)
             break
         except discord.HTTPException as e:
             if e.status == 429:  # Rate limited
-                wait_time = 60 * (attempt + 1)  # Exponential backoff
-                print(f"❌ Rate limited on startup attempt {attempt + 1}. Waiting {wait_time} seconds...")
+                wait_time = min(300, 30 * (2 ** attempt))  # Exponential backoff, max 5 minutes
+                print(f"❌ Rate limited on startup attempt {attempt + 1}/{max_retries}")
+                print(f"⏳ Waiting {wait_time} seconds before retry...")
                 await asyncio.sleep(wait_time)
             else:
                 print(f"❌ HTTP error on startup: {e}")
                 if attempt == max_retries - 1:
                     raise
+                await asyncio.sleep(10)
         except Exception as e:
-            print(f"❌ Error starting bot: {e}")
+            print(f"❌ Error starting bot (attempt {attempt + 1}/{max_retries}): {e}")
             if attempt == max_retries - 1:
                 raise
+            await asyncio.sleep(10)
 
 if __name__ == "__main__":
     try:

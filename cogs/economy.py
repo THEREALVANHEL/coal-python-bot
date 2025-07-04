@@ -26,10 +26,9 @@ class Economy(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # instant guild-scoped sync
+    # Load cog without syncing (main.py handles syncing)
     async def cog_load(self):
-        await self.bot.sync_commands(guild_ids=[GUILD_ID])
-        print("[Economy] Slash commands synced to guild.")
+        print("[Economy] Cog loaded successfully.")
 
     # ──────────────────────────────────────────────────────
     # /daily

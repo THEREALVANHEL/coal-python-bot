@@ -96,10 +96,9 @@ class Cookies(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # instant guild-scoped slash-command sync
+    # Load cog without syncing (main.py handles syncing)
     async def cog_load(self):
-        await self.bot.tree.sync(guild=guild_obj)
-        print("[Cookies] Slash commands synced to guild.")
+        print("[Cookies] Cog loaded successfully.")
 
     # ---------- helpers ----------------------------------
     @staticmethod

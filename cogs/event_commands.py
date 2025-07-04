@@ -101,10 +101,9 @@ class EventCommands(commands.Cog):
             bot.add_view(EventJoinView(host=None, title=""))
             bot.event_views_added = True
 
-    # instant guild sync
+    # Load cog without syncing (main.py handles syncing)
     async def cog_load(self):
-        await self.bot.sync_commands(guild_ids=[GUILD_ID])
-        print("[Events] Slash commands synced to guild.")
+        print("[Events] Cog loaded successfully.")
 
     # ──────────────────────────────────────────────────────
     # /shout  – event announcement
