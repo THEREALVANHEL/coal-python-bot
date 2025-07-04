@@ -4,7 +4,6 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
-from discord import app_commands
 import asyncio
 import logging
 
@@ -34,7 +33,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-GUILD_ID = 1370009417726169250  # Update if your server ID changes
+GUILD_ID = 1370009417726169250
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -62,21 +61,16 @@ class MyBot(commands.Bot):
         if not self.synced:
             print("🔄 Syncing slash commands...")
             try:
-                # Add a delay to avoid rate limiting
-                await asyncio.sleep(3)
-                
-                # Try guild sync first (faster and less likely to be rate limited)
+                # Guild sync (faster and less likely to be rate limited)
                 guild = discord.Object(id=GUILD_ID)
                 synced_commands = await self.tree.sync(guild=guild)
                 print(f"✅ Synced {len(synced_commands)} command(s) to guild {GUILD_ID}")
                 
                 self.synced = True
                 print("🎉 Bot is ready and commands are synced!")
-                
-            except discord.HTTPException as e:
+                except discord.HTTPException as e:
                 if e.status == 429:  # Rate limited
-                    print(f"❌ Rate limited during sync. This is usually temporary.")
-                    print("💡 Commands will sync automatically when rate limit expires.")
+                    print(f"⚠️ Rate limited during sync. Commands will sync later.")
                 else:
                     print(f"❌ HTTP error during sync: {e}")
             except Exception as e:
@@ -88,40 +82,25 @@ bot = MyBot()
 async def main():
     if not DISCORD_TOKEN:
         print("❌ DISCORD_TOKEN is missing in environment variables")
-        print("💡 Make sure to set DISCORD_TOKEN in your Render dashboard")
         return
     elif not MONGODB_URI:
         print("❌ MONGODB_URI is missing in environment variables")
-        print("💡 Make sure to set MONGODB_URI in your Render dashboard")
         return
     
     print("🌐 Starting keep-alive server...")
     keep_alive()
     print("🤖 Starting bot...")
     
-    # Add retry logic for initial connection with exponential backoff
-    max_retries = 5
-    for attempt in range(max_retries):
-        try:
-            async with bot:
-                await bot.start(DISCORD_TOKEN)
-            break
-        except discord.HTTPException as e:
-            if e.status == 429:  # Rate limited
-                wait_time = min(300, 30 * (2 ** attempt))  # Exponential backoff, max 5 minutes
-                print(f"❌ Rate limited on startup attempt {attempt + 1}/{max_retries}")
-                print(f"⏳ Waiting {wait_time} seconds before retry...")
-                await asyncio.sleep(wait_time)
-            else:
-                print(f"❌ HTTP error on startup: {e}")
-                if attempt == max_retries - 1:
-                    raise
-                await asyncio.sleep(10)
-        except Exception as e:
-            print(f"❌ Error starting bot (attempt {attempt + 1}/{max_retries}): {e}")
-            if attempt == max_retries - 1:
-                raise
-            await asyncio.sleep(10)
+    try:
+        async with bot:
+            await bot.start(DISCORD_TOKEN)
+    except discord.HTTPException as e:
+        if e.status == 429:
+            print("❌ Rate limited. Please wait before restarting.")
+        else:
+            print(f"❌ HTTP error: {e}")
+    except Exception as e:
+        print(f"❌ Error starting bot: {e}")
 
 if __name__ == "__main__":
     try:
