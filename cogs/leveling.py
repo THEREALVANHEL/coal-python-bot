@@ -61,7 +61,6 @@ class LevelLeaderboardView(discord.ui.View):
             await self.interaction.edit_original_response(view=self)
         except discord.NotFound:
             pass
-
     @discord.ui.button(label="⬅️ Previous", style=discord.ButtonStyle.grey)
     async def prev(self, interaction: discord.Interaction, _btn):
         if interaction.user.id != self.author.id:
@@ -130,7 +129,7 @@ class Leveling(commands.Cog):
         to_remove = [r for r in member.roles if r.id in lvl_role_ids and r.id != highest]
         to_add = member.guild.get_role(highest)
         try:
-            if to_remove:
+if to_remove:
                 await member.remove_roles(*to_remove, reason="Level role update")
             if to_add and to_add not in member.roles:
                 await member.add_roles(to_add, reason=f"Reached level {lvl}")
@@ -192,8 +191,7 @@ class Leveling(commands.Cog):
     async def updateroles(self, ctx: discord.ApplicationContext):
         await self.update_user_roles(ctx.author)
         await ctx.respond("✅ Your roles have been updated based on your level!", ephemeral=True)
-
-    @commands.slash_command(name="chatlvlup", description="Announce your last level up", guild_ids=[GUILD_ID])
+@commands.slash_command(name="chatlvlup", description="Announce your last level up", guild_ids=[GUILD_ID])
     async def chatlvlup(self, ctx: discord.ApplicationContext):
         data = db.get_user_level_data(ctx.author.id)
         if not data:
