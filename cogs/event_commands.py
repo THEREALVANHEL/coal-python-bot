@@ -3,7 +3,7 @@
 # – /shout  (event announcement)
 # – /gamelog  (post-event summary)
 # – Uses custom host-role check
-# – Persistent “Join Event” button view
+# – Persistent "Join Event" button view
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
 # ─────────────────────────────────────────────────────────
-# helper: parse time strings like “in 1 hour” or “1h30m”
+# helper: parse time strings like "in 1 hour" or "1h30m"
 # ─────────────────────────────────────────────────────────
 def parse_time(time_str: str) -> Optional[datetime]:
     match = re.match(r"in\s+(\d+)\s+(hour|minute|day)s?", time_str, re.I)
@@ -46,7 +46,7 @@ def parse_time(time_str: str) -> Optional[datetime]:
     return datetime.utcnow() + timedelta(seconds=seconds) if seconds else None
 
 # ─────────────────────────────────────────────────────────
-# persistent “Join Event” button
+# persistent "Join Event" button
 # ─────────────────────────────────────────────────────────
 class EventJoinView(discord.ui.View):
     def __init__(self, host: Optional[discord.Member], title: str):
@@ -67,8 +67,7 @@ class EventJoinView(discord.ui.View):
         else:
             embed.add_field(name="👥 Participants", value=plist, inline=False)
         return embed
-
-    @discord.ui.button(label="Join Event", style=discord.ButtonStyle.success, custom_id="event_join_button")
+            @discord.ui.button(label="Join Event", style=discord.ButtonStyle.success, custom_id="event_join_button")
     async def join(self, interaction: discord.Interaction, _btn: discord.ui.Button):
         uid = interaction.user.id
         if uid in self.participants:
@@ -139,8 +138,7 @@ class EventCommands(commands.Cog):
         start_dt = parse_time(time)
         if not start_dt:
             return await ctx.respond("⏱️ Invalid time format.", ephemeral=True)
-
-        ts = int(start_dt.timestamp())
+            ts = int(start_dt.timestamp())
         embed = discord.Embed(
             title=f"🎉 {gamename} 🎉",
             description=description,
@@ -205,7 +203,6 @@ class EventCommands(commands.Cog):
             timestamp=datetime.utcnow(),
         )
         embed.set_author(name=f"Logged by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
-
         staff = f"**Host:** {host}\n"
         if cohost:
             staff += f"**Co-host:** {cohost}\n"
