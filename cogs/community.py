@@ -1,4 +1,3 @@
-# (top unchanged)
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -30,13 +29,13 @@ ANNOUNCE_ROLES = [
 ]
 
 class Community(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print("Community Cog is ready.")
+    async def cog_load(self):
+        await self.bot.tree.sync(guild=guild_obj)
+        print("[Community] Slash commands synced to guild.")
 
     @app_commands.command(name="askblecknephew", description="Ask Bleck Nephew anything! (Powered by AI)")
     @app_commands.describe(question="The question you want to ask.")
@@ -248,6 +247,6 @@ class Community(commands.Cog):
 
         await interaction.followup.send(embed=embed, file=wheel_file)
 
-# ───────────────────────────────────────────────────────────────────────────────
-async def setup(bot):
+# ─────────────────────────────────────────────────────────────
+async def setup(bot: commands.Bot):
     await bot.add_cog(Community(bot), guilds=[guild_obj])
