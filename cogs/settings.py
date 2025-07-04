@@ -1,111 +1,135 @@
+"""
+cogs/settings.py
+Server-configuration & starboard management commands
+"""
+
+import os
+import sys
+from datetime import datetime
+
 import discord
 from discord.ext import commands
 from discord import app_commands, Permissions
-import sys
-import os
-from datetime import datetime
 
-# Ensure parent directory is in path to import your database
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import database as db
+# ─────────────────────────────────────────────────────────────
+# Locate database.py one level up from /cogs
+# ─────────────────────────────────────────────────────────────
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import database as db  # noqa: E402  (import after path tweak)
 
+# ─────────────────────────────────────────────────────────────
+# Guild scope (replace with your own ID if needed)
+# ─────────────────────────────────────────────────────────────
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
+
 class Settings(commands.Cog):
-    def __init__(self, bot):
+    """Admin-only server-settings & starboard cog."""
+
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    # ---------------------------------------------------------
+    # Channel setters
+    # ---------------------------------------------------------
     admin_perms = Permissions(administrator=True)
+    _channel_types = {
+        "welcome": ("👋 Welcome", "welcome"),
+        "leave": ("👋 Leave", "leave"),
+        "log": ("📝 Log", "log"),
+        "leveling": ("🌌 Leveling", "leveling"),
+        "suggestion": ("💡 Suggestion", "suggestion"),
+    }
 
-    @app_commands.command(name="setwelcomechannel", description="[Admin] Set the channel for welcome messages.")
-    @app_commands.guilds(guild_obj)
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(channel="The channel to use for welcome messages.")
-    async def setwelcomechannel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        db.set_channel(interaction.guild.id, "welcome", channel.id)
-        await interaction.response.send_message(f"✅ Welcome messages will now be sent to {channel.mention}.", ephemeral=True)
+    def _register_setter(name: str, label: str):
+        """Dynamically attach /setXchannel slash-commands."""
 
-    @app_commands.command(name="setleavechannel", description="[Admin] Set the channel for leave messages.")
-    @app_commands.guilds(guild_obj)
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(channel="The channel to use for leave messages.")
-    async def setleavechannel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        db.set_channel(interaction.guild.id, "leave", channel.id)
-        await interaction.response.send_message(f"✅ Leave messages will now be sent to {channel.mention}.", ephemeral=True)
+        @app_commands.command(
+            name=f"set{name}channel", description=f"[Admin] Set the {label.lower()} channel."
+        )
+        @app_commands.guilds(guild_obj)
+        @app_commands.default_permissions(administrator=True)
+        @app_commands.describe(channel=f"The channel to use for {label.lower()} messages.")
+        async def _cmd(self, interaction: discord.Interaction, channel: discord.TextChannel):
+            db.set_channel(interaction.guild.id, name, channel.id)
+            await interaction.response.send_message(
+                f"✅ {label} messages will now be sent to {channel.mention}.", ephemeral=True
+            )
 
-    @app_commands.command(name="setlogchannel", description="[Admin] Set the channel for audit logs.")
-    @app_commands.guilds(guild_obj)
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(channel="The channel to use for audit logs.")
-    async def setlogchannel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        db.set_channel(interaction.guild.id, "log", channel.id)
-        await interaction.response.send_message(f"✅ Audit logs will now be sent to {channel.mention}.", ephemeral=True)
+        return _cmd
 
-    @app_commands.command(name="setlevelingchannel", description="[Admin] Set the channel for level-up announcements.")
-    @app_commands.guilds(guild_obj)
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(channel="The channel to use for level-up announcements.")
-    async def setlevelingchannel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        db.set_channel(interaction.guild.id, "leveling", channel.id)
-        await interaction.response.send_message(f"✅ Level-up announcements will now be sent to {channel.mention}.", ephemeral=True)
+    # Generate setters for welcome/leave/log/leveling/suggestion
+    for _key, (_label, _db_key) in _channel_types.items():
+        locals()[f"set{_key}channel"] = _register_setter(_db_key, _label)
+    del _key, _label, _db_key, _register_setter  # clean namespace
 
-    @app_commands.command(name="setsuggestionchannel", description="[Admin] Set the channel for user suggestions.")
-    @app_commands.guilds(guild_obj)
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(channel="The channel where suggestions should be posted.")
-    async def setsuggestionchannel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        db.set_channel(interaction.guild.id, "suggestion", channel.id)
-        await interaction.response.send_message(f"✅ Suggestions will now be sent to {channel.mention}.", ephemeral=True)
-
-    @app_commands.command(name="setstarboard", description="[Admin] Set the starboard channel and required star count.")
+    # ---------------------------------------------------------
+    # /setstarboard
+    # ---------------------------------------------------------
+    @app_commands.command(
+        name="setstarboard",
+        description="[Admin] Set the starboard channel and required star count.",
+    )
     @app_commands.guilds(guild_obj)
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(
-        channel="The channel to use for the starboard.",
-        count="The number of stars required to post a message."
+        channel="Channel to post starred messages.",
+        count="Stars required to post (1-100).",
     )
-    async def setstarboard(self, interaction: discord.Interaction, channel: discord.TextChannel, count: app_commands.Range[int, 1, 100]):
+    async def setstarboard(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        count: app_commands.Range[int, 1, 100],
+    ):
         db.set_starboard(interaction.guild.id, channel.id, count)
-        await interaction.response.send_message(f"✅ Starboard enabled. Messages with **{count}** ⭐ will be posted to {channel.mention}.", ephemeral=True)
+        await interaction.response.send_message(
+            f"✅ Starboard enabled. Messages with **{count}** ⭐ will be posted to {channel.mention}.",
+            ephemeral=True,
+        )
 
-    @app_commands.command(name="showsettings", description="Show current configured channels.")
+    # ---------------------------------------------------------
+    # /showsettings
+    # ---------------------------------------------------------
+    @app_commands.command(name="showsettings", description="Display current channel settings.")
     @app_commands.guilds(guild_obj)
     async def showsettings(self, interaction: discord.Interaction):
-        guild_id = interaction.guild.id
-        welcome = db.get_channel(guild_id, "welcome")
-        leave = db.get_channel(guild_id, "leave")
-        log = db.get_channel(guild_id, "log")
-        leveling = db.get_channel(guild_id, "leveling")
-        suggestion = db.get_channel(guild_id, "suggestion")
-        starboard_settings = db.get_starboard_settings(guild_id)
-
+        g_id = interaction.guild.id
         embed = discord.Embed(
             title="🔧 Server Settings",
-            description="Here are your current channel settings:",
-            color=discord.Color.dark_teal()
+            color=discord.Color.dark_teal(),
         )
-        embed.add_field(name="👋 Welcome Channel", value=f"<#{welcome}>" if welcome else "Not set", inline=False)
-        embed.add_field(name="👋 Leave Channel", value=f"<#{leave}>" if leave else "Not set", inline=False)
-        embed.add_field(name="📝 Log Channel", value=f"<#{log}>" if log else "Not set", inline=False)
-        embed.add_field(name="🌌 Leveling Channel", value=f"<#{leveling}>" if leveling else "Not set", inline=False)
-        embed.add_field(name="💡 Suggestion Channel", value=f"<#{suggestion}>" if suggestion else "Not set", inline=False)
 
-        if starboard_settings and "starboard_channel" in starboard_settings:
-            channel_id = starboard_settings["starboard_channel"]
-            star_count = starboard_settings.get("starboard_star_count", "N/A")
-            starboard_info = f"<#{channel_id}> ({star_count} ⭐ required)"
+        # core channels
+        for key, (label, db_key) in self._channel_types.items():
+            chan_id = db.get_channel(g_id, db_key)
+            embed.add_field(
+                name=f"{label} Channel",
+                value=f"<#{chan_id}>" if chan_id else "Not set",
+                inline=False,
+            )
+
+        # starboard
+        sb = db.get_starboard_settings(g_id)
+        if sb:
+            sb_val = f"<#{sb['starboard_channel']}> ({sb.get('starboard_star_count', 'N/A')} ⭐)"
         else:
-            starboard_info = "Not set"
-        embed.add_field(name="⭐ Starboard Channel", value=starboard_info, inline=False)
+            sb_val = "Not set"
+        embed.add_field(name="⭐ Starboard Channel", value=sb_val, inline=False)
 
         embed.set_footer(
-            text="VANHELISMYSENSEI Settings | BLEK NEPHEW",
-            icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+            text="VANHELISMYSENSEI Settings",
+            icon_url="https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="botdebug", description="[Owner] Shows a debug panel with loaded cogs and commands.")
+    # ---------------------------------------------------------
+    # /botdebug  (owner-only)
+    # ---------------------------------------------------------
+    @app_commands.command(
+        name="botdebug", description="[Owner] Show loaded cogs and synced commands."
+    )
     @app_commands.guilds(guild_obj)
     @commands.is_owner()
     async def botdebug(self, interaction: discord.Interaction):
@@ -113,38 +137,36 @@ class Settings(commands.Cog):
 
         embed = discord.Embed(
             title="🤖 Bot Debug Panel",
-            description=f"**Bot Name:** {self.bot.user.name}\n**Bot ID:** {self.bot.user.id}",
+            description=f"**Bot:** {self.bot.user} (`{self.bot.user.id}`)",
             color=discord.Color.dark_red(),
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
+        )
+        embed.add_field(
+            name="✅ Loaded Cogs",
+            value="```\n" + ", ".join(self.bot.cogs.keys()) + "\n```",
+            inline=False,
         )
 
-        loaded_cogs = ", ".join(self.bot.cogs.keys())
-        embed.add_field(name="✅ Loaded Cogs", value=f"```\n{loaded_cogs}\n```", inline=False)
+        cmds = await self.bot.tree.fetch_commands(guild=guild_obj)
+        names = sorted(f"/{c.name}" for c in cmds)
+        chunks = []
+        chunk = ""
+        for n in names:
+            if len(chunk) + len(n) > 1000:
+                chunks.append(chunk.rstrip(", "))
+                chunk = ""
+            chunk += n + ", "
+        chunks.append(chunk.rstrip(", "))
 
-        commands_list = await self.bot.tree.fetch_commands(guild=guild_obj)
-        if commands_list:
-            command_names = [f"/{cmd.name}" for cmd in commands_list]
-            commands_str = ", ".join(command_names)
-            if len(commands_str) > 1000:
-                parts = []
-                current_part = ""
-                for name in command_names:
-                    if len(current_part) + len(name) > 1000:
-                        parts.append(current_part)
-                        current_part = ""
-                    current_part += name + ", "
-                parts.append(current_part.strip(', '))
-                for i, part in enumerate(parts):
-                    embed.add_field(name=f" Slash Commands (Part {i+1})", value=f"```\n{part}\n```", inline=False)
-            else:
-                embed.add_field(name=" Slash Commands", value=f"```\n{commands_str}\n```", inline=False)
-        else:
-            embed.add_field(name=" Slash Commands", value="No slash commands registered.", inline=False)
+        for i, ch in enumerate(chunks, 1):
+            embed.add_field(name=f"Slash Commands (part {i})", value=f"```\n{ch}\n```", inline=False)
 
-        embed.set_footer(text=f"Latency: {round(self.bot.latency * 1000)}ms")
+        embed.set_footer(text=f"Latency: {round(self.bot.latency*1000)} ms")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    # ⭐ Starboard Listener
+    # ---------------------------------------------------------
+    # Starboard listener
+    # ---------------------------------------------------------
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         if payload.emoji.name != "⭐":
@@ -154,46 +176,49 @@ class Settings(commands.Cog):
         if not guild:
             return
 
-        starboard_settings = db.get_starboard_settings(payload.guild_id)
-        if not starboard_settings:
+        sb = db.get_starboard_settings(payload.guild_id)
+        if not sb:
             return
 
-        starboard_channel_id = starboard_settings.get("starboard_channel")
-        required_stars = starboard_settings.get("starboard_star_count", 3)
-        starboard_channel = guild.get_channel(starboard_channel_id)
-        if not starboard_channel:
+        sb_channel = guild.get_channel(sb["starboard_channel"])
+        if not sb_channel or payload.channel_id == sb_channel.id:
             return
 
         if db.has_been_starred(payload.guild_id, payload.message_id):
             return
 
         channel = guild.get_channel(payload.channel_id)
+        if not channel:
+            return
+
         try:
-            message = await channel.fetch_message(payload.message_id)
-        except Exception:
+            msg = await channel.fetch_message(payload.message_id)
+        except discord.NotFound:
             return
 
-        star_reaction = next((r for r in message.reactions if r.emoji == "⭐"), None)
-        if not star_reaction or star_reaction.count < required_stars:
+        star_reac = discord.utils.get(msg.reactions, emoji="⭐")
+        if not star_reac or star_reac.count < sb.get("starboard_star_count", 3):
             return
 
-        if message.author.bot:
+        if msg.author.bot:
             return
 
         embed = discord.Embed(
-            description=message.content or "*No text content*",
+            description=msg.content or "*No text content*",
             color=discord.Color.gold(),
-            timestamp=message.created_at
+            timestamp=msg.created_at,
         )
-        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-        embed.set_footer(text=f"⭐ {star_reaction.count} | #{channel.name}")
+        embed.set_author(name=msg.author.display_name, icon_url=msg.author.display_avatar.url)
+        embed.set_footer(text=f"⭐ {star_reac.count} | #{channel.name}")
 
-        if message.attachments:
-            embed.set_image(url=message.attachments[0].url)
+        if msg.attachments:
+            embed.set_image(url=msg.attachments[0].url)
 
-        await starboard_channel.send(embed=embed)
+        post = await sb_channel.send(embed=embed)
         db.mark_as_starred(payload.guild_id, payload.message_id)
+        db.add_starboard_message(msg.id, post.id)
 
-# Setup
-async def setup(bot):
-    await bot.add_cog(Settings(bot))
+
+# ─────────────────────────────────────────────────────────────
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Settings(bot), guilds=[guild_obj])
