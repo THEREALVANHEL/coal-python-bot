@@ -3,6 +3,8 @@ cogs/settings.py
 Server-configuration & starboard management commands
 """
 
+from __future__ import annotations
+
 import os
 import sys
 from datetime import datetime
@@ -11,15 +13,15 @@ import discord
 from discord.ext import commands
 from discord import app_commands, Permissions
 
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 # Locate database.py one level up from /cogs
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import database as db  # noqa: E402  (import after path tweak)
+import database as db  # noqa: E402
 
-# ─────────────────────────────────────────────────────────────
-# Guild scope (replace with your own ID if needed)
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
+# Guild scope (instant sync)
+# ─────────────────────────────────────────────────────────
 GUILD_ID = 1370009417726169250
 guild_obj = discord.Object(id=GUILD_ID)
 
@@ -30,9 +32,14 @@ class Settings(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # ---------------------------------------------------------
+    # instant guild-scoped sync
+    async def cog_load(self):
+        await self.bot.tree.sync(guild=guild_obj)
+        print("[Settings] Slash commands synced instantly.")
+
+    # -----------------------------------------------------
     # Channel setters
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     admin_perms = Permissions(administrator=True)
     _channel_types = {
         "welcome": ("👋 Welcome", "welcome"),
@@ -42,31 +49,29 @@ class Settings(commands.Cog):
         "suggestion": ("💡 Suggestion", "suggestion"),
     }
 
+    # dynamic command factory
     def _register_setter(name: str, label: str):
-        """Dynamically attach /setXchannel slash-commands."""
-
         @app_commands.command(
             name=f"set{name}channel", description=f"[Admin] Set the {label.lower()} channel."
         )
         @app_commands.guilds(guild_obj)
         @app_commands.default_permissions(administrator=True)
-        @app_commands.describe(channel=f"The channel to use for {label.lower()} messages.")
+        @app_commands.describe(channel=f"The channel used for {label.lower()} messages.")
         async def _cmd(self, interaction: discord.Interaction, channel: discord.TextChannel):
             db.set_channel(interaction.guild.id, name, channel.id)
             await interaction.response.send_message(
                 f"✅ {label} messages will now be sent to {channel.mention}.", ephemeral=True
             )
-
         return _cmd
 
-    # Generate setters for welcome/leave/log/leveling/suggestion
+    # generate setters
     for _key, (_label, _db_key) in _channel_types.items():
         locals()[f"set{_key}channel"] = _register_setter(_db_key, _label)
     del _key, _label, _db_key, _register_setter  # clean namespace
 
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     # /setstarboard
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     @app_commands.command(
         name="setstarboard",
         description="[Admin] Set the starboard channel and required star count.",
@@ -89,19 +94,15 @@ class Settings(commands.Cog):
             ephemeral=True,
         )
 
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     # /showsettings
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     @app_commands.command(name="showsettings", description="Display current channel settings.")
     @app_commands.guilds(guild_obj)
     async def showsettings(self, interaction: discord.Interaction):
         g_id = interaction.guild.id
-        embed = discord.Embed(
-            title="🔧 Server Settings",
-            color=discord.Color.dark_teal(),
-        )
+        embed = discord.Embed(title="🔧 Server Settings", color=discord.Color.dark_teal())
 
-        # core channels
         for key, (label, db_key) in self._channel_types.items():
             chan_id = db.get_channel(g_id, db_key)
             embed.add_field(
@@ -110,7 +111,6 @@ class Settings(commands.Cog):
                 inline=False,
             )
 
-        # starboard
         sb = db.get_starboard_settings(g_id)
         if sb:
             sb_val = f"<#{sb['starboard_channel']}> ({sb.get('starboard_star_count', 'N/A')} ⭐)"
@@ -124,9 +124,9 @@ class Settings(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     # /botdebug  (owner-only)
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     @app_commands.command(
         name="botdebug", description="[Owner] Show loaded cogs and synced commands."
     )
@@ -149,45 +149,39 @@ class Settings(commands.Cog):
 
         cmds = await self.bot.tree.fetch_commands(guild=guild_obj)
         names = sorted(f"/{c.name}" for c in cmds)
-        chunks = []
         chunk = ""
+        part = 1
         for n in names:
             if len(chunk) + len(n) > 1000:
-                chunks.append(chunk.rstrip(", "))
+                embed.add_field(name=f"Slash Commands (part {part})", value=f"```\n{chunk.rstrip(', ')}\n```", inline=False)
+                part += 1
                 chunk = ""
             chunk += n + ", "
-        chunks.append(chunk.rstrip(", "))
-
-        for i, ch in enumerate(chunks, 1):
-            embed.add_field(name=f"Slash Commands (part {i})", value=f"```\n{ch}\n```", inline=False)
+        embed.add_field(name=f"Slash Commands (part {part})", value=f"```\n{chunk.rstrip(', ')}\n```", inline=False)
 
         embed.set_footer(text=f"Latency: {round(self.bot.latency*1000)} ms")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     # Starboard listener
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         if payload.emoji.name != "⭐":
             return
 
-        guild = self.bot.get_guild(payload.guild_id)
-        if not guild:
+        settings = db.get_starboard_settings(payload.guild_id)
+        if not settings:
             return
 
-        sb = db.get_starboard_settings(payload.guild_id)
-        if not sb:
+        starboard_id = settings["starboard_channel"]
+        star_thresh  = settings.get("starboard_star_count", 3)
+
+        if payload.channel_id == starboard_id:
             return
 
-        sb_channel = guild.get_channel(sb["starboard_channel"])
-        if not sb_channel or payload.channel_id == sb_channel.id:
-            return
-
-        if db.has_been_starred(payload.guild_id, payload.message_id):
-            return
-
-        channel = guild.get_channel(payload.channel_id)
+        guild   = self.bot.get_guild(payload.guild_id)
+        channel = guild.get_channel(payload.channel_id) if guild else None
         if not channel:
             return
 
@@ -196,11 +190,18 @@ class Settings(commands.Cog):
         except discord.NotFound:
             return
 
-        star_reac = discord.utils.get(msg.reactions, emoji="⭐")
-        if not star_reac or star_reac.count < sb.get("starboard_star_count", 3):
+        if msg.author.bot:
             return
 
-        if msg.author.bot:
+        star_reac = discord.utils.get(msg.reactions, emoji="⭐")
+        if not star_reac or star_reac.count < star_thresh:
+            return
+
+        if db.has_been_starred(payload.guild_id, msg.id):
+            return
+
+        sb_channel = guild.get_channel(starboard_id)
+        if not sb_channel or sb_channel.id == payload.channel_id:
             return
 
         embed = discord.Embed(
@@ -215,10 +216,10 @@ class Settings(commands.Cog):
             embed.set_image(url=msg.attachments[0].url)
 
         post = await sb_channel.send(embed=embed)
-        db.mark_as_starred(payload.guild_id, payload.message_id)
+        db.mark_as_starred(payload.guild_id, msg.id)
         db.add_starboard_message(msg.id, post.id)
 
 
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
 async def setup(bot: commands.Bot):
     await bot.add_cog(Settings(bot), guilds=[guild_obj])
