@@ -1,77 +1,56 @@
-# === Python Cache ===
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# === Virtual Environments ===
-env/
-.venv/
+# Virtual environments
 venv/
+env/
 ENV/
 env.bak/
 venv.bak/
 
-# === Environment Variables ===
-.env
-.wget-hsts
-
-# === Build / Distribution ===
-build/
-dist/
-
-# === IDEs / Editors ===
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# === OS Files ===
+# OS
 .DS_Store
 Thumbs.db
 
-# === User/System Files ===
-.cache/
-.config/
-.local/
-.pm2/
-.var/
-.pki/
-.Xauthority
-.bash_history
-.sudo_as_admin_successful
-.xsession-errors*
-.bashrc
-.gitconfig
-
-# === Render Deployment ===
-.render.yaml
-
-# === Cursor / Display ===
-.cursor/
-
-# === Python Tools ===
-.mypy_cache/
-.coverage
-htmlcov/
-*.egg-info/
-
-# === Databases (if used locally) ===
-*.sqlite3
-*.db
-
-# === Logs / Temp Files ===
+# Logs
 *.log
-*.tmp
 
-# === Backup Files ===
-*.bak
-*~
+# Database
+*.db
+*.sqlite3
 
-# === Node (if dashboard or frontend is in project) ===
-node_modules/
-
-# === Project Folders to Ignore ===
-discord-cpp-bot/
-my-discord-bot/
-.fly/
+# Temporary files
+temp/
+tmp/
