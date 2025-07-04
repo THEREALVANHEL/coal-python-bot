@@ -1,49 +1,58 @@
 #!/usr/bin/env python3
 """
-Environment Variable Checker
-Run this to verify your bot's environment variables are set correctly
+Environment Variables Checker
+Run this to verify your environment setup before starting the bot
 """
 
 import os
 from dotenv import load_dotenv
 
 def check_environment():
-    print("🔍 Checking Environment Variables...")
-    print("=" * 50)
-    
-    # Load .env file if it exists
+    """Check if all required environment variables are set"""
     load_dotenv()
     
-    # Required variables
     required_vars = {
-        'DISCORD_TOKEN': 'Discord Bot Token',
-        'MONGODB_URI': 'MongoDB Connection String',
-        'GEMINI_API_KEY': 'Google Gemini API Key (optional for AI features)'
+        'DISCORD_TOKEN': 'Discord bot token',
+        'MONGODB_URI': 'MongoDB connection string',
     }
     
-    all_good = True
+    optional_vars = {
+        'GEMINI_API_KEY': 'Google Gemini AI API key (for /askblecknephew command)',
+    }
     
-    for var_name, description in required_vars.items():
-        value = os.getenv(var_name)
+    print("🔍 Checking Environment Variables...\n")
+    
+    # Check required variables
+    missing_required = []
+    for var, description in required_vars.items():
+        value = os.getenv(var)
         if value:
-            # Mask sensitive values
-            if 'TOKEN' in var_name or 'KEY' in var_name:
-                masked = value[:8] + '*' * (len(value) - 12) + value[-4:] if len(value) > 12 else '****'
-                print(f"✅ {var_name}: {masked}")
-            else:
-                print(f"✅ {var_name}: {value[:50]}...")
+            print(f"✅ {var}: {'*' * min(len(value), 8)}... ({description})")
         else:
-            print(f"❌ {var_name}: Missing - {description}")
-            all_good = False
+            print(f"❌ {var}: Missing! ({description})")
+            missing_required.append(var)
     
-    print("=" * 50)
-    if all_good:
-        print("🎉 All required environment variables are set!")
+    print("\n📋 Optional Variables:")
+    for var, description in optional_vars.items():
+        value = os.getenv(var)
+        if value:
+            print(f"✅ {var}: {'*' * min(len(value), 8)}... ({description})")
+        else:
+            print(f"⚠️  {var}: Not set ({description})")
+    
+    print(f"\n{'='*50}")
+    
+    if missing_required:
+        print(f"❌ Missing {len(missing_required)} required environment variable(s):")
+        for var in missing_required:
+            print(f"   - {var}")
+        print("\n💡 Please add these to your .env file or deployment environment")
+        return False
     else:
-        print("⚠️  Some environment variables are missing.")
-        print("   Make sure to set them in your deployment environment.")
-    
-    return all_good
+        print("✅ All required environment variables are set!")
+        print("🚀 Your bot should be ready to run!")
+        return True
 
 if __name__ == "__main__":
-    check_environment()
+    success = check_environment()
+    exit(0 if success else 1)
