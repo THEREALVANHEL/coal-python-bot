@@ -1,54 +1,132 @@
-print("=== BOT STARTING ===")
-
 import os
-print("✅ OS imported")
-
-try:
-    import discord
-    print("✅ Discord imported")
-except Exception as e:
-    print(f"❌ Discord import error: {e}")
-
-try:
-    from flask import Flask
-    print("✅ Flask imported")
-except Exception as e:
-    print(f"❌ Flask import error: {e}")
-
+import discord
+from discord.ext import commands
+from dotenv import load_dotenv
+from flask import Flask
 from threading import Thread
+import asyncio
+import logging
+import time
 
-# Keep-alive
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+
+# Keep-alive server
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot Status: Starting..."
+    return "✅ Bot is alive!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
-    Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
+    Thread(target=run_flask).start()
 
-print("🌐 Starting Flask...")
-keep_alive()
+# Load environment variables
+load_dotenv()
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+MONGODB_URI = os.getenv("MONGODB_URI")
 
-# Check token
-token = os.getenv("DISCORD_TOKEN")
-print(f"🔑 Token found: {bool(token)}")
-if token:
-    print(f"🔑 Token starts with: {token[:15]}...")
-else:
-    print("❌ NO TOKEN FOUND!")
+if not DISCORD_TOKEN:
+    print("❌ NO TOKEN FOUND")
+    exit(1)
 
-print("🤖 Creating Discord client...")
-try:
-    intents = discord.Intents.default()
-    bot = discord.Client(intents=intents)
+# Discord Bot Setup
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+intents.guilds = True
+
+bot = commands.Bot(
+    command_prefix='!',
+    intents=intents,
+    help_command=None
+)
+
+@bot.event
+async def on_ready():
+    print(f"✅ BOT ONLINE: {bot.user.name}#{bot.user.discriminator}")
+    print(f"📊 Bot ID: {bot.user.id}")
+    print(f"🔗 Invite: https://discord.com/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
     
-    @bot.event
-    async def on_ready():
-        print(f"✅ BOT ONLINE: {bot.user}")
+    # Sync slash commands
+    try:
+        synced = await bot.tree.sync()
+        print(f"⚡ Synced {len(synced)} slash commands")
+    except Exception as e:
+        print(f"❌ Failed to sync commands: {e}")
+
+# Load cogs
+async def load_cogs():
+    try:
+        cogs = [
+            'cogs.leveling',
+            'cogs.economy', 
+            'cogs.moderation',
+            'cogs.community',
+            'cogs.settings',
+            'cogs.cookies',
+            'cogs.events',
+            'cogs.event_commands'
+        ]
+        for cog in cogs:
+            try:
+                await bot.load_extension(cog)
+                print(f"✅ Loaded: {cog}")
+            except Exception as e:
+                print(f"❌ Failed to load {cog}: {e}")
+    except Exception as e:
+        print(f"❌ Error loading cogs: {e}")
+
+async def main():
+    print("=== BOT STARTING ===")
+    print("✅ OS imported")
+    print("✅ Discord imported")
+    print("✅ Flask imported")
+    print("🌐 Starting Flask...")
+    
+    # Start keep-alive server
+    keep_alive()
+    
+    print(f"🔑 Token found: {bool(DISCORD_TOKEN)}")
+    print(f"🔑 Token starts with: {DISCORD_TOKEN[:15]}...")
+    print("🤖 Creating Discord client...")
+    
+    # Load cogs
+    await load_cogs()
     
     print("🚀 Starting bot connection...")
-    bot.run(token)
     
-except Exception as e:
-    print(f"❌ BOT ERROR: {e}")
+    # Rate limit handling with retries
+    max_retries = 3
+    retry_delay = 30  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            await bot.start(DISCORD_TOKEN)
+            break
+        except discord.HTTPException as e:
+            if e.status == 429:  # Rate limited
+                if attempt < max_retries - 1:
+                    print(f"⏳ Rate limited. Waiting {retry_delay} seconds before retry {attempt + 2}/{max_retries}")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    print("❌ Max retries reached. Bot will stop.")
+                    raise
+            else:
+                print(f"❌ BOT ERROR: {e}")
+                raise
+        except Exception as e:
+            print(f"❌ BOT ERROR: {e}")
+            raise
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("🛑 Bot stopped by user")
+    except Exception as e:
+        print(f"❌ FATAL ERROR: {e}")
