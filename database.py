@@ -1,13 +1,20 @@
 """
-database.py  – MongoDB helper layer for the Discord bot
+database.py – MongoDB helper layer for the Discord bot
 """
 
 import os
+import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from pymongo import MongoClient, UpdateOne
 from dotenv import load_dotenv
+
+# ─────────────────────────────────────────────────────────────
+# Logger setup
+# ─────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────
 # Environment & Mongo Client
@@ -19,18 +26,17 @@ try:
     mongo_client = MongoClient(MONGODB_URI)
     db = mongo_client["coal"]
 
-    cookies_collection           = db["cookies"]
-    warnings_collection          = db["warnings"]
-    settings_collection          = db["settings"]
-    leveling_collection          = db["leveling"]
-    dailies_collection           = db["dailies"]
+    cookies_collection            = db["cookies"]
+    warnings_collection           = db["warnings"]
+    settings_collection           = db["settings"]
+    leveling_collection           = db["leveling"]
+    dailies_collection            = db["dailies"]
     starboard_messages_collection = db["starboard_messages"]
 
-    print("✅ Successfully connected to MongoDB.")
+    logger.info("✅ Successfully connected to MongoDB.")
 except Exception as e:
-    print(f"❌ Failed to connect to MongoDB: {e}")
+    logger.error("❌ Failed to connect to MongoDB", exc_info=True)
     mongo_client = None
-    # Make all collections safely None
     cookies_collection = warnings_collection = settings_collection = None
     leveling_collection = dailies_collection = starboard_messages_collection = None
 
@@ -133,7 +139,6 @@ def reset_all_cookies(member_ids: List[int]) -> None:
 def give_cookies_to_all(amount: int, member_ids: List[int]) -> None:
     if cookies_collection is None:
         return
-    # ensure each user doc exists
     cookies_collection.update_many(
         {"user_id": {"$in": member_ids}},
         {"$setOnInsert": {"cookies": 0}},
@@ -144,7 +149,6 @@ def give_cookies_to_all(amount: int, member_ids: List[int]) -> None:
     )
 
 def synchronize_cookies(all_member_ids: List[int]) -> int:
-    """Remove DB cookie docs for users no longer in guild."""
     if cookies_collection is None:
         return 0
     db_ids = {doc["user_id"] for doc in cookies_collection.find({}, {"user_id": 1})}
@@ -257,7 +261,6 @@ def mark_as_starred(guild_id: int, message_id: int) -> None:
         }
     )
 
-# Extra helpers expected by events.py
 def get_starboard_message(message_id: int) -> Optional[int]:
     if starboard_messages_collection is None:
         return None
