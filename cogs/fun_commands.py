@@ -1,4 +1,4 @@
-THIS SHOULD BE A LINTER ERROR# cogs/fun_commands.py
+# cogs/fun_commands.py
 # Additional fun commands for the Discord bot
 import discord
 from discord.ext import commands
@@ -244,6 +244,312 @@ class FunCommands(commands.Cog):
                 total_seconds += value          # seconds
         
         return total_seconds if total_seconds > 0 else None
+
+    @commands.slash_command(
+        name="quote",
+        description="Get an inspirational quote!",
+        guild_ids=[GUILD_ID],
+    )
+    async def quote(self, ctx: discord.ApplicationContext):
+        quote = random.choice(self.quotes)
+        
+        embed = discord.Embed(
+            title="✨ Inspirational Quote",
+            description=f"*{quote}*",
+            color=discord.Color.blue(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="Daily Inspiration", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="coinflipbet",
+        description="Bet cookies on a coin flip!",
+        guild_ids=[GUILD_ID],
+    )
+    @option("bet_amount", description="Amount of cookies to bet (1-100)", type=int)
+    @option("choice", description="Your guess: heads or tails", choices=["heads", "tails"])
+    async def coinflipbet(self, ctx: discord.ApplicationContext, bet_amount: int, choice: str):
+        user_id = ctx.author.id
+        
+        # Validate bet amount
+        if bet_amount < 1 or bet_amount > 100:
+            return await ctx.respond("❌ Bet amount must be between 1-100 cookies!", ephemeral=True)
+        
+        # Check user's cookie balance
+        user_cookies = db.get_cookies(user_id)
+        if user_cookies < bet_amount:
+            return await ctx.respond(f"❌ You don't have enough cookies! Your balance: **{user_cookies}** 🍪", ephemeral=True)
+        
+        # Flip the coin
+        result = random.choice(["heads", "tails"])
+        won = (choice.lower() == result)
+        
+        # Calculate winnings/losses
+        if won:
+            winnings = bet_amount
+            db.add_cookies(user_id, winnings)
+            new_balance = user_cookies + winnings
+            
+            embed = discord.Embed(
+                title="🎉 You Won!",
+                description=f"The coin landed on **{result}**!\nYou won **{winnings}** 🍪!",
+                color=discord.Color.green(),
+                timestamp=datetime.utcnow()
+            )
+        else:
+            db.remove_cookies(user_id, bet_amount)
+            new_balance = user_cookies - bet_amount
+            
+            embed = discord.Embed(
+                title="💸 You Lost!",
+                description=f"The coin landed on **{result}**!\nYou lost **{bet_amount}** 🍪!",
+                color=discord.Color.red(),
+                timestamp=datetime.utcnow()
+            )
+        
+        embed.add_field(name="Your Guess", value=choice.capitalize(), inline=True)
+        embed.add_field(name="Result", value=result.capitalize(), inline=True)
+        embed.add_field(name="New Balance", value=f"{new_balance} 🍪", inline=True)
+        embed.set_author(name=f"{ctx.author.display_name}'s Coin Flip Bet", icon_url=ctx.author.display_avatar.url)
+        embed.set_footer(text="Gambling responsibly! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="trivia",
+        description="Answer a random trivia question!",
+        guild_ids=[GUILD_ID],
+    )
+    async def trivia(self, ctx: discord.ApplicationContext):
+        # Simple trivia questions with answers
+        trivia_questions = [
+            {"q": "What is the capital of France?", "a": "Paris", "options": ["London", "Paris", "Berlin", "Madrid"]},
+            {"q": "How many planets are in our solar system?", "a": "8", "options": ["7", "8", "9", "10"]},
+            {"q": "What is the largest ocean on Earth?", "a": "Pacific", "options": ["Atlantic", "Pacific", "Indian", "Arctic"]},
+            {"q": "Who painted the Mona Lisa?", "a": "Leonardo da Vinci", "options": ["Leonardo da Vinci", "Pablo Picasso", "Van Gogh", "Michelangelo"]},
+            {"q": "What is the smallest country in the world?", "a": "Vatican City", "options": ["Monaco", "Vatican City", "San Marino", "Luxembourg"]},
+        ]
+        
+        question = random.choice(trivia_questions)
+        
+        embed = discord.Embed(
+            title="🧠 Trivia Time!",
+            description=question["q"],
+            color=discord.Color.purple(),
+            timestamp=datetime.utcnow()
+        )
+        
+        options_text = "\n".join([f"**{chr(65+i)}.** {opt}" for i, opt in enumerate(question["options"])])
+        embed.add_field(name="Options", value=options_text, inline=False)
+        embed.add_field(name="💡 Answer", value=f"||{question['a']}||", inline=False)
+        embed.set_footer(text="Click the spoiler to see the answer! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="roast",
+        description="Get a funny roast (all in good fun!)!",
+        guild_ids=[GUILD_ID],
+    )
+    @option("user", description="User to roast (optional)", type=discord.Member, required=False)
+    async def roast(self, ctx: discord.ApplicationContext, user: discord.Member = None):
+        roasts = [
+            "You're like a cloud. When you disappear, it's a beautiful day!",
+            "If I had a dollar for every brain you don't have, I'd have one dollar.",
+            "You're proof that even god makes mistakes sometimes.",
+            "I'd explain it to you, but I don't have any crayons with me.",
+            "You're like Monday mornings - nobody likes you.",
+            "If stupidity was a superpower, you'd be invincible!",
+            "You're the reason they put instructions on shampoo bottles.",
+            "I'm not saying you're dumb, but you'd struggle to pour water out of a boot with instructions on the heel.",
+            "You're like a broken pencil... pointless!",
+            "If brains were dynamite, you wouldn't have enough to blow your nose."
+        ]
+        
+        target = user or ctx.author
+        roast = random.choice(roasts)
+        
+        embed = discord.Embed(
+            title="🔥 Roast Time!",
+            description=f"{target.mention}, {roast}",
+            color=discord.Color.dark_red(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="Roast Master", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="All in good fun! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="pickupline",
+        description="Get a cheesy pickup line!",
+        guild_ids=[GUILD_ID],
+    )
+    async def pickupline(self, ctx: discord.ApplicationContext):
+        pickup_lines = [
+            "Are you a magician? Because whenever I look at you, everyone else disappears!",
+            "Do you have a map? I keep getting lost in your eyes.",
+            "Are you Wi-Fi? Because I'm feeling a connection!",
+            "Is your name Google? Because you have everything I've been searching for.",
+            "Are you a parking ticket? Because you've got 'FINE' written all over you!",
+            "Do you believe in love at first sight, or should I walk by again?",
+            "Are you a campfire? Because you're hot and I want s'more!",
+            "Is your dad a boxer? Because you're a knockout!",
+            "Are you made of copper and tellurium? Because you're Cu-Te!",
+            "Do you have a Band-Aid? I just scraped my knee falling for you."
+        ]
+        
+        line = random.choice(pickup_lines)
+        
+        embed = discord.Embed(
+            title="💕 Pickup Line Alert!",
+            description=line,
+            color=discord.Color.magenta(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="Cupid's Helper", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Use at your own risk! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="wouldyourather",
+        description="Get a 'Would You Rather' question!",
+        guild_ids=[GUILD_ID],
+    )
+    async def wouldyourather(self, ctx: discord.ApplicationContext):
+        questions = [
+            "Would you rather have the ability to fly OR be invisible?",
+            "Would you rather eat pizza for every meal OR never eat pizza again?",
+            "Would you rather live in the past OR live in the future?",
+            "Would you rather be really hot OR really cold all the time?",
+            "Would you rather have super strength OR super speed?",
+            "Would you rather never use the internet again OR never watch TV again?",
+            "Would you rather be able to read minds OR predict the future?",
+            "Would you rather always speak your mind OR never speak again?",
+            "Would you rather have unlimited money OR unlimited time?",
+            "Would you rather fight 100 duck-sized horses OR 1 horse-sized duck?"
+        ]
+        
+        question = random.choice(questions)
+        
+        embed = discord.Embed(
+            title="🤔 Would You Rather?",
+            description=question,
+            color=discord.Color.teal(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="Decision Time!", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Choose wisely! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="fact",
+        description="Get a random fun fact!",
+        guild_ids=[GUILD_ID],
+    )
+    async def fact(self, ctx: discord.ApplicationContext):
+        facts = [
+            "Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still edible!",
+            "A group of flamingos is called a 'flamboyance'.",
+            "Bananas are berries, but strawberries aren't!",
+            "Octopuses have three hearts and blue blood.",
+            "A shrimp's heart is in its head.",
+            "It's impossible to hum while holding your nose closed.",
+            "The shortest war in history lasted only 38-45 minutes between Britain and Zanzibar in 1896.",
+            "A cloud can weigh more than a million pounds.",
+            "Your stomach gets an entirely new lining every 3-4 days.",
+            "Dolphins have names for each other - they use unique whistle signatures!"
+        ]
+        
+        fact = random.choice(facts)
+        
+        embed = discord.Embed(
+            title="🧐 Random Fun Fact!",
+            description=fact,
+            color=discord.Color.green(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="Fact Generator", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="The more you know! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="choose",
+        description="Can't decide? Let me choose for you!",
+        guild_ids=[GUILD_ID],
+    )
+    @option("options", description="Separate options with commas (e.g., 'pizza, burgers, tacos')")
+    async def choose(self, ctx: discord.ApplicationContext, options: str):
+        choices = [choice.strip() for choice in options.split(',') if choice.strip()]
+        
+        if len(choices) < 2:
+            return await ctx.respond("❌ Please provide at least 2 options separated by commas!", ephemeral=True)
+        
+        if len(choices) > 10:
+            return await ctx.respond("❌ Maximum 10 options allowed!", ephemeral=True)
+        
+        chosen = random.choice(choices)
+        
+        embed = discord.Embed(
+            title="🎯 Decision Made!",
+            description=f"I choose: **{chosen}**",
+            color=discord.Color.gold(),
+            timestamp=datetime.utcnow()
+        )
+        
+        all_options = "\n".join([f"• {opt}" for opt in choices])
+        embed.add_field(name="Options", value=all_options, inline=False)
+        embed.set_author(name=f"Decision for {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+        embed.set_footer(text="Trust the process! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="meme",
+        description="Get a random meme template with custom text!",
+        guild_ids=[GUILD_ID],
+    )
+    @option("top_text", description="Text for the top of the meme", required=False)
+    @option("bottom_text", description="Text for the bottom of the meme", required=False)
+    async def meme(self, ctx: discord.ApplicationContext, top_text: str = None, bottom_text: str = None):
+        meme_templates = [
+            "Drake pointing meme",
+            "Distracted boyfriend meme", 
+            "This is fine dog",
+            "Change my mind",
+            "Surprised Pikachu",
+            "Woman yelling at cat",
+            "Expanding brain",
+            "Two buttons meme"
+        ]
+        
+        template = random.choice(meme_templates)
+        
+        embed = discord.Embed(
+            title="😂 Meme Generator!",
+            description=f"**Template:** {template}",
+            color=discord.Color.orange(),
+            timestamp=datetime.utcnow()
+        )
+        
+        if top_text:
+            embed.add_field(name="Top Text", value=top_text, inline=False)
+        if bottom_text:
+            embed.add_field(name="Bottom Text", value=bottom_text, inline=False)
+        
+        if not top_text and not bottom_text:
+            embed.add_field(name="💡 Tip", value="Use `/meme <top_text> <bottom_text>` to add custom text!", inline=False)
+        
+        embed.set_author(name="Meme Master", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Stonks! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
 
 # ─────────────────────────────────────────────────────────
 async def setup(bot: commands.Bot):
