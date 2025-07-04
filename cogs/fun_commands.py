@@ -88,6 +88,76 @@ class FunCommands(commands.Cog):
             "Text your mom 'I love you'!", "Do your best celebrity impression!",
             "Speak in an accent for the next 3 messages!", "Share an unpopular food opinion!"
         ]
+        
+        # Medieval insults
+        self.insults = [
+            "Thou art a most loathsome, beetle-headed flap dragon!",
+            "You are nothing but a clay-brained guts-griping pignut!",
+            "Thou art a craven milk-livered cur!",
+            "You're a pox-marked, sheep-biting canker-blossom!",
+            "Thou art a villainous earth-vexing dewberry!",
+            "You're a bootless beef-witted barnacle!",
+            "Thou art a churlish doghearted moldwarp!",
+            "You're a wayward rude-growing hedge-pig!",
+            "Thou art a infectious fly-bitten foot-licker!",
+            "You're a yeasty half-faced haggard!"
+        ]
+        
+        # Ancient wisdom
+        self.wisdom = [
+            "The journey of a thousand miles begins with a single step. - Lao Tzu",
+            "A wise man learns more from his enemies than a fool from his friends. - Baltasar Gracián",
+            "The best time to plant a tree was 20 years ago. The second best time is now. - Chinese Proverb",
+            "It is better to remain silent and be thought a fool than to speak and remove all doubt. - Mark Twain",
+            "The only true wisdom is in knowing you know nothing. - Socrates",
+            "A diamond is merely a lump of coal that handled stress exceptionally well. - Unknown",
+            "The wise man does not lay up his own treasures. The more he gives to others, the more he has for his own. - Lao Tzu",
+            "In the depth of winter, I finally learned that within me there lay an invincible summer. - Albert Camus"
+        ]
+        
+        # Short stories
+        self.stories = [
+            "A man found a lamp. A genie appeared and granted him three wishes. His first wish: 'I want to be rich!' Poof - he became Rich Johnson. His second wish: 'I want to be the most handsome man alive!' Poof - his name became Rich Handsome Johnson. For his third wish, he said 'I want to be irresistible to women!' Poof - he became a chocolate bar.",
+            "A time traveler went back to prevent a disaster but accidentally caused it. He went back again to fix it but made it worse. After 47 attempts, he realized the disaster was him constantly trying to prevent it.",
+            "The last human on Earth heard a knock at the door. When they opened it, they found a package addressed to 'Current Resident.' Inside was a note: 'Warranty expired. Please vacate premises. - Management'",
+            "A dragon applied for a job at a coffee shop. 'Can you make hot drinks?' asked the manager. 'I AM the hot drink,' replied the dragon confidently."
+        ]
+        
+        # Conspiracy theories (funny ones)
+        self.conspiracies = [
+            "Birds aren't real - they're government surveillance drones. That's why they sit on power lines... they're recharging!",
+            "Finland doesn't exist. It's just a made-up place created by the USSR and Japan for fishing rights.",
+            "Giraffes are just horses that believed in themselves too much.",
+            "The moon landing was fake... it was actually filmed on Venus to throw people off.",
+            "Wyoming doesn't exist. It's just a rectangular void used by the government to store extra taxpayers.",
+            "Bananas are trying to evolve hands to take over the world. That's why they're shaped like that.",
+            "Mattress stores are money laundering fronts. No one actually buys that many mattresses.",
+            "Australia is just paid actors hired by the government to make us think the Earth is round."
+        ]
+        
+        # Shower thoughts
+        self.shower_thoughts = [
+            "If you're waiting for the waiter, aren't you the waiter?",
+            "The letter 'W' is pronounced 'double-u' but looks like 'double-v'.",
+            "Your future self is watching you right now through memories.",
+            "Humans are the only animals that pay to live on Earth.",
+            "You've never seen your own face, only pictures and reflections.",
+            "Night mode on phones is just fancy darkness.",
+            "Every photo is from the past, so every photo is technically a throwback.",
+            "You're always looking at the past because light takes time to reach your eyes."
+        ]
+        
+        # Tongue twisters
+        self.tongue_twisters = [
+            "She sells seashells by the seashore!",
+            "How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
+            "Peter Piper picked a peck of pickled peppers!",
+            "Red lorry, yellow lorry, red lorry, yellow lorry!",
+            "Fuzzy Wuzzy was a bear. Fuzzy Wuzzy had no hair. Fuzzy Wuzzy wasn't fuzzy, was he?",
+            "Six sick slick slim sycamore saplings!",
+            "A proper copper coffee pot!",
+            "Irish wristwatch, Swiss wristwatch!"
+        ]
 
     async def cog_load(self):
         print("[FunCommands] Cog loaded successfully.")
@@ -550,6 +620,354 @@ class FunCommands(commands.Cog):
         embed.set_footer(text="Stonks! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         
         await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="insult",
+        description="Get a medieval-style insult (all in good fun)!",
+        guild_ids=[GUILD_ID],
+    )
+    @option("user", description="User to insult (optional)", type=discord.Member, required=False)
+    async def insult(self, ctx: discord.ApplicationContext, user: discord.Member = None):
+        target = user or ctx.author
+        insult = random.choice(self.insults)
+        
+        embed = discord.Embed(
+            title="⚔️ Medieval Insult!",
+            description=f"{target.mention}, {insult}",
+            color=discord.Color.dark_purple(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="Ye Olde Insult Generator", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="'Tis but jest! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="wisdom",
+        description="Get ancient wisdom and profound quotes!",
+        guild_ids=[GUILD_ID],
+    )
+    async def wisdom(self, ctx: discord.ApplicationContext):
+        wise_quote = random.choice(self.wisdom)
+        
+        embed = discord.Embed(
+            title="🧙‍♂️ Ancient Wisdom",
+            description=f"*{wise_quote}*",
+            color=discord.Color.dark_blue(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="The Sage", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Wisdom of the ages • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="storytime",
+        description="Get a random short story!",
+        guild_ids=[GUILD_ID],
+    )
+    async def storytime(self, ctx: discord.ApplicationContext):
+        story = random.choice(self.stories)
+        
+        embed = discord.Embed(
+            title="📚 Story Time!",
+            description=story,
+            color=discord.Color.dark_green(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="The Storyteller", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Once upon a time... • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="conspiracy",
+        description="Get a funny conspiracy theory!",
+        guild_ids=[GUILD_ID],
+    )
+    async def conspiracy(self, ctx: discord.ApplicationContext):
+        theory = random.choice(self.conspiracies)
+        
+        embed = discord.Embed(
+            title="🕵️‍♂️ Conspiracy Theory Alert!",
+            description=theory,
+            color=discord.Color.dark_red(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="The Truth Seeker", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Wake up sheeple! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="showerthought",
+        description="Get a mind-bending shower thought!",
+        guild_ids=[GUILD_ID],
+    )
+    async def showerthought(self, ctx: discord.ApplicationContext):
+        thought = random.choice(self.shower_thoughts)
+        
+        embed = discord.Embed(
+            title="🚿 Shower Thought",
+            description=thought,
+            color=discord.Color.blue(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="Deep Thinker", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Mind = Blown! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="tonguetwister",
+        description="Get a challenging tongue twister!",
+        guild_ids=[GUILD_ID],
+    )
+    async def tonguetwister(self, ctx: discord.ApplicationContext):
+        twister = random.choice(self.tongue_twisters)
+        
+        embed = discord.Embed(
+            title="👅 Tongue Twister Challenge!",
+            description=f"**Try saying this fast 5 times:**\n\n*{twister}*",
+            color=discord.Color.magenta(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name="Speech Master", icon_url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Good luck! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="dice",
+        description="Roll dice! (e.g., 1d6, 2d10, 3d20)",
+        guild_ids=[GUILD_ID],
+    )
+    @option("dice_notation", description="Dice to roll (e.g., 1d6, 2d10, 3d20)", default="1d6")
+    async def dice(self, ctx: discord.ApplicationContext, dice_notation: str = "1d6"):
+        try:
+            # Parse dice notation (e.g., "2d10" = 2 dice with 10 sides each)
+            if 'd' not in dice_notation.lower():
+                return await ctx.respond("❌ Invalid format! Use: 1d6, 2d10, etc.", ephemeral=True)
+            
+            parts = dice_notation.lower().split('d')
+            num_dice = int(parts[0]) if parts[0] else 1
+            num_sides = int(parts[1])
+            
+            if num_dice > 10 or num_dice < 1:
+                return await ctx.respond("❌ Please roll between 1-10 dice!", ephemeral=True)
+            if num_sides > 100 or num_sides < 2:
+                return await ctx.respond("❌ Dice must have between 2-100 sides!", ephemeral=True)
+            
+            # Roll the dice
+            rolls = [random.randint(1, num_sides) for _ in range(num_dice)]
+            total = sum(rolls)
+            
+            embed = discord.Embed(
+                title="🎲 Dice Roll!",
+                color=discord.Color.gold(),
+                timestamp=datetime.utcnow()
+            )
+            
+            roll_text = " + ".join([f"**{roll}**" for roll in rolls])
+            embed.add_field(name=f"Rolling {dice_notation.upper()}", value=roll_text, inline=False)
+            embed.add_field(name="Total", value=f"**{total}**", inline=True)
+            
+            embed.set_author(name=f"{ctx.author.display_name}'s Roll", icon_url=ctx.author.display_avatar.url)
+            embed.set_footer(text="May the odds be with you! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+            
+            await ctx.respond(embed=embed)
+            
+        except ValueError:
+            await ctx.respond("❌ Invalid dice format! Use: 1d6, 2d10, 3d20, etc.", ephemeral=True)
+
+    @commands.slash_command(
+        name="rps",
+        description="Play Rock Paper Scissors against the bot!",
+        guild_ids=[GUILD_ID],
+    )
+    @option("choice", description="Your choice", choices=["rock", "paper", "scissors"])
+    async def rps(self, ctx: discord.ApplicationContext, choice: str):
+        bot_choice = random.choice(["rock", "paper", "scissors"])
+        
+        # Determine winner
+        if choice == bot_choice:
+            result = "It's a tie!"
+            color = discord.Color.yellow()
+            emoji = "🤝"
+        elif (choice == "rock" and bot_choice == "scissors") or \
+             (choice == "paper" and bot_choice == "rock") or \
+             (choice == "scissors" and bot_choice == "paper"):
+            result = "You win!"
+            color = discord.Color.green()
+            emoji = "🎉"
+            # Give small cookie reward
+            db.add_cookies(ctx.author.id, 2)
+        else:
+            result = "Bot wins!"
+            color = discord.Color.red()
+            emoji = "🤖"
+        
+        # Emojis for choices
+        choice_emojis = {"rock": "🪨", "paper": "📄", "scissors": "✂️"}
+        
+        embed = discord.Embed(
+            title=f"{emoji} Rock Paper Scissors",
+            description=f"**{result}**",
+            color=color,
+            timestamp=datetime.utcnow()
+        )
+        embed.add_field(name="Your Choice", value=f"{choice_emojis[choice]} {choice.title()}", inline=True)
+        embed.add_field(name="Bot's Choice", value=f"{choice_emojis[bot_choice]} {bot_choice.title()}", inline=True)
+        
+        if result == "You win!":
+            embed.add_field(name="Reward", value="+2 🍪", inline=False)
+        
+        embed.set_author(name=f"{ctx.author.display_name} vs Bot", icon_url=ctx.author.display_avatar.url)
+        embed.set_footer(text="Best of luck! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="hangman",
+        description="Start a word guessing game!",
+        guild_ids=[GUILD_ID],
+    )
+    async def hangman(self, ctx: discord.ApplicationContext):
+        words = ["PYTHON", "DISCORD", "GAMING", "COMPUTER", "KEYBOARD", "BLECKOPS", "CHALLENGE", "VICTORY"]
+        word = random.choice(words)
+        
+        # Create display word with blanks
+        display = "_ " * len(word)
+        
+        embed = discord.Embed(
+            title="🎯 Hangman Game!",
+            description=f"**Word:** {display.strip()}\n**Length:** {len(word)} letters",
+            color=discord.Color.purple(),
+            timestamp=datetime.utcnow()
+        )
+        embed.add_field(name="How to Play", value="Guess the word by typing letters in chat!\nYou have 6 wrong guesses.", inline=False)
+        embed.add_field(name="Wrong Guesses", value="0/6", inline=True)
+        embed.add_field(name="Letters Used", value="None", inline=True)
+        embed.set_author(name=f"{ctx.author.display_name}'s Hangman", icon_url=ctx.author.display_avatar.url)
+        embed.set_footer(text="Type letters to guess! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(
+        name="complain",
+        description="Submit a complaint to a specific channel!",
+        guild_ids=[GUILD_ID],
+    )
+    @option("complaint", description="Your complaint or feedback")
+    @option("channel", description="Channel to send complaint to", type=discord.TextChannel)
+    async def complain(self, ctx: discord.ApplicationContext, complaint: str, channel: discord.TextChannel):
+        # Create complaint embed
+        embed = discord.Embed(
+            title="📢 New Complaint",
+            description=complaint,
+            color=discord.Color.orange(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_author(name=f"From: {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+        embed.add_field(name="Submitted From", value=ctx.channel.mention, inline=True)
+        embed.add_field(name="User ID", value=ctx.author.id, inline=True)
+        embed.set_footer(text="Complaint submitted • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        try:
+            await channel.send(embed=embed)
+            
+            confirm_embed = discord.Embed(
+                title="✅ Complaint Submitted!",
+                description=f"Your complaint has been sent to {channel.mention}",
+                color=discord.Color.green()
+            )
+            await ctx.respond(embed=confirm_embed, ephemeral=True)
+            
+        except discord.Forbidden:
+            await ctx.respond("❌ I don't have permission to send messages in that channel!", ephemeral=True)
+
+    @commands.slash_command(
+        name="reminder",
+        description="Set a reminder! (AI-powered with smart time parsing)",
+        guild_ids=[GUILD_ID],
+    )
+    @option("time", description="When to remind (e.g., '10 minutes', '2 hours', 'tomorrow')")
+    @option("message", description="What to remind you about")
+    async def reminder(self, ctx: discord.ApplicationContext, time: str, message: str):
+        # Smart time parsing using AI-like logic
+        reminder_seconds = self.parse_smart_time(time)
+        
+        if not reminder_seconds:
+            return await ctx.respond("❌ I couldn't understand that time format. Try: '10 minutes', '2 hours', '1 day'", ephemeral=True)
+        
+        if reminder_seconds > 86400 * 7:  # Max 7 days
+            return await ctx.respond("❌ Maximum reminder time is 7 days!", ephemeral=True)
+        
+        if reminder_seconds < 60:  # Min 1 minute
+            return await ctx.respond("❌ Minimum reminder time is 1 minute!", ephemeral=True)
+        
+        # Store reminder (simplified - you could use a database)
+        embed = discord.Embed(
+            title="⏰ Reminder Set!",
+            description=f"I'll remind you about: **{message}**",
+            color=discord.Color.blue(),
+            timestamp=datetime.utcnow()
+        )
+        embed.add_field(name="Time", value=time, inline=True)
+        embed.add_field(name="In Seconds", value=f"{reminder_seconds}s", inline=True)
+        embed.set_author(name=f"Reminder for {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+        embed.set_footer(text="I'll ping you when it's time! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed, ephemeral=True)
+        
+        # Wait and send reminder
+        await asyncio.sleep(reminder_seconds)
+        
+        reminder_embed = discord.Embed(
+            title="🔔 Reminder!",
+            description=message,
+            color=discord.Color.gold(),
+            timestamp=datetime.utcnow()
+        )
+        reminder_embed.set_author(name="Your Reminder", icon_url=self.bot.user.display_avatar.url)
+        reminder_embed.set_footer(text="Hope this helps! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        try:
+            await ctx.author.send(f"{ctx.author.mention}", embed=reminder_embed)
+        except discord.Forbidden:
+            # If DM fails, send in channel
+            await ctx.followup.send(f"{ctx.author.mention}", embed=reminder_embed)
+
+    def parse_smart_time(self, time_str: str) -> int:
+        """Smart time parsing with AI-like natural language understanding"""
+        import re
+        
+        time_str = time_str.lower().strip()
+        total_seconds = 0
+        
+        # Handle common phrases
+        if 'tomorrow' in time_str:
+            total_seconds += 86400
+        elif 'next week' in time_str:
+            total_seconds += 86400 * 7
+        elif 'next hour' in time_str:
+            total_seconds += 3600
+        
+        # Parse specific time units
+        patterns = [
+            (r'(\d+)\s*(?:seconds?|secs?|s)', 1),
+            (r'(\d+)\s*(?:minutes?|mins?|m)', 60),
+            (r'(\d+)\s*(?:hours?|hrs?|h)', 3600),
+            (r'(\d+)\s*(?:days?|d)', 86400),
+            (r'(\d+)\s*(?:weeks?|w)', 86400 * 7),
+        ]
+        
+        for pattern, multiplier in patterns:
+            matches = re.findall(pattern, time_str)
+            for match in matches:
+                total_seconds += int(match) * multiplier
+        
+        return total_seconds if total_seconds > 0 else None
 
 # ─────────────────────────────────────────────────────────
 async def setup(bot: commands.Bot):
