@@ -1,220 +1,106 @@
-# cogs/moderation.py
 import discord
 from discord.ext import commands
-from discord import option  # Added for Pycord slash command options
+from discord import app_commands
 from datetime import datetime
 import os, sys
 
-# ── Local import --------------------------------------------------------------
+# Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
-# ── Config --------------------------------------------------------------------
-GUILD_ID  = 1370009417726169250          # replace if your guild ID differs
-guild_obj = discord.Object(id=GUILD_ID)
+# Config
+GUILD_ID = 1370009417726169250
 
-MODERATOR_ROLES = ["Moderator 🚨🚓", "🚨 Lead moderator"]   # custom mod roles
-FOOTER_TXT      = "VANHELISMYSENSEI ON TOP"
+MODERATOR_ROLES = ["Moderator 🚨🚓", "🚨 Lead moderator"]
+FOOTER_TXT = "VANHELISMYSENSEI ON TOP"
 
-# ── Permission check helper ---------------------------------------------------
-def has_moderator_role(ctx: discord.ApplicationContext) -> bool:
-    """Check if user has moderator permissions"""
-    if ctx.user.guild_permissions.administrator:
-        return True
-    if any(r.name in MODERATOR_ROLES for r in ctx.user.roles):
-        return True
-    return False
+# Permission check helper
+def has_moderator_role(interaction: discord.Interaction) -> bool:
+    user_roles = [role.name for role in interaction.user.roles]
+    return any(role in MODERATOR_ROLES for role in user_roles)
 
-# ── Cog -----------------------------------------------------------------------
 class Moderation(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     async def cog_load(self):
-        print("[Moderation] Cog loaded successfully.")
+        print("[Moderation] Loaded successfully.")
 
-    # -------------------------------------------------------------------------
-    # /modclear
-    # -------------------------------------------------------------------------
-    @commands.slash_command(
-        name="modclear",
-        description="[Moderator] Delete a number of recent messages.",
-        guild_ids=[GUILD_ID]
-    )
-    @option("amount", description="Number of messages to delete (1-100)", min_value=1, max_value=100)
-    async def modclear(
-        self,
-        ctx: discord.ApplicationContext,
-        amount: int
-    ):
-        if not has_moderator_role(ctx):
-            await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
+    @app_commands.command(name="modclear", description="Deletes a specified number of messages from a channel")
+    @app_commands.describe(amount="Number of messages to delete (1-100)")
+    async def modclear(self, interaction: discord.Interaction, amount: int):
+        # Check permissions
+        if not interaction.user.guild_permissions.manage_messages:
+            await interaction.response.send_message("❌ You need 'Manage Messages' permission to use this command!", ephemeral=True)
             return
 
-        await ctx.response.defer(ephemeral=True)
-
-        deleted = await ctx.channel.purge(limit=amount)
-        await ctx.followup.send(
-            f"🧹 Cleared **{len(deleted)}** messages.",
-            ephemeral=True
-        )
-
-        # optional mod-log
-        modlog_id = db.get_channel(ctx.guild.id, "modlog")
-        if modlog_id:
-            ch = ctx.guild.get_channel(modlog_id)
-            if ch:
-                embed = discord.Embed(
-                    title       ="🧹 Messages Cleared",
-                    description =f"**{len(deleted)}** messages removed in {ctx.channel.mention}",
-                    color       =discord.Color.orange(),
-                    timestamp   =datetime.utcnow()
-                )
-
-                embed.set_footer(text=f"Moderator: {ctx.user.display_name}")
-                try:    await ch.send(embed=embed)
-                except discord.Forbidden: pass
-
-    # -------------------------------------------------------------------------
-    # /warn
-    # -------------------------------------------------------------------------
-    @commands.slash_command(
-        name="warn",
-        description="[Moderator] Issue a warning to a user.",
-        guild_ids=[GUILD_ID]
-    )
-    @option("user", description="User to warn", type=discord.Member)
-    @option("reason", description="Reason for the warning", default="No reason provided.")
-    async def warn(
-        self,
-        ctx: discord.ApplicationContext,
-        user: discord.Member,
-        reason: str = "No reason provided."
-    ):
-        if not has_moderator_role(ctx):
-            await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
+        if amount < 1 or amount > 100:
+            await interaction.response.send_message("❌ Amount must be between 1 and 100!", ephemeral=True)
             return
 
-        if user.bot or user == ctx.user:
-            return await ctx.respond("⚠️ Invalid target user.", ephemeral=True)
+        await interaction.response.defer()
 
-        db.add_warning(user.id, ctx.user.id, reason)
-
-        # DM (best-effort)
-        dm_ok = True
         try:
-            dm = discord.Embed(
-                title       ="🚨 You Have Been Warned",
-                description =f"You received a warning in **{ctx.guild.name}**.",
-                color       =discord.Color.red(),
-                timestamp   =datetime.utcnow()
+            deleted = await interaction.channel.purge(limit=amount)
+            
+            embed = discord.Embed(
+                title="🗑️ Messages Cleared",
+                description=f"Successfully deleted **{len(deleted)}** messages",
+                color=0x00ff00,
+                timestamp=datetime.now()
             )
-            dm.add_field(name="Reason", value=reason, inline=False)
-            await user.send(embed=dm)
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text=FOOTER_TXT)
+
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
         except discord.Forbidden:
-            dm_ok = False
+            await interaction.followup.send("❌ I don't have permission to delete messages in this channel!", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ An error occurred: {str(e)}", ephemeral=True)
 
-        # Public confirmation
-        embed = discord.Embed(
-            title       ="⚠️ User Warned",
-            description =f"{user.mention} has been warned.",
-            color       =discord.Color.orange(),
-            timestamp   =datetime.utcnow()
+    @app_commands.command(name="warn", description="Warn a user")
+    @app_commands.describe(
+        user="User to warn",
+        reason="Reason for the warning"
         )
-        embed.add_field(name="Reason", value=reason, inline=False)
-        embed.set_footer(text=f"Moderator: {ctx.user.display_name} • {FOOTER_TXT}")
-        await ctx.respond(embed=embed)
-
-        if not dm_ok:
-            await ctx.followup.send("(Could not DM the user.)", ephemeral=True)
-
-    # -------------------------------------------------------------------------
-    # /warnlist
-    # -------------------------------------------------------------------------
-    @commands.slash_command(
-        name="warnlist",
-        description="[Moderator] List a user's warnings.",
-        guild_ids=[GUILD_ID]
-    )
-    @option("user", description="User to view warnings for", type=discord.Member)
-    async def warnlist(self, ctx: discord.ApplicationContext, user: discord.Member):
-        if not has_moderator_role(ctx):
-            await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
-            return
-warnings = db.get_warnings(user.id)
-        if not warnings:
-            return await ctx.respond(
-                f"**{user.display_name}** has no warnings.",
-                ephemeral=True
-            )
-
-        embed = discord.Embed(
-            title =f"📜 Warnings for {user.display_name}",
-            color =discord.Color.dark_orange()
-        )
-        embed.set_thumbnail(url=user.display_avatar.url)
-
-        for w in warnings:
-            mod  = ctx.guild.get_member(w["moderator_id"])
-            name = mod.display_name if mod else "Unknown mod"
-            ts   = w["timestamp"].strftime("%Y-%m-%d %H:%M UTC")
-            embed.add_field(
-                name  =f"🗓️ {ts}",
-                value =f"**Reason:** {w['reason']}\n**Moderator:** {name}",
-                inline=False
-            )
-
-        embed.set_footer(text=FOOTER_TXT)
-        await ctx.respond(embed=embed, ephemeral=True)
-
-    # -------------------------------------------------------------------------
-    # /removewarnlist
-    # -------------------------------------------------------------------------
-    @commands.slash_command(
-        name="removewarnlist",
-        description="[Moderator] Clear all warnings for a user.",
-        guild_ids=[GUILD_ID]
-    )
-    @option("user", description="User whose warnings to clear", type=discord.Member)
-    async def removewarnlist(self, ctx: discord.ApplicationContext, user: discord.Member):
-        if not has_moderator_role(ctx):
-            await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
+    async def warn(self, interaction: discord.Interaction, user: discord.Member, reason: str = "No reason provided"):
+        if not has_moderator_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
-        warnings = db.get_warnings(user.id)
-        if not warnings:
-            return await ctx.respond(
-                f"**{user.display_name}** has no warnings.",
-                ephemeral=True
+        # Add warning to database
+        try:
+            db.add_warning(user.id, reason, interaction.user.id)
+            warnings = db.get_user_warnings(user.id)
+            
+            embed = discord.Embed(
+                title="⚠️ User Warned",
+                description=f"**User:** {user.mention}\n**Reason:** {reason}\n**Total Warnings:** {len(warnings)}",
+                color=0xff9900,
+                timestamp=datetime.now()
             )
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text=FOOTER_TXT)
 
-        # confirmation view
-        view = discord.ui.View(timeout=60)
-        btn_confirm = discord.ui.Button(label="Confirm", style=discord.ButtonStyle.danger)
-        btn_cancel  = discord.ui.Button(label="Cancel",  style=discord.ButtonStyle.secondary)
+            await interaction.response.send_message(embed=embed)
 
-        async def confirm(btn_inter: discord.Interaction):
-            if btn_inter.user != ctx.user:
-                return await btn_inter.response.send_message("Not your confirmation.", ephemeral=True)
-            db.clear_warnings(user.id)
-            await btn_inter.response.edit_message(
-                content=f"✅ Cleared all warnings for **{user.display_name}**.",
-                view=None
-            )
+            # Try to DM the user
+            try:
+                dm_embed = discord.Embed(
+                    title="⚠️ Warning Received",
+                    description=f"You have been warned in **{interaction.guild.name}**\n\n**Reason:** {reason}",
+                    color=0xff9900
+                )
+                await user.send(embed=dm_embed)
+            except discord.Forbidden:
+                pass  # User has DMs disabled
 
-        async def cancel(btn_inter: discord.Interaction):
-            await btn_inter.response.edit_message(content="Cancelled.", view=None)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error adding warning: {str(e)}", ephemeral=True)
 
-        btn_confirm.callback = confirm
-        btn_cancel.callback  = cancel
-        view.add_item(btn_confirm)
-        view.add_item(btn_cancel)
-
-        await ctx.respond(
-            f"⚠️ Clear **{len(warnings)}** warning(s) for **{user.display_name}**?",
-            view=view,
-            ephemeral=True
-        )
-# ── setup ---------------------------------------------------------------------
-async def setup(bot: commands.Bot):
-    await bot.add_cog(Moderation(bot), guilds=[guild_obj])
+    @app_commands.command(name="warnings", description="View warnings for a user")
+    @app_commands.describe(user="User to check warnings for")
+    async def warnings(self, interaction: discord.Interaction, user: discord.Member):
+        if not has_moderator_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral
