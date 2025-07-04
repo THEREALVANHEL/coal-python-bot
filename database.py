@@ -71,8 +71,7 @@ def get_top_daily_streaks(skip: int = 0, limit: int = 10) -> List[Dict[str, Any]
         .skip(skip)
         .limit(limit)
     )
-
-def get_total_users_in_dailies() -> int:
+    def get_total_users_in_dailies() -> int:
     if dailies_collection is None:
         return 0
     return dailies_collection.count_documents({"streak": {"$gt": 0}})
@@ -147,8 +146,7 @@ def give_cookies_to_all(amount: int, member_ids: List[int]) -> None:
     cookies_collection.update_many(
         {"user_id": {"$in": member_ids}}, {"$inc": {"cookies": amount}}
     )
-
-def synchronize_cookies(all_member_ids: List[int]) -> int:
+    def synchronize_cookies(all_member_ids: List[int]) -> int:
     if cookies_collection is None:
         return 0
     db_ids = {doc["user_id"] for doc in cookies_collection.find({}, {"user_id": 1})}
@@ -260,8 +258,7 @@ def mark_as_starred(guild_id: int, message_id: int) -> None:
             "timestamp": datetime.utcnow(),
         }
     )
-
-def get_starboard_message(message_id: int) -> Optional[int]:
+    def get_starboard_message(message_id: int) -> Optional[int]:
     if starboard_messages_collection is None:
         return None
     doc = starboard_messages_collection.find_one({"message_id": message_id})
