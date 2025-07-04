@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord import app_commands, option
+from discord import app_commands
 import sys
 import os
 import random
@@ -11,18 +11,18 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
 # ── Constants / Config ────────────────────────────────────
-GUILD_ID   = 1370009417726169250
-guild_obj  = discord.Object(id=GUILD_ID)
+GUILD_ID = 1370009417726169250
+guild_obj = discord.Object(id=GUILD_ID)
 
 LEVEL_ROLES = {
-    5:  1371032270361853962,
+    5: 1371032270361853962,
     10: 1371032537740214302,
     20: 1371032664026382427,
     35: 1371032830217289748,
     50: 1371032964938600521,
     75: 1371033073038266429,
 }
-XP_COOLDOWN = 60  # seconds
+XP_COOLDOWN = 60
 
 # ── Helper Views ──────────────────────────────────────────
 class LevelLeaderboardView(discord.ui.View):
@@ -58,7 +58,7 @@ class LevelLeaderboardView(discord.ui.View):
         desc = ""
         for i, row in enumerate(rows):
             rank = skip + i + 1
-            desc += f"**{rank}.** <@{row['user_id']}> — **Lvl {row.get('level',0)}** ({row.get('xp',0)} XP)\n"
+            desc += f"**{rank}.** <@{row['user_id']}> — **Lvl {row.get('level', 0)}** ({row.get('xp', 0)} XP)\n"
 
         embed = discord.Embed(title="🚀 Top Adventurers", description=desc, color=discord.Color.purple())
         embed.set_footer(text=f"Page {self.current_page+1}/{pages}")
@@ -79,6 +79,7 @@ class LevelLeaderboardView(discord.ui.View):
             return await interaction.response.send_message("This isn't for you!", ephemeral=True)
         self.current_page += 1
         await interaction.response.edit_message(embed=await self.embed_for_page(), view=self)
+
 
 class DailyStreakLeaderboardView(discord.ui.View):
     def __init__(self, author: discord.Member, interaction: discord.Interaction):
@@ -113,7 +114,7 @@ class DailyStreakLeaderboardView(discord.ui.View):
         desc = ""
         for i, row in enumerate(rows):
             rank = skip + i + 1
-            desc += f"**{rank}.** <@{row['user_id']}> — **{row.get('streak',0)}-day streak** 🔥\n"
+            desc += f"**{rank}.** <@{row['user_id']}> — **{row.get('streak', 0)}-day streak** 🔥\n"
 
         embed = discord.Embed(title="🔥 Daily-Streak Leaderboard", description=desc, color=discord.Color.orange())
         embed.set_footer(text=f"Page {self.current_page+1}/{pages}")
@@ -139,14 +140,16 @@ class DailyStreakLeaderboardView(discord.ui.View):
 class Leveling(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.xp_cooldowns: dict[int, float] = {}
+        self.xp_cooldowns = {}
 
-    # XP curve (reduced)
+    async def cog_load(self):
+        await self.bot.tree.sync(guild=guild_obj)
+        print("[Leveling] Slash commands synced.")
+
     @staticmethod
     def get_xp_for_level(level: int) -> int:
         return 15 * (level ** 2) + 50 * level + 100
 
-    # --------------- Message Listener ---------------------
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild:
@@ -169,7 +172,6 @@ class Leveling(commands.Cog):
             new_level = level + 1
             db.set_user_level(uid, new_level)
 
-            # announce
             channel_id = db.get_channel(message.guild.id, "leveling")
             if channel_id and (channel := message.guild.get_channel(channel_id)):
                 embed = discord.Embed(
@@ -180,11 +182,9 @@ class Leveling(commands.Cog):
                 embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
                 await channel.send(embed=embed)
 
-            # roles
             if new_level in LEVEL_ROLES:
                 await self.update_user_roles(message.author)
 
-    # --------------- Role Updater -------------------------
     async def update_user_roles(self, member: discord.Member):
         data = db.get_user_level_data(member.id) or {}
         level = data.get("level", 0)
@@ -212,16 +212,16 @@ class Leveling(commands.Cog):
         except Exception as e:
             print(f"[Leveling] Role update error for {member}: {e}")
 
-    # --------------- Slash Commands -----------------------
-    @commands.slash_command(name="rank", description="Check a user's level and XP.", guild_ids=[GUILD_ID])
-    @option("user", description="User to check", type=discord.Member, required=False)
-    async def rank(self, ctx: discord.ApplicationContext, user: discord.Member = None):
-        target = user or ctx.author
+    # ---------------- Slash Commands ---------------------
+    @app_commands.command(name="rank", description="Check a user's level and XP.")
+    @app_commands.guilds(guild_obj)
+    async def rank(self, interaction: discord.Interaction, user: discord.Member = None):
+        target = user or interaction.user
         data = db.get_user_level_data(target.id)
         if not data:
-            return await ctx.respond(f"{target.display_name} has no XP yet.", ephemeral=True)
+            return await interaction.response.send_message(f"{target.display_name} has no XP yet.", ephemeral=True)
 
-        level, xp = data.get("level", 0), data.get("xp", 0)
+        level, xp = data["level"], data["xp"]
         needed = self.get_xp_for_level(level)
         rank = db.get_user_leveling_rank(target.id)
         progress = int((xp / needed) * 20)
@@ -232,41 +232,18 @@ class Leveling(commands.Cog):
         embed.add_field(name="Rank", value=f"#{rank}", inline=True)
         embed.add_field(name="XP", value=f"`{xp} / {needed}`", inline=False)
         embed.add_field(name="Progress", value="🟩" * progress + "⬛" * (20 - progress), inline=False)
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command(name="updateroles", description="Force-update level roles.", guild_ids=[GUILD_ID])
-    @option("user", description="User to update", type=discord.Member, required=False)
-    async def updateroles(self, ctx: discord.ApplicationContext, user: discord.Member = None):
-        target = user or ctx.author
-        await ctx.defer(ephemeral=True)
-        await self.update_user_roles(target)
-        await ctx.followup.send(f"Roles updated for **{target.display_name}**.", ephemeral=True)
-
-    @commands.slash_command(name="chatlvlup", description="Announce your last level up in chat.", guild_ids=[GUILD_ID])
-    async def chatlvlup(self, ctx: discord.ApplicationContext, user: discord.Member = None):
-        target = user or ctx.author
-        data = db.get_user_level_data(target.id)
-        if not data:
-            return await ctx.respond(f"{target.display_name} hasn't chatted yet.", ephemeral=True)
-
-        level = data.get("level", 0)
-        embed = discord.Embed(
-            title="🎉 Level Up!",
-            description=f"{target.mention}, you're already **Level {level}**!",
-            color=discord.Color.fuchsia()
-        )
-        await ctx.send(embed=embed)
-
-    @commands.slash_command(name="profile", description="Show profile (cookies, level, XP).", guild_ids=[GUILD_ID])
-    @option("user", description="User to view", type=discord.Member, required=False)
-    async def profile(self, ctx: discord.ApplicationContext, user: discord.Member = None):
-        target = user or ctx.author
+    @app_commands.command(name="profile", description="Show user's profile (cookies, level, XP).")
+    @app_commands.guilds(guild_obj)
+    async def profile(self, interaction: discord.Interaction, user: discord.Member = None):
+        target = user or interaction.user
         data = db.get_user_level_data(target.id)
         cookies = db.get_cookies(target.id)
         if not data:
-            return await ctx.respond(f"{target.display_name} has no profile yet.", ephemeral=True)
+            return await interaction.response.send_message(f"{target.display_name} has no profile yet.", ephemeral=True)
 
-        level, xp = data.get("level", 0), data.get("xp", 0)
+        level, xp = data["level"], data["xp"]
         needed = self.get_xp_for_level(level)
         rank = db.get_user_leveling_rank(target.id)
         progress = int((xp / needed) * 20)
@@ -278,20 +255,20 @@ class Leveling(commands.Cog):
         embed.add_field(name="XP", value=f"{xp}/{needed}", inline=True)
         embed.add_field(name="Cookies", value=str(cookies), inline=True)
         embed.add_field(name="Progress", value="🟦" * progress + "⬛" * (20 - progress), inline=False)
-        await ctx.respond(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @commands.slash_command(name="leveltop", description="Top 10 users by level.", guild_ids=[GUILD_ID])
-    async def leveltop(self, ctx: discord.ApplicationContext):
-        view = LevelLeaderboardView(ctx.author, ctx.interaction)
-        await ctx.respond(embed=await view.embed_for_page(), view=view, ephemeral=True)
+    @app_commands.command(name="leveltop", description="Top 10 users by level.")
+    @app_commands.guilds(guild_obj)
+    async def leveltop(self, interaction: discord.Interaction):
+        view = LevelLeaderboardView(interaction.user, interaction)
+        await interaction.response.send_message(embed=await view.embed_for_page(), view=view)
 
-    # 🔥 NEW: Streak Leaderboard
     @app_commands.command(name="streaktop", description="Top users by daily streak.")
     @app_commands.guilds(guild_obj)
     async def streaktop(self, interaction: discord.Interaction):
         view = DailyStreakLeaderboardView(interaction.user, interaction)
         await interaction.response.send_message(embed=await view.embed_for_page(), view=view)
 
-# ── Setup for this cog ────────────────────────────────────
+# ── Setup ────────────────────────────────────────────────
 async def setup(bot: commands.Bot):
     await bot.add_cog(Leveling(bot), guilds=[guild_obj])
