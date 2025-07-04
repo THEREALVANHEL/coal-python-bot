@@ -4,24 +4,17 @@ from datetime import datetime
 import sys
 import os
 
-# Add project root to import path so we can load `database.py`
+# ------------------------------------------------------------------
+# Ensure the project root is on sys.path so reloaded cogs
+# can still import database.py and the assets package.
+# ------------------------------------------------------------------
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import database as db
+from assets import media_links  # centralized GIF links
 
-# === Constants ===
-AUTO_ROLE_ID = 1384141744303636610  # ID of the “OPS ✋🏻” role
-
-# GIFs
-WELCOME_GIF = (
-    "https://cdn.discordapp.com/attachments/1370993458700877964/"
-    "1375089295257370624/image0.gif?ex=6867ca33&is=686678b3&"
-    "hm=70d30734f79d03d3fe16729bcdc66d2f66e033a3ef3c015d39eea385360dab3f"
-)
-LEAVE_GIF = (
-    "https://cdn.discordapp.com/attachments/1351560015483240459/"
-    "1368427641564299314/image0.gif?ex=6867f1cd&is=6866a04d&"
-    "hm=d11ce2a9a12ec110436122601b99afc1dec655b565f22f6e4321ae5041405303"
-)
+# === Constants ====================================================
+AUTO_ROLE_ID = 1384141744303636610  # “OPS ✋🏻” role ID
 
 
 class Events(commands.Cog):
@@ -30,12 +23,12 @@ class Events(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     # MEMBER JOIN
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        # Auto-assign role
+        # 1) Auto-assign role
         try:
             role = member.guild.get_role(AUTO_ROLE_ID)
             if role:
@@ -45,7 +38,7 @@ class Events(commands.Cog):
         except Exception as e:
             print(f"[Auto-Role] Unexpected error: {e}")
 
-        # Welcome channel
+        # 2) Welcome channel
         welcome_channel_id = db.get_channel(member.guild.id, "welcome")
         if not welcome_channel_id:
             return
@@ -54,13 +47,13 @@ class Events(commands.Cog):
             return
 
         embed = discord.Embed(
-            title="👿 **WELCOME TO HELL, TOP G!** 👿",
+            title="😗 **WELCOME TO HELL, TOP G!** 😗",
             description=f"{member.mention}, your soul is now ours.\nEnjoy the flames 🔥",
             color=discord.Color.dark_red(),
             timestamp=datetime.utcnow(),
         )
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.set_image(url=WELCOME_GIF)
+        embed.set_image(url=media_links.WELCOME_GIF)
         embed.add_field(
             name="🔥 You arrived at",
             value=f"<t:{int(datetime.utcnow().timestamp())}:F>",
@@ -73,13 +66,13 @@ class Events(commands.Cog):
         except discord.Forbidden:
             print(f"[Welcome] Missing send perms in #{welcome_channel.name}")
 
-        # Log join
+        # 3) Log join
         log_channel_id = db.get_channel(member.guild.id, "log")
         if log_channel_id:
             log_channel = member.guild.get_channel(log_channel_id)
             if log_channel:
                 log_embed = discord.Embed(
-                    title="👿 Member Joined",
+                    title="😃 Member Joined",
                     description=f"{member.mention} joined the server.",
                     color=discord.Color.green(),
                     timestamp=datetime.utcnow(),
@@ -87,9 +80,9 @@ class Events(commands.Cog):
                 log_embed.set_footer(text=f"User ID: {member.id}")
                 await log_channel.send(embed=log_embed)
 
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     # MEMBER LEAVE
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         log_channel_id = db.get_channel(member.guild.id, "log")
@@ -105,7 +98,7 @@ class Events(commands.Cog):
             color=discord.Color.red(),
             timestamp=datetime.utcnow(),
         )
-        embed.set_image(url=LEAVE_GIF)
+        embed.set_image(url=media_links.LEAVE_GIF)
         embed.add_field(
             name="🚪 Escaped at",
             value=f"<t:{int(datetime.utcnow().timestamp())}:F>",
@@ -115,9 +108,9 @@ class Events(commands.Cog):
 
         await log_channel.send(embed=embed)
 
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     # MESSAGE DELETE
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
         if message.author.bot or not message.guild:
@@ -149,16 +142,12 @@ class Events(commands.Cog):
         )
         await log_channel.send(embed=embed)
 
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     # MESSAGE EDIT
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
-        if (
-            before.author.bot
-            or not before.guild
-            or before.content == after.content
-        ):
+        if before.author.bot or not before.guild or before.content == after.content:
             return
         log_channel_id = db.get_channel(before.guild.id, "log")
         if not log_channel_id:
@@ -179,12 +168,14 @@ class Events(commands.Cog):
         )
         embed.add_field(name="Before", value=f"```{before.content}```", inline=False)
         embed.add_field(name="After", value=f"```{after.content}```", inline=False)
-        embed.set_footer(text=f"Author ID: {before.author.id} | Message ID: {before.id}")
+        embed.set_footer(
+            text=f"Author ID: {before.author.id} | Message ID: {before.id}"
+        )
         await log_channel.send(embed=embed)
 
-    # ----------------------------------------------------
-    # ROLE & CHANNEL EVENTS
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
+    # ROLE CREATED
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role):
         log_channel_id = db.get_channel(role.guild.id, "log")
@@ -193,6 +184,7 @@ class Events(commands.Cog):
         log_channel = role.guild.get_channel(log_channel_id)
         if not log_channel:
             return
+
         embed = discord.Embed(
             title="✨ Role Created",
             description=f"The role {role.mention} (`{role.name}`) was created.",
@@ -201,6 +193,9 @@ class Events(commands.Cog):
         )
         await log_channel.send(embed=embed)
 
+    # --------------------------------------------------------------
+    # ROLE DELETED
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: discord.Role):
         log_channel_id = db.get_channel(role.guild.id, "log")
@@ -209,6 +204,7 @@ class Events(commands.Cog):
         log_channel = role.guild.get_channel(log_channel_id)
         if not log_channel:
             return
+
         embed = discord.Embed(
             title="🔥 Role Deleted",
             description=f"The role `{role.name}` was deleted.",
@@ -217,6 +213,9 @@ class Events(commands.Cog):
         )
         await log_channel.send(embed=embed)
 
+    # --------------------------------------------------------------
+    # CHANNEL CREATED
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel):
         log_channel_id = db.get_channel(channel.guild.id, "log")
@@ -225,6 +224,7 @@ class Events(commands.Cog):
         log_channel = channel.guild.get_channel(log_channel_id)
         if not log_channel:
             return
+
         embed = discord.Embed(
             title="📁 Channel Created",
             description=f"Channel {channel.mention} (`{channel.name}`) was created.",
@@ -233,6 +233,9 @@ class Events(commands.Cog):
         )
         await log_channel.send(embed=embed)
 
+    # --------------------------------------------------------------
+    # CHANNEL DELETED
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
         log_channel_id = db.get_channel(channel.guild.id, "log")
@@ -241,6 +244,7 @@ class Events(commands.Cog):
         log_channel = channel.guild.get_channel(log_channel_id)
         if not log_channel:
             return
+
         embed = discord.Embed(
             title="🗑️ Channel Deleted",
             description=f"Channel `{channel.name}` was deleted.",
@@ -249,9 +253,9 @@ class Events(commands.Cog):
         )
         await log_channel.send(embed=embed)
 
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     # MEMBER ROLE UPDATES
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
         log_channel_id = db.get_channel(after.guild.id, "log")
@@ -282,12 +286,11 @@ class Events(commands.Cog):
             )
             await log_channel.send(embed=embed)
 
-    # ----------------------------------------------------
-    # STARBOARD
-    # ----------------------------------------------------
+    # --------------------------------------------------------------
+    # STARBOARD (⭐ reactions)
+    # --------------------------------------------------------------
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        # Only star emoji
         if not payload.guild_id or payload.member.bot or str(payload.emoji) != "⭐":
             return
 
@@ -352,13 +355,13 @@ class Events(commands.Cog):
                 star_msg = await starboard_channel.send(content=content, embed=embed)
                 db.add_starboard_message(message.id, star_msg.id)
         except discord.NotFound:
-            # Original starboard message was deleted, post a new one
+            # Original starboard message deleted; post anew
             star_msg = await starboard_channel.send(content=content, embed=embed)
             db.add_starboard_message(message.id, star_msg.id)
 
 
-# ----------------------------------------------------
-# SETUP (for dynamic cog loading)
-# ----------------------------------------------------
+# --------------------------------------------------------------
+# SETUP for dynamic cog loading
+# --------------------------------------------------------------
 async def setup(bot: commands.Bot):
     await bot.add_cog(Events(bot))
