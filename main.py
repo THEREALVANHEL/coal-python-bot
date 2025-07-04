@@ -6,7 +6,6 @@ from flask import Flask
 from threading import Thread
 import asyncio
 import logging
-import time
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +32,7 @@ if not DISCORD_TOKEN:
     print("❌ NO TOKEN FOUND")
     exit(1)
 
-# Discord Bot Setup
+# Discord Bot Setup - discord.py style
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -83,7 +82,7 @@ async def load_cogs():
 async def main():
     print("=== BOT STARTING ===")
     print("✅ OS imported")
-    print("✅ Discord imported")
+    print("✅ Discord imported") 
     print("✅ Flask imported")
     print("🌐 Starting Flask...")
     
@@ -99,29 +98,20 @@ async def main():
     
     print("🚀 Starting bot connection...")
     
-    # Rate limit handling with retries
-    max_retries = 3
-    retry_delay = 30  # seconds
-    
-    for attempt in range(max_retries):
-        try:
+    # Start bot with better error handling
+    try:
+        await bot.start(DISCORD_TOKEN)
+    except discord.HTTPException as e:
+        if e.status == 429:
+            print("⏳ Rate limited. Waiting 5 minutes before retry...")
+            await asyncio.sleep(300)  # Wait 5 minutes
             await bot.start(DISCORD_TOKEN)
-            break
-        except discord.HTTPException as e:
-            if e.status == 429:  # Rate limited
-                if attempt < max_retries - 1:
-                    print(f"⏳ Rate limited. Waiting {retry_delay} seconds before retry {attempt + 2}/{max_retries}")
-                    await asyncio.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
-                else:
-                    print("❌ Max retries reached. Bot will stop.")
-                    raise
-            else:
-                print(f"❌ BOT ERROR: {e}")
-                raise
-        except Exception as e:
+        else:
             print(f"❌ BOT ERROR: {e}")
             raise
+    except Exception as e:
+        print(f"❌ BOT ERROR: {e}")
+        raise
 
 if __name__ == "__main__":
     try:
