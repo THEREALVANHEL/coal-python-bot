@@ -8,6 +8,7 @@ import os
 import sys
 from datetime import datetime
 import asyncio
+import re
 
 # ── project imports ───────────────────────────────────────
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -287,17 +288,11 @@ class FunCommands(commands.Cog):
             )
             await ctx.respond(embed=confirm_embed, ephemeral=True)
             
-            # Store giveaway data in database (you'll need to implement this)
-            # For now, we'll just send a reminder
-            await asyncio.sleep(min(duration_seconds, 3600))  # Max 1 hour for demo
-            
         except discord.Forbidden:
             await ctx.respond("❌ I don't have permission to send messages in that channel!", ephemeral=True)
 
     def parse_duration(self, duration_str: str) -> int:
         """Parse duration string like '1h', '30m', '2d' into seconds"""
-        import re
-        
         total_seconds = 0
         # Find all number+unit pairs
         matches = re.findall(r'(\d+)([dhms])', duration_str.lower())
@@ -940,8 +935,6 @@ class FunCommands(commands.Cog):
 
     def parse_smart_time(self, time_str: str) -> int:
         """Smart time parsing with AI-like natural language understanding"""
-        import re
-        
         time_str = time_str.lower().strip()
         total_seconds = 0
         

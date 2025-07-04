@@ -11,12 +11,12 @@ import logging
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 
-# --- Keep-alive server (useful for Render health checks) ---
+# --- Keep-alive server (useful for hosting) ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "✅ Bot is alive!"
+    return "✅ BLECKOPS Bot is alive!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
@@ -36,7 +36,7 @@ intents.members = True
 
 GUILD_ID = 1370009417726169250  # Update if your server ID changes
 
-class MyBot(commands.Bot):
+class BleckOpsBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=intents)
         self.synced = False
@@ -45,15 +45,24 @@ class MyBot(commands.Bot):
         """This is called when the bot is starting up"""
         print("🔄 Loading cogs...")
         
-        cogs_dir = os.path.join(os.path.dirname(__file__), 'cogs')
-        for filename in os.listdir(cogs_dir):
-            if filename.endswith('.py') and filename != '__init__.py':
-                cog_name = filename[:-3]
-                try:
-                    await self.load_extension(f'cogs.{cog_name}')
-                    print(f"✅ Loaded cog: {filename}")
-                except Exception as e:
-                    print(f"❌ Failed to load {filename}: {e}")
+        cogs_to_load = [
+            'cogs.moderation',
+            'cogs.cookies', 
+            'cogs.economy',
+            'cogs.leveling',
+            'cogs.community',
+            'cogs.event_commands',
+            'cogs.events',
+            'cogs.settings',
+            'cogs.fun_commands'  # New cog
+        ]
+        
+        for cog in cogs_to_load:
+            try:
+                await self.load_extension(cog)
+                print(f"✅ Loaded: {cog}")
+            except Exception as e:
+                print(f"❌ Failed to load {cog}: {e}")
 
     async def on_ready(self):
         print(f"✅ Logged in as {self.user} ({self.user.id})")
@@ -71,7 +80,13 @@ class MyBot(commands.Bot):
                 print(f"✅ Synced {len(synced_commands)} command(s) to guild {GUILD_ID}")
                 
                 self.synced = True
-                print("🎉 Bot is ready and commands are synced!")
+                print("🎉 BLECKOPS Bot is ready and commands are synced!")
+                
+                # Print all available commands
+                print("\n📋 Available Commands:")
+                print("="*50)
+                for command in self.tree.get_commands():
+                    print(f"/{command.name} - {command.description}")
                 
             except discord.HTTPException as e:
                 if e.status == 429:  # Rate limited
@@ -82,22 +97,22 @@ class MyBot(commands.Bot):
             except Exception as e:
                 print(f"❌ Failed to sync commands: {e}")
 
-bot = MyBot()
+bot = BleckOpsBot()
 
 # --- Run the Bot ---
 async def main():
     if not DISCORD_TOKEN:
         print("❌ DISCORD_TOKEN is missing in environment variables")
-        print("💡 Make sure to set DISCORD_TOKEN in your Render dashboard")
+        print("💡 Make sure to set DISCORD_TOKEN in your hosting dashboard")
         return
     elif not MONGODB_URI:
         print("❌ MONGODB_URI is missing in environment variables")
-        print("💡 Make sure to set MONGODB_URI in your Render dashboard")
+        print("💡 Make sure to set MONGODB_URI in your hosting dashboard")
         return
     
     print("🌐 Starting keep-alive server...")
     keep_alive()
-    print("🤖 Starting bot...")
+    print("🤖 Starting BLECKOPS Bot...")
     
     # Add retry logic for initial connection with exponential backoff
     max_retries = 5

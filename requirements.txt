@@ -1,19 +1,29 @@
 # === Discord Bot Core ===
-discord.py>=2.3.2
+discord.py==2.3.2
+py-cord==2.4.1
 
 # === MongoDB (with DNS support) ===
-pymongo[srv]>=4.7.1  # [srv] installs dnspython automatically
+pymongo==4.6.1
 
 # === Environment Variables ===
-python-dotenv>=1.0.1
+python-dotenv==1.0.0
 
 # === Web Keep-Alive ===
-Flask>=3.0.2
+Flask==3.0.0
 
 # === AI / Charting ===
-matplotlib>=3.8.4
-numpy>=1.26.4
-google-generativeai>=0.3.2
+matplotlib==3.8.2
+numpy==1.26.2
+google-generativeai==0.3.2
 
 # === Optional: Render Deployment (Production-grade Flask) ===
 gunicorn>=22.0.0
+
+# === Additional Packages ===
+Pillow==10.1.0
+aiohttp==3.9.1
+asyncio-mqtt==0.13.0
+requests==2.31.0
+python-dateutil==2.8.2
+pytz==2023.3
+wheel==0.42.0

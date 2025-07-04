@@ -110,54 +110,7 @@ class Economy(commands.Cog):
         if bonus_msg:
             embed.add_field(name="Streak Bonus", value=bonus_msg)
 
-        await ctx.respond(embed=embed)
-
-    # ──────────────────────────────────────────────────────
-    # /donatecookies
-    # ──────────────────────────────────────────────────────
-    @commands.slash_command(
-        name="donatecookies",
-        description="Give some of your cookies to another user.",
-        guild_ids=[GUILD_ID],
-    )
-    @option("user", description="User to receive cookies", type=discord.Member)
-    @option("amount", description="Number of cookies to give", type=int)
-    async def donatecookies(
-        self, ctx: discord.ApplicationContext, user: discord.Member, amount: int
-    ):
-        sender_id = ctx.author.id
-        receiver_id = user.id
-
-        if amount <= 0:
-            return await ctx.respond("Amount must be positive.", ephemeral=True)
-        if sender_id == receiver_id:
-            return await ctx.respond("You can't donate to yourself.", ephemeral=True)
-        if user.bot:
-            return await ctx.respond("You can't donate to a bot.", ephemeral=True)
-
-        sender_balance = db.get_cookies(sender_id)
-        if sender_balance < amount:
-            return await ctx.respond(
-                f"Not enough cookies. Your balance: **{sender_balance}** 🍪.", ephemeral=True
-            )
-
-        # transfer
-        db.remove_cookies(sender_id, amount)
-        db.add_cookies(receiver_id, amount)
-
-        # update cookie roles
-        cookies_cog: commands.Cog | None = self.bot.get_cog("Cookies")
-        if cookies_cog:
-            sender_member = ctx.guild.get_member(sender_id)
-            if sender_member:
-                await cookies_cog._update_cookie_roles(sender_member)  # type: ignore
-            await cookies_cog._update_cookie_roles(user)  # type: ignore
-
-        embed = discord.Embed(
-            title="🎁 Cookies Donated!",
-            description=f"{ctx.author.mention} gave **{amount}** 🍪 to {user.mention}!",
-            color=discord.Color.from_rgb(255, 182, 193),
-        )
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.respond(embed=embed)
 
     # ──────────────────────────────────────────────────────
@@ -198,7 +151,116 @@ class Economy(commands.Cog):
             color=discord.Color.orange(),
             timestamp=datetime.utcnow()
         )
-        embed.set_footer(text="Keep your streaks alive with /daily!")
+        embed.set_footer(text="Keep your streaks alive with /daily! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        await ctx.respond(embed=embed)
+
+    # ──────────────────────────────────────────────────────
+    # /donatecookies
+    # ──────────────────────────────────────────────────────
+    @commands.slash_command(
+        name="donatecookies",
+        description="Give some of your cookies to another user.",
+        guild_ids=[GUILD_ID],
+    )
+    @option("user", description="User to receive cookies", type=discord.Member)
+    @option("amount", description="Number of cookies to give", type=int)
+    async def donatecookies(
+        self, ctx: discord.ApplicationContext, user: discord.Member, amount: int
+    ):
+        sender_id = ctx.author.id
+        receiver_id = user.id
+
+        if amount <= 0:
+            return await ctx.respond("Amount must be positive.", ephemeral=True)
+        if sender_id == receiver_id:
+            return await ctx.respond("You can't donate to yourself.", ephemeral=True)
+        if user.bot:
+            return await ctx.respond("You can't donate to a bot.", ephemeral=True)
+
+        sender_balance = db.get_cookies(sender_id)
+        if sender_balance < amount:
+            return await ctx.respond(
+                f"Not enough cookies. Your balance: **{sender_balance}** 🍪.", ephemeral=True
+            )
+
+        # transfer
+        db.remove_cookies(sender_id, amount)
+        db.add_cookies(receiver_id, amount)
+
+        # update cookie roles
+        cookies_cog: commands.Cog | None = self.bot.get_cog("Cookies")
+        if cookies_cog:
+            sender_member = ctx.guild.get_member(sender_id)
+            if sender_member and hasattr(cookies_cog, '_update_cookie_roles'):
+                await cookies_cog._update_cookie_roles(sender_member)  # type: ignore
+            if hasattr(cookies_cog, '_update_cookie_roles'):
+                await cookies_cog._update_cookie_roles(user)  # type: ignore
+
+        embed = discord.Embed(
+            title="🎁 Cookies Donated!",
+            description=f"{ctx.author.mention} gave **{amount}** 🍪 to {user.mention}!",
+            color=discord.Color.from_rgb(255, 182, 193),
+        )
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        await ctx.respond(embed=embed)
+
+    # ──────────────────────────────────────────────────────
+    # /coinflipbet
+    # ──────────────────────────────────────────────────────
+    @commands.slash_command(
+        name="coinflipbet",
+        description="Bet cookies on a coin flip!",
+        guild_ids=[GUILD_ID],
+    )
+    @option("bet_amount", description="Amount of cookies to bet (1-100)", type=int)
+    @option("choice", description="Your guess: heads or tails", choices=["heads", "tails"])
+    async def coinflipbet(self, ctx: discord.ApplicationContext, bet_amount: int, choice: str):
+        import random
+        
+        user_id = ctx.author.id
+        
+        # Validate bet amount
+        if bet_amount < 1 or bet_amount > 100:
+            return await ctx.respond("❌ Bet amount must be between 1-100 cookies!", ephemeral=True)
+        
+        # Check user's cookie balance
+        user_cookies = db.get_cookies(user_id)
+        if user_cookies < bet_amount:
+            return await ctx.respond(f"❌ You don't have enough cookies! Your balance: **{user_cookies}** 🍪", ephemeral=True)
+        
+        # Flip the coin
+        result = random.choice(["heads", "tails"])
+        won = (choice.lower() == result)
+        
+        # Calculate winnings/losses
+        if won:
+            winnings = bet_amount
+            db.add_cookies(user_id, winnings)
+            new_balance = user_cookies + winnings
+            
+            embed = discord.Embed(
+                title="🎉 You Won!",
+                description=f"The coin landed on **{result}**!\nYou won **{winnings}** 🍪!",
+                color=discord.Color.green(),
+                timestamp=datetime.utcnow()
+            )
+        else:
+            db.remove_cookies(user_id, bet_amount)
+            new_balance = user_cookies - bet_amount
+            
+            embed = discord.Embed(
+                title="� You Lost!",
+                description=f"The coin landed on **{result}**!\nYou lost **{bet_amount}** 🍪!",
+                color=discord.Color.red(),
+                timestamp=datetime.utcnow()
+            )
+        
+        embed.add_field(name="Your Guess", value=choice.capitalize(), inline=True)
+        embed.add_field(name="Result", value=result.capitalize(), inline=True)
+        embed.add_field(name="New Balance", value=f"{new_balance} 🍪", inline=True)
+        embed.set_author(name=f"{ctx.author.display_name}'s Coin Flip Bet", icon_url=ctx.author.display_avatar.url)
+        embed.set_footer(text="Gambling responsibly! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         
         await ctx.respond(embed=embed)
 
