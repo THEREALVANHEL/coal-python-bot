@@ -57,9 +57,9 @@ class Events(commands.Cog):
                     title="😃 Member Joined",
                     description=f"{member.mention} joined.",
                     color=discord.Color.green(),
-                    timestamp=datetime.utcnow()
-                )
-embed.set_footer(text=f"User ID: {member.id}")
+                                    timestamp=datetime.utcnow()
+            )
+                embed.set_footer(text=f"User ID: {member.id}")
                 await log_channel.send(embed=embed)
 
     # Member Leave
@@ -121,7 +121,8 @@ embed.set_footer(text=f"User ID: {member.id}")
         embed.add_field(name="After", value=f"```{after.content}```", inline=False)
         embed.set_footer(text=f"Author ID: {before.author.id} | Message ID: {before.id}")
         await channel.send(embed=embed)
-# Role Created
+
+    # Role Created
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role):
         log_id = db.get_channel(role.guild.id, "log")
@@ -192,7 +193,8 @@ embed.set_footer(text=f"User ID: {member.id}")
         if not log_id: return
         log = after.guild.get_channel(log_id)
         if not log: return
-added = [r for r in after.roles if r not in before.roles]
+        
+        added = [r for r in after.roles if r not in before.roles]
         removed = [r for r in before.roles if r not in after.roles]
 
         for r in added:
@@ -261,7 +263,7 @@ added = [r for r in after.roles if r not in before.roles]
 
         content = f"⭐ **{star_count}**"
         existing = db.get_starboard_message(message.id)
-try:
+        try:
             if existing:
                 old_msg = await star_channel.fetch_message(existing)
                 await old_msg.edit(content=content, embed=embed)

@@ -62,7 +62,7 @@ class Settings(commands.Cog):
         await ctx.respond(f"✅ Leave messages will now be sent to {channel.mention}.", ephemeral=True)
 
     @commands.slash_command(name="setlogchannel", description="[Admin] Set the log channel.", guild_ids=[GUILD_ID])
-@option("channel", description="The channel used for log messages.", type=discord.TextChannel)
+    @option("channel", description="The channel used for log messages.", type=discord.TextChannel)
     async def setlogchannel(self, ctx: discord.ApplicationContext, channel: discord.TextChannel):
         if not self.has_admin_permissions(ctx):
             await ctx.respond("❌ You need administrator permissions to use this command.", ephemeral=True)
@@ -179,7 +179,7 @@ class Settings(commands.Cog):
             value="```\n" + ", ".join(self.bot.cogs.keys()) + "\n```",
             inline=False,
         )
-cmds = await self.bot.tree.fetch_commands(guild=guild_obj)
+        cmds = await self.bot.tree.fetch_commands(guild=guild_obj)
         names = sorted(f"/{c.name}" for c in cmds)
         chunk = ""
         part = 1

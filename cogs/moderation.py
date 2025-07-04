@@ -141,7 +141,8 @@ class Moderation(commands.Cog):
         if not has_moderator_role(ctx):
             await ctx.respond("You don't have the required role to use this command.", ephemeral=True)
             return
-warnings = db.get_warnings(user.id)
+        
+        warnings = db.get_warnings(user.id)
         if not warnings:
             return await ctx.respond(
                 f"**{user.display_name}** has no warnings.",

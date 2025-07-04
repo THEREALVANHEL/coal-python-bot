@@ -67,7 +67,8 @@ class EventJoinView(discord.ui.View):
         else:
             embed.add_field(name="👥 Participants", value=plist, inline=False)
         return embed
-            @discord.ui.button(label="Join Event", style=discord.ButtonStyle.success, custom_id="event_join_button")
+
+    @discord.ui.button(label="Join Event", style=discord.ButtonStyle.success, custom_id="event_join_button")
     async def join(self, interaction: discord.Interaction, _btn: discord.ui.Button):
         uid = interaction.user.id
         if uid in self.participants:
@@ -138,7 +139,7 @@ class EventCommands(commands.Cog):
         start_dt = parse_time(time)
         if not start_dt:
             return await ctx.respond("⏱️ Invalid time format.", ephemeral=True)
-            ts = int(start_dt.timestamp())
+        ts = int(start_dt.timestamp())
         embed = discord.Embed(
             title=f"🎉 {gamename} 🎉",
             description=description,
