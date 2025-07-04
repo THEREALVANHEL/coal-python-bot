@@ -32,10 +32,9 @@ class Settings(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # instant guild-scoped sync
+    # Load cog without syncing (main.py handles syncing)
     async def cog_load(self):
-        await self.bot.tree.sync(guild=guild_obj)
-        print("[Settings] Slash commands synced instantly.")
+        print("[Settings] Cog loaded successfully.")
 
     # -----------------------------------------------------
     # Channel setters

@@ -36,8 +36,7 @@ class Moderation(commands.Cog):
         self.bot = bot
 
     async def cog_load(self):
-        await self.bot.tree.sync(guild=guild_obj)
-        print("[Moderation] Slash commands synced instantly.")
+        print("[Moderation] Cog loaded successfully.")
 
     # -------------------------------------------------------------------------
     # /modclear

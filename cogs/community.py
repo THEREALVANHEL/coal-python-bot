@@ -34,8 +34,7 @@ class Community(commands.Cog):
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
     async def cog_load(self):
-        await self.bot.tree.sync(guild=guild_obj)
-        print("[Community] Slash commands synced to guild.")
+        print("[Community] Cog loaded successfully.")
 
     @app_commands.command(name="askblecknephew", description="Ask Bleck Nephew anything! (Powered by AI)")
     @app_commands.describe(question="The question you want to ask.")

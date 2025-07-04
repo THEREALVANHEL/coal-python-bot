@@ -9,8 +9,11 @@ class ExampleCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    async def cog_load(self):
+        print("[ExampleCog] Cog loaded successfully.")
+
     @app_commands.command(name="hello", description="Say hello!")
-    @app_commands.guilds(guild_obj)  # ✅ Instant sync in this guild only
+    @app_commands.guilds(guild_obj)  # ✅ Guild-specific command
     async def hello(self, interaction: discord.Interaction):
         await interaction.response.send_message(
             "Hello from the bot!",
@@ -19,20 +22,3 @@ class ExampleCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ExampleCog(bot), guilds=[guild_obj])
-    import discord
-from discord.ext import commands
-
-GUILD_ID = 1370009417726169250  # Same ID
-
-class Example(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def sync(self, ctx):
-        synced = await self.bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-        await ctx.send(f"✅ Synced {len(synced)} commands to the guild.")
-
-async def setup(bot):
-    await bot.add_cog(Example(bot))

@@ -82,8 +82,7 @@ class Leveling(commands.Cog):
         self.xp_cooldowns: dict[int, float] = {}
 
     async def cog_load(self):
-        await self.bot.sync_commands(guild_ids=[GUILD_ID])
-        print("[Leveling] Slash commands synced to guild.")
+        print("[Leveling] Cog loaded successfully.")
 
     @staticmethod
     def get_xp_for_level(level: int) -> int:
