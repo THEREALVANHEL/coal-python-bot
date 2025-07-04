@@ -160,6 +160,48 @@ class Economy(commands.Cog):
         )
         await ctx.respond(embed=embed)
 
+    # ──────────────────────────────────────────────────────
+    # /streaktop - Show top daily streak users  
+    # ──────────────────────────────────────────────────────
+    @commands.slash_command(
+        name="streaktop",
+        description="Show the top users with the highest daily streaks!",
+        guild_ids=[GUILD_ID],
+    )
+    async def streaktop(self, ctx: discord.ApplicationContext):
+        # Get top streak users from database
+        streak_users = db.get_top_streak_users(limit=10)
+        
+        if not streak_users:
+            embed = discord.Embed(
+                title="🔥 Daily Streak Leaderboard",
+                description="No one has started a streak yet!",
+                color=discord.Color.orange()
+            )
+            return await ctx.respond(embed=embed)
+        
+        description = ""
+        for i, user_data in enumerate(streak_users, 1):
+            user_id = user_data.get("user_id")
+            streak = user_data.get("streak", 0)
+            
+            # Try to get the user from the guild
+            user = ctx.guild.get_member(user_id)
+            user_name = user.display_name if user else f"Unknown User ({user_id})"
+            
+            medal = ["🥇", "🥈", "🥉"][i-1] if i <= 3 else f"**{i}.**"
+            description += f"{medal} {user_name} — **{streak}** day{'s' if streak != 1 else ''}\n"
+        
+        embed = discord.Embed(
+            title="🔥 Daily Streak Leaderboard",
+            description=description,
+            color=discord.Color.orange(),
+            timestamp=datetime.utcnow()
+        )
+        embed.set_footer(text="Keep your streaks alive with /daily!")
+        
+        await ctx.respond(embed=embed)
+
 
 # ─────────────────────────────────────────────────────────
 async def setup(bot: commands.Bot):

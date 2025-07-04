@@ -77,6 +77,19 @@ def get_total_users_in_dailies() -> int:
         return 0
     return dailies_collection.count_documents({"streak": {"$gt": 0}})
 
+def get_top_streak_users(limit: int = 10) -> list[dict]:
+    """Get users with the highest daily streaks."""
+    try:
+        cursor = db.daily_data.find(
+            {"streak": {"$gt": 0}},  # Only users with active streaks
+            {"user_id": 1, "streak": 1, "_id": 0}
+        ).sort("streak", -1).limit(limit)
+        
+        return list(cursor)
+    except Exception as e:
+        print(f"[DB] Error getting top streak users: {e}")
+        return []
+
 # ─────────────────────────────────────────────────────────────
 # Cookie Functions
 # ─────────────────────────────────────────────────────────────
