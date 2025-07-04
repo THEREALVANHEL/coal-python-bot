@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord import option  # Added for Pycord slash command options
+from discord import app_commands
 import random
 import os
 import re
@@ -19,7 +19,6 @@ class LinkView(View):
             self.add_item(Button(label=f"Link {i+1}", url=url))
 
 GUILD_ID = 1370009417726169250
-guild_obj = discord.Object(id=GUILD_ID)
 
 ANNOUNCE_ROLES = [
     "Moderator 🚨🚓",
@@ -31,219 +30,180 @@ ANNOUNCE_ROLES = [
 class Community(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        self.genai_api_key = os.getenv("GEMINI_API_KEY")
+        if self.genai_api_key:
+            genai.configure(api_key=self.genai_api_key)
+            self.model = genai.GenerativeModel('gemini-pro')
 
     async def cog_load(self):
-        print("[Community] Cog loaded successfully.")
+        print("[Community] Loaded successfully.")
 
-    @commands.slash_command(name="askblecknephew", description="Ask Bleck Nephew anything! (Powered by AI)", guild_ids=[GUILD_ID])
-    @option("question", description="The question you want to ask.")
-    async def askblecknephew(self, ctx: discord.ApplicationContext, question: str):
-        await ctx.response.defer()
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')
-            prompt = f"You are Bleck Nephew, a helpful and slightly mischievous Discord bot. A user asked: {question}"
-            response = await model.generate_content_async(prompt)
-            answer = response.text.strip() if hasattr(response, 'text') and response.text.strip() else "Hmm... I couldn't think of a clever answer this time. Try asking again later!"
-
-            urls = extract_urls(answer)
-            image_links = [url for url in urls if url.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
-
-            embed = discord.Embed(
-                title=f"🤔 {ctx.user.display_name} asks...",
-                description=f"**{question}**",
-                color=discord.Color.blue(),
-                timestamp=datetime.utcnow()
-            )
-            embed.set_author(name="Bleck Nephew AI", icon_url=self.bot.user.display_avatar.url)
-            embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-
-            chunks = [answer[i:i+1024] for i in range(0, len(answer), 1024)]
-            for i, chunk in enumerate(chunks):
-                embed.add_field(name=f"💡 Answer Part {i+1}" if len(chunks) > 1 else "💡 Answer", value=chunk, inline=False)
-
-            if image_links:
-                embed.set_image(url=image_links[0])
-
-            if urls:
-                await ctx.followup.send(embed=embed, view=LinkView(urls))
-            else:
-                await ctx.followup.send(embed=embed)
-
-        except Exception as e:
-            print(f"Gemini error: {e}")
-            await ctx.followup.send("Couldn't get an answer from the AI service.", ephemeral=True)
-
-    @commands.slash_command(name="suggest", description="Submit a suggestion for the server.", guild_ids=[GUILD_ID])
-    @option("suggestion", description="Your suggestion.")
-    async def suggest(self, ctx: discord.ApplicationContext, suggestion: str):
-        channel_id = db.get_channel(ctx.guild.id, "suggestion")
-        channel = ctx.guild.get_channel(channel_id) if channel_id else None
-
-        if not channel:
-            await ctx.respond("❌ Suggestion channel not set. Use `/setsuggestionchannel` first.", ephemeral=True)
-            return
-
+    @app_commands.command(name="suggest", description="Submit a suggestion to the server")
+    @app_commands.describe(suggestion="Your suggestion")
+    async def suggest(self, interaction: discord.Interaction, suggestion: str):
         embed = discord.Embed(
             title="💡 New Suggestion",
             description=suggestion,
-            color=discord.Color.yellow(),
-            timestamp=datetime.utcnow()
+            color=0x00ff00,
+            timestamp=datetime.now()
         )
-        embed.set_author(name=f"Suggested by {ctx.user.display_name}", icon_url=ctx.user.display_avatar.url)
-        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text="React with 👍 or 👎 to vote!")
+
+        await interaction.response.send_message(embed=embed)
+        message = await interaction.original_response()
+        await message.add_reaction("👍")
+        await message.add_reaction("👎")
+
+    @app_commands.command(name="spinawheel", description="Spin a wheel with up to 10 options")
+    @app_commands.describe(options="Comma-separated options (up to 10)")
+    async def spinawheel(self, interaction: discord.Interaction, options: str):
+        option_list = [opt.strip() for opt in options.split(",") if opt.strip()]
+        
+        if len(option_list) < 2:
+            await interaction.response.send_message("❌ Please provide at least 2 options separated by commas!", ephemeral=True)
+            return
+        
+        if len(option_list) > 10:
+            await interaction.response.send_message("❌ Maximum 10 options allowed!", ephemeral=True)
+            return
+            winner = random.choice(option_list)
+        
+        embed = discord.Embed(
+            title="🎡 Wheel Spin Results",
+            description=f"**Winner:** {winner}",
+            color=0xffd700
+        )
+        embed.add_field(name="Options", value="\n".join([f"• {opt}" for opt in option_list]), inline=False)
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="userinfo", description="View detailed info about a server member")
+    @app_commands.describe(user="The user to get info about")
+    async def userinfo(self, interaction: discord.Interaction, user: discord.Member = None):
+        target = user or interaction.user
+        
+        embed = discord.Embed(
+            title=f"👤 User Info: {target.display_name}",
+            color=target.accent_color or 0x7289da
+        )
+        embed.set_thumbnail(url=target.display_avatar.url)
+        
+        embed.add_field(name="👤 Username", value=f"{target.name}#{target.discriminator}", inline=True)
+        embed.add_field(name="🆔 ID", value=target.id, inline=True)
+        embed.add_field(name="📅 Account Created", value=f"<t:{int(target.created_at.timestamp())}:F>", inline=False)
+        embed.add_field(name="📅 Joined Server", value=f"<t:{int(target.joined_at.timestamp())}:F>", inline=False)
+        
+        if target.roles[1:]:  # Skip @everyone role
+            roles = [role.mention for role in reversed(target.roles[1:])]
+            embed.add_field(name="🎭 Roles", value=" ".join(roles[:10]), inline=False)
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="serverinfo", description="Shows stats and info about the server")
+    async def serverinfo(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        
+        embed = discord.Embed(
+            title=f"📈 Server Info: {guild.name}",
+            color=0x7289da
+        )
+        
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+        
+        embed.add_field(name="👑 Owner", value=guild.owner.mention if guild.owner else "Unknown", inline=True)
+        embed.add_field(name="🆔 ID", value=guild.id, inline=True)
+        embed.add_field(name="📅 Created", value=f"<t:{int(guild.created_at.timestamp())}:F>", inline=False)
+        embed.add_field(name="👥 Members", value=guild.member_count, inline=True)
+        embed.add_field(name="📁 Channels", value=len(guild.channels), inline=True)
+        embed.add_field(name="🎭 Roles", value=len(guild.roles), inline=True)
+        embed.add_field(name="😀 Emojis", value=len(guild.emojis), inline=True)
+        embed.add_field(name="🚀 Boost Level", value=guild.premium_tier, inline=True)
+        embed.add_field(name="💎 Boosts", value=guild.premium_subscription_count, inline=True)
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="ping", description="Check the bot's ping to Discord servers")
+    async def ping(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🏓 Pong!",
+            description=f"**Latency:** {round(self.bot.latency * 1000)}ms",
+            color=0x00ff00
+        )
+        await interaction.response.send_message(embed=embed)
+        @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
+    @app_commands.describe(question="Your question for the AI")
+    async def askblecknephew(self, interaction: discord.Interaction, question: str):
+        if not self.genai_api_key:
+            await interaction.response.send_message("❌ AI service not configured!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
 
         try:
-            msg = await channel.send(embed=embed)
-            await msg.add_reaction("👍🏻")
-            await msg.add_reaction("👎🏻")
-            await ctx.respond("✅ Suggestion submitted successfully!", ephemeral=True)
-        except discord.Forbidden:
-            await ctx.respond("❌ I don't have permission to send messages in that channel.", ephemeral=True)
+            prompt = f"You are 'THE SAINT' - a wise and helpful AI assistant. Answer this question: {question}"
+            response = self.model.generate_content(prompt)
+            
+            embed = discord.Embed(
+                title="🤖 THE SAINT Responds",
+                description=response.text[:2000],
+                color=0x9932cc
+            )
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="THE SAINT • AI-powered responses")
 
-    @commands.slash_command(name="announce", description="[Moderator] Create a server announcement.", guild_ids=[GUILD_ID])
-    @option("title", description="The title of the announcement.")
-    @option("content", description="The main content of the announcement.")
-    @option("channel", description="The channel where the announcement should be sent.", type=discord.TextChannel)
-    async def announce(self, ctx: discord.ApplicationContext, title: str, content: str, channel: discord.TextChannel):
-        # Check if user has required roles
-        if not any(role.name in ANNOUNCE_ROLES for role in ctx.user.roles):
-            await ctx.respond("❌ You don't have permission to use this command.", ephemeral=True)
+            # Check for URLs and add buttons if found
+            urls = extract_urls(response.text)
+            view = LinkView(urls) if urls else None
+
+            await interaction.followup.send(embed=embed, view=view)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error generating response: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="flip", description="Flip a coin - heads or tails")
+    async def flip(self, interaction: discord.Interaction):
+        result = random.choice(["Heads", "Tails"])
+        emoji = "🪙" if result == "Heads" else "🥏"
+        
+        embed = discord.Embed(
+            title="🪙 Coin Flip",
+            description=f"{emoji} **{result}!**",
+            color=0xffd700
+        )
+        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="announce", description="Creates and sends a formatted announcement")
+    @app_commands.describe(
+        channel="Channel to send the announcement",
+        title="Announcement title",
+        message="Announcement message"
+    )
+    async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, message: str):
+        # Check if user has required role
+        user_roles = [role.name for role in interaction.user.roles]
+        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
         embed = discord.Embed(
             title=f"📢 {title}",
-            description=f"**__{content}__**",
-            color=discord.Color.blurple(),
-            timestamp=datetime.utcnow()
-        )
-        embed.set_author(name=f"Announcement by {ctx.user.display_name}", icon_url=ctx.user.display_avatar.url)
-        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+            description=message,
+            color=0xff6b6b,
+            timestamp=datetime.now()
+            )
+                embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed.set_footer(text=f"Announced by {interaction.user.display_name}")
 
         try:
             await channel.send(embed=embed)
-            confirm = discord.Embed(
-                description=f"✅ Your announcement has been posted in {channel.mention}!",
-                color=discord.Color.green()
-            )
-            confirm.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-            await ctx.respond(embed=confirm, ephemeral=True)
+            await interaction.response.send_message(f"✅ Announcement sent to {channel.mention}!", ephemeral=True)
         except discord.Forbidden:
-            await ctx.respond("❌ I don't have permission to send messages in that channel.", ephemeral=True)
+            await interaction.response.send_message(f"❌ I don't have permission to send messages in {channel.mention}!", ephemeral=True)
 
-    @commands.slash_command(name="poll", description="Create a simple poll.", guild_ids=[GUILD_ID])
-    @option("question", description="The poll question.")
-    @option("options", description="Up to 10 options, separated by commas.")
-    async def poll(self, ctx: discord.ApplicationContext, question: str, options: str):
-        option_list = [opt.strip() for opt in options.split(',')]
-        if len(option_list) > 10:
-            await ctx.respond("Maximum 10 options allowed.", ephemeral=True)
-            return
-
-        emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
-        poll_text = "".join(f"{emojis[i]} {opt}\n" for i, opt in enumerate(option_list))
-
-        embed = discord.Embed(title=f"📊 Poll: {question}", description="React to vote:", color=discord.Color.green(), timestamp=datetime.utcnow())
-        embed.add_field(name="Options", value=poll_text, inline=False)
-        embed.set_author(name=f"Poll by {ctx.user.display_name}", icon_url=ctx.user.display_avatar.url)
-        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-
-        await ctx.respond("Creating poll...")
-        msg = await ctx.channel.send(embed=embed)
-        for i in range(len(option_list)):
-            await msg.add_reaction(emojis[i])
-        await ctx.delete_original_response()
-
-    @commands.slash_command(name="flip", description="Flip a coin.", guild_ids=[GUILD_ID])
-    async def flip(self, ctx: discord.ApplicationContext):
-        await ctx.response.defer()
-
-        result = random.choice(["Heads", "Tails"])
-        emoji = "👑" if result == "Heads" else "🪙"
-        image_path = f"./assets/{result.lower()}.jpeg"
-
-        if not os.path.exists(image_path):
-            await ctx.followup.send(f"❌ Image for {result} not found in assets.", ephemeral=True)
-            return
-
-        file = discord.File(image_path, filename="result.jpeg")
-
-        embed = discord.Embed(title=f"🪙 Coin Flip: It's {result}!", color=discord.Color.gold())
-        embed.set_author(name=f"Flipped by {ctx.user.display_name}", icon_url=ctx.user.display_avatar.url)
-        embed.set_image(url="attachment://result.jpeg")
-        embed.add_field(name="Result", value=f"{emoji} **{result}**")
-        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-
-        await ctx.followup.send(embed=embed, file=file)
-
-    @commands.slash_command(name="spinawheel", description="Spin a wheel with a title and comma-separated options.", guild_ids=[GUILD_ID])
-    @option("title", description="The title of the wheel.")
-    @option("options", description="A comma-separated list of options.")
-    async def spinawheel(self, ctx: discord.ApplicationContext, title: str, options: str):
-        await ctx.response.defer()
-
-        import matplotlib.pyplot as plt
-        import numpy as np
-        import io
-        import textwrap
-        from matplotlib.patches import FancyArrow
-        from matplotlib.patheffects import withStroke
-
-        option_list = [opt.strip() for opt in options.split(',') if opt.strip()]
-        if not (2 <= len(option_list) <= 10):
-            await ctx.followup.send("Please provide between 2 to 10 options.", ephemeral=True)
-            return
-
-        winner = random.choice(option_list)
-        winner_index = option_list.index(winner)
-        num_options = len(option_list)
-        slice_angle = 360 / num_options
-        start_angle = 90 - (slice_angle * winner_index + slice_angle / 2)
-
-        base_colors = ['white', 'black', 'yellow', 'gray', 'lightgray', 'gold', 'silver', 'beige', 'ivory', 'darkgray']
-        colors = base_colors[:num_options]
-
-        fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(aspect="equal"))
-        wedges, _ = ax.pie([1] * num_options, colors=colors, startangle=90, counterclock=False)
-
-        for i, wedge in enumerate(wedges):
-            angle = (wedge.theta2 + wedge.theta1) / 2
-            x = 0.75 * np.cos(np.radians(angle))
-            y = 0.75 * np.sin(np.radians(angle))
-            label = textwrap.fill(option_list[i], width=10)
-            ax.text(
-                x, y, label,
-                ha='center', va='center',
-                fontsize=36, color='black', weight='bold',
-                path_effects=[withStroke(linewidth=2, foreground='white')]
-            )
-
-        pointer_angle_rad = np.radians(start_angle)
-        pointer_x = np.cos(pointer_angle_rad) * 1.1
-        pointer_y = np.sin(pointer_angle_rad) * 1.1
-        ax.add_patch(FancyArrow(pointer_x, pointer_y, -pointer_x * 0.1, -pointer_y * 0.1, width=0.05, length_includes_head=True, color='gold'))
-        ax.set_title(title, fontsize=32, weight='bold', pad=20, color='gold')
-        plt.tight_layout()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', transparent=True)
-        buf.seek(0)
-        plt.close(fig)
-
-        wheel_file = discord.File(buf, filename="wheel.png")
-
-        embed = discord.Embed(
-            title="🍀 The Wheel Has Spun!",
-            description=f"The wheel titled **'{title}'** landed on:",
-            color=discord.Color.gold(),
-            timestamp=datetime.utcnow()
-        )
-        embed.add_field(name="🏆 Winner", value=f"**{winner}**", inline=False)
-        embed.set_image(url="attachment://wheel.png")
-        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-
-        await ctx.followup.send(embed=embed, file=wheel_file)
-
-# ─────────────────────────────────────────────────────────────
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Community(bot), guilds=[guild_obj])
+    await bot.add_cog(Community(bot))
