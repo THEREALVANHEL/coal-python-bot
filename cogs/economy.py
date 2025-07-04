@@ -56,8 +56,7 @@ class Economy(commands.Cog):
                     f"⏳ {ctx.author.mention}, you've already claimed your daily reward!\n"
                     f"Try again in **{h}h {m}m**."
                 )
-
-        # streak
+# streak
         current_streak = daily_data.get("streak", 0) if daily_data else 0
         if daily_data and (now - daily_data["last_checkin"]) > timedelta(
             hours=cooldown_hours * 2
@@ -111,8 +110,7 @@ class Economy(commands.Cog):
             embed.add_field(name="Streak Bonus", value=bonus_msg)
 
         await ctx.respond(embed=embed)
-
-    # ──────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────
     # /donatecookies
     # ──────────────────────────────────────────────────────
     @commands.slash_command(
