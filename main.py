@@ -6,7 +6,7 @@ from flask import Flask
 from threading import Thread
 from discord import app_commands
 
-# --- Keep-alive server (for Render/UptimeRobot/Glitch etc.) ---
+# --- Keep-alive server (useful for Render health checks) ---
 app = Flask('')
 
 @app.route('/')
@@ -21,18 +21,18 @@ def keep_alive():
 
 # --- Load Environment Variables ---
 load_dotenv()
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-MONGODB_URI = os.getenv('MONGODB_URI')
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+MONGODB_URI = os.getenv("MONGODB_URI")
 
 # --- Discord Bot Setup ---
 intents = discord.Intents.default()
 intents.message_content = True
-intents.members = True  # Needed for member updates and roles
+intents.members = True
 
-GUILD_ID = 1370009417726169250  # Your guild/server ID
-
+GUILD_ID = 1370009417726169250  # Update if your server ID changes
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# --- Ready Event ---
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user} ({bot.user.id})")
@@ -58,11 +58,11 @@ async def on_ready():
 # --- Run the Bot ---
 if __name__ == "__main__":
     if not DISCORD_TOKEN:
-        print("❌ DISCORD_TOKEN is missing in the .env file.")
+        print("❌ DISCORD_TOKEN is missing in .env")
     elif not MONGODB_URI:
-        print("❌ MONGODB_URI is missing in the .env file.")
+        print("❌ MONGODB_URI is missing in .env")
     else:
-        print("🌐 Starting Flask keep-alive server...")
+        print("🌐 Starting keep-alive server...")
         keep_alive()
-        print("🤖 Starting Discord bot...")
+        print("🤖 Starting bot...")
         bot.run(DISCORD_TOKEN)
