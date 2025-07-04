@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import database as db
 from assets import media_links
 
-AUTO_ROLE_ID = 1384141744303636610  # “OPS ✋🏻”
+AUTO_ROLE_ID = 1384141744303636610  # "OPS ✋🏻"
 
 class Events(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -59,7 +59,7 @@ class Events(commands.Cog):
                     color=discord.Color.green(),
                     timestamp=datetime.utcnow()
                 )
-                embed.set_footer(text=f"User ID: {member.id}")
+embed.set_footer(text=f"User ID: {member.id}")
                 await log_channel.send(embed=embed)
 
     # Member Leave
@@ -121,8 +121,7 @@ class Events(commands.Cog):
         embed.add_field(name="After", value=f"```{after.content}```", inline=False)
         embed.set_footer(text=f"Author ID: {before.author.id} | Message ID: {before.id}")
         await channel.send(embed=embed)
-
-    # Role Created
+# Role Created
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role):
         log_id = db.get_channel(role.guild.id, "log")
@@ -193,8 +192,7 @@ class Events(commands.Cog):
         if not log_id: return
         log = after.guild.get_channel(log_id)
         if not log: return
-
-        added = [r for r in after.roles if r not in before.roles]
+added = [r for r in after.roles if r not in before.roles]
         removed = [r for r in before.roles if r not in after.roles]
 
         for r in added:
@@ -263,8 +261,7 @@ class Events(commands.Cog):
 
         content = f"⭐ **{star_count}**"
         existing = db.get_starboard_message(message.id)
-
-        try:
+try:
             if existing:
                 old_msg = await star_channel.fetch_message(existing)
                 await old_msg.edit(content=content, embed=embed)
@@ -279,3 +276,4 @@ class Events(commands.Cog):
 # Setup
 async def setup(bot: commands.Bot):
     await bot.add_cog(Events(bot))
+        
