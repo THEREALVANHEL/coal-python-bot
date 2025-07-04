@@ -1,4 +1,4 @@
-# cogs/fun_commands.py
+THIS SHOULD BE A LINTER ERROR# cogs/fun_commands.py
 # Additional fun commands for the Discord bot
 import discord
 from discord.ext import commands
@@ -7,6 +7,7 @@ import random
 import os
 import sys
 from datetime import datetime
+import asyncio
 
 # ── project imports ───────────────────────────────────────
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -113,186 +114,136 @@ class FunCommands(commands.Cog):
         await ctx.respond(embed=embed)
 
     @commands.slash_command(
-        name="joke",
-        description="Get a random joke to brighten your day!",
+        name="fun",
+        description="Get a random joke, compliment, truth question, or dare challenge!",
         guild_ids=[GUILD_ID],
     )
-    async def joke(self, ctx: discord.ApplicationContext):
-        joke = random.choice(self.jokes)
+    @option("type", description="Choose specific type or leave blank for random", 
+            choices=["random", "joke", "compliment", "truth", "dare"], required=False)
+    @option("user", description="Target user for compliments", type=discord.Member, required=False)
+    async def fun(self, ctx: discord.ApplicationContext, type: str = "random", user: discord.Member = None):
+        # If type is random or not specified, pick randomly
+        if type == "random":
+            type = random.choice(["joke", "compliment", "truth", "dare"])
         
-        embed = discord.Embed(
-            title="😂 Random Joke",
-            description=joke,
-            color=discord.Color.gold(),
-            timestamp=datetime.utcnow()
-        )
-        embed.set_author(name="Joke Master", icon_url=self.bot.user.display_avatar.url)
-        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-        
-        await ctx.respond(embed=embed)
-
-    @commands.slash_command(
-        name="quote",
-        description="Get an inspirational quote!",
-        guild_ids=[GUILD_ID],
-    )
-    async def quote(self, ctx: discord.ApplicationContext):
-        quote = random.choice(self.quotes)
-        
-        embed = discord.Embed(
-            title="✨ Inspirational Quote",
-            description=f"*{quote}*",
-            color=discord.Color.blue(),
-            timestamp=datetime.utcnow()
-        )
-        embed.set_author(name="Daily Inspiration", icon_url=self.bot.user.display_avatar.url)
-        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-        
-        await ctx.respond(embed=embed)
-
-    @commands.slash_command(
-        name="compliment",
-        description="Give someone a nice compliment!",
-        guild_ids=[GUILD_ID],
-    )
-    @option("user", description="User to compliment", type=discord.Member, required=False)
-    async def compliment(self, ctx: discord.ApplicationContext, user: discord.Member = None):
-        target = user or ctx.author
-        compliment = random.choice(self.compliments)
-        
-        embed = discord.Embed(
-            title="💝 Compliment",
-            description=f"{target.mention}, {compliment}",
-            color=discord.Color.pink(),
-            timestamp=datetime.utcnow()
-        )
-        embed.set_author(name=f"Compliment from {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
-        embed.set_footer(text="Spread positivity! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-        
-        await ctx.respond(embed=embed)
-
-    @commands.slash_command(
-        name="truth",
-        description="Get a truth question for truth or dare!",
-        guild_ids=[GUILD_ID],
-    )
-    async def truth(self, ctx: discord.ApplicationContext):
-        truth = random.choice(self.truths)
-        
-        embed = discord.Embed(
-            title="🤔 Truth Question",
-            description=truth,
-            color=discord.Color.orange(),
-            timestamp=datetime.utcnow()
-        )
-        embed.set_author(name="Truth or Dare", icon_url=self.bot.user.display_avatar.url)
-        embed.set_footer(text="Answer honestly! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-        
-        await ctx.respond(embed=embed)
-
-    @commands.slash_command(
-        name="dare",
-        description="Get a dare challenge for truth or dare!",
-        guild_ids=[GUILD_ID],
-    )
-    async def dare(self, ctx: discord.ApplicationContext):
-        dare = random.choice(self.dares)
-        
-        embed = discord.Embed(
-            title="💪 Dare Challenge",
-            description=dare,
-            color=discord.Color.red(),
-            timestamp=datetime.utcnow()
-        )
-        embed.set_author(name="Truth or Dare", icon_url=self.bot.user.display_avatar.url)
-        embed.set_footer(text="You got this! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-        
-        await ctx.respond(embed=embed)
-
-    @commands.slash_command(
-        name="coinflipbet",
-        description="Bet cookies on a coin flip!",
-        guild_ids=[GUILD_ID],
-    )
-    @option("bet_amount", description="Amount of cookies to bet (1-100)", type=int)
-    @option("choice", description="Your guess: heads or tails", choices=["heads", "tails"])
-    async def coinflipbet(self, ctx: discord.ApplicationContext, bet_amount: int, choice: str):
-        user_id = ctx.author.id
-        
-        # Validate bet amount
-        if bet_amount < 1 or bet_amount > 100:
-            return await ctx.respond("❌ Bet amount must be between 1-100 cookies!", ephemeral=True)
-        
-        # Check user's cookie balance
-        user_cookies = db.get_cookies(user_id)
-        if user_cookies < bet_amount:
-            return await ctx.respond(f"❌ You don't have enough cookies! Your balance: **{user_cookies}** 🍪", ephemeral=True)
-        
-        # Flip the coin
-        result = random.choice(["heads", "tails"])
-        won = (choice.lower() == result)
-        
-        # Calculate winnings/losses
-        if won:
-            winnings = bet_amount
-            db.add_cookies(user_id, winnings)
-            new_balance = user_cookies + winnings
-            
+        if type == "joke":
+            content = random.choice(self.jokes)
             embed = discord.Embed(
-                title="🎉 You Won!",
-                description=f"The coin landed on **{result}**!\nYou won **{winnings}** 🍪!",
-                color=discord.Color.green(),
+                title="😂 Random Joke",
+                description=content,
+                color=discord.Color.gold(),
                 timestamp=datetime.utcnow()
             )
-        else:
-            db.remove_cookies(user_id, bet_amount)
-            new_balance = user_cookies - bet_amount
+            embed.set_author(name="Joke Master", icon_url=self.bot.user.display_avatar.url)
             
+        elif type == "compliment":
+            target = user or ctx.author
+            content = random.choice(self.compliments)
             embed = discord.Embed(
-                title="💸 You Lost!",
-                description=f"The coin landed on **{result}**!\nYou lost **{bet_amount}** 🍪!",
+                title="💝 Compliment",
+                description=f"{target.mention}, {content}",
+                color=discord.Color.pink(),
+                timestamp=datetime.utcnow()
+            )
+            embed.set_author(name=f"Compliment from {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+            
+        elif type == "truth":
+            content = random.choice(self.truths)
+            embed = discord.Embed(
+                title="🤔 Truth Question",
+                description=content,
+                color=discord.Color.orange(),
+                timestamp=datetime.utcnow()
+            )
+            embed.set_author(name="Truth or Dare", icon_url=self.bot.user.display_avatar.url)
+            
+        elif type == "dare":
+            content = random.choice(self.dares)
+            embed = discord.Embed(
+                title="💪 Dare Challenge",
+                description=content,
                 color=discord.Color.red(),
                 timestamp=datetime.utcnow()
             )
+            embed.set_author(name="Truth or Dare", icon_url=self.bot.user.display_avatar.url)
         
-        embed.add_field(name="Your Guess", value=choice.capitalize(), inline=True)
-        embed.add_field(name="Result", value=result.capitalize(), inline=True)
-        embed.add_field(name="New Balance", value=f"{new_balance} 🍪", inline=True)
-        embed.set_author(name=f"{ctx.author.display_name}'s Coin Flip Bet", icon_url=ctx.author.display_avatar.url)
-        embed.set_footer(text="Gambling responsibly! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
-        
+        embed.set_footer(text="BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
         await ctx.respond(embed=embed)
 
     @commands.slash_command(
-        name="trivia",
-        description="Answer a random trivia question!",
+        name="giveaway",
+        description="Start a giveaway with reactions!",
         guild_ids=[GUILD_ID],
     )
-    async def trivia(self, ctx: discord.ApplicationContext):
-        # Simple trivia questions with answers
-        trivia_questions = [
-            {"q": "What is the capital of France?", "a": "Paris", "options": ["London", "Paris", "Berlin", "Madrid"]},
-            {"q": "How many planets are in our solar system?", "a": "8", "options": ["7", "8", "9", "10"]},
-            {"q": "What is the largest ocean on Earth?", "a": "Pacific", "options": ["Atlantic", "Pacific", "Indian", "Arctic"]},
-            {"q": "Who painted the Mona Lisa?", "a": "Leonardo da Vinci", "options": ["Leonardo da Vinci", "Pablo Picasso", "Van Gogh", "Michelangelo"]},
-            {"q": "What is the smallest country in the world?", "a": "Vatican City", "options": ["Monaco", "Vatican City", "San Marino", "Luxembourg"]},
-        ]
+    @option("prize", description="What's being given away")
+    @option("duration", description="Duration (e.g., '1h', '30m', '2d')")
+    @option("winners", description="Number of winners", type=int, default=1)
+    @option("channel", description="Channel to post giveaway", type=discord.TextChannel, required=False)
+    @option("required_role", description="Required role to enter (optional)", type=discord.Role, required=False)
+    async def giveaway(self, ctx: discord.ApplicationContext, prize: str, duration: str, 
+                      winners: int = 1, channel: discord.TextChannel = None, 
+                      required_role: discord.Role = None):
         
-        question = random.choice(trivia_questions)
+        # Parse duration
+        duration_seconds = self.parse_duration(duration)
+        if not duration_seconds:
+            return await ctx.respond("❌ Invalid duration format! Use: 1h, 30m, 2d, etc.", ephemeral=True)
         
+        target_channel = channel or ctx.channel
+        
+        # Create giveaway embed
         embed = discord.Embed(
-            title="🧠 Trivia Time!",
-            description=question["q"],
-            color=discord.Color.purple(),
+            title="🎉 GIVEAWAY! 🎉",
+            description=f"**Prize:** {prize}\n**Winners:** {winners}\n**Duration:** {duration}",
+            color=discord.Color.gold(),
             timestamp=datetime.utcnow()
         )
         
-        options_text = "\n".join([f"**{chr(65+i)}.** {opt}" for i, opt in enumerate(question["options"])])
-        embed.add_field(name="Options", value=options_text, inline=False)
-        embed.add_field(name="💡 Answer", value=f"||{question['a']}||", inline=False)
-        embed.set_footer(text="Click the spoiler to see the answer! • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        if required_role:
+            embed.add_field(name="🎫 Requirements", value=f"Must have {required_role.mention} role", inline=False)
         
-        await ctx.respond(embed=embed)
+        embed.add_field(name="📝 How to Enter", value="React with 🎉 to enter!", inline=False)
+        embed.set_author(name=f"Hosted by {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+        embed.set_footer(text=f"Ends in {duration} • BLECKOPS ON TOP", icon_url=self.bot.user.display_avatar.url)
+        
+        try:
+            giveaway_msg = await target_channel.send(embed=embed)
+            await giveaway_msg.add_reaction("🎉")
+            
+            confirm_embed = discord.Embed(
+                title="✅ Giveaway Started!",
+                description=f"Giveaway posted in {target_channel.mention}!\nEnds in **{duration}**",
+                color=discord.Color.green()
+            )
+            await ctx.respond(embed=confirm_embed, ephemeral=True)
+            
+            # Store giveaway data in database (you'll need to implement this)
+            # For now, we'll just send a reminder
+            await asyncio.sleep(min(duration_seconds, 3600))  # Max 1 hour for demo
+            
+        except discord.Forbidden:
+            await ctx.respond("❌ I don't have permission to send messages in that channel!", ephemeral=True)
+
+    def parse_duration(self, duration_str: str) -> int:
+        """Parse duration string like '1h', '30m', '2d' into seconds"""
+        import re
+        
+        total_seconds = 0
+        # Find all number+unit pairs
+        matches = re.findall(r'(\d+)([dhms])', duration_str.lower())
+        
+        for value, unit in matches:
+            value = int(value)
+            if unit == 'd':
+                total_seconds += value * 86400  # days
+            elif unit == 'h':
+                total_seconds += value * 3600   # hours  
+            elif unit == 'm':
+                total_seconds += value * 60     # minutes
+            elif unit == 's':
+                total_seconds += value          # seconds
+        
+        return total_seconds if total_seconds > 0 else None
 
 # ─────────────────────────────────────────────────────────
 async def setup(bot: commands.Bot):
