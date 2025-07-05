@@ -107,46 +107,64 @@ async def on_ready():
     print(f"✅ BOT ONLINE: {bot.user.name}")
     print(f"📊 Bot ID: {bot.user.id}")
     print(f"🔗 Invite: https://discord.com/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
+    print(f"🌐 Connected to {len(bot.guilds)} guild(s)")
     
     # Sync slash commands
+    print("⚡ Starting command sync...")
     try:
         synced = await bot.tree.sync()
-        print(f"⚡ Synced {len(synced)} slash commands")
+        print(f"✅ Synced {len(synced)} slash commands successfully")
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
+        print("🔄 Bot will continue without command sync")
     
     # Check database connectivity and stats with timeout
+    print("💾 Starting database connectivity check...")
     try:
-        print("💾 Checking database connectivity...")
-        import database as db
-        
-        # Quick health check first
-        health_check = db.quick_db_health_check()
-        if health_check["success"]:
-            print(f"✅ {health_check['message']}")
-            
-            # Get basic stats with timeout protection
+        # Add timeout to database operations
+        async def check_database():
             try:
-                stats = db.get_database_stats()
-                if stats["success"]:
-                    estimated = " (estimated)" if stats.get('is_estimated') else ""
-                    print(f"📊 Database stats - {stats['total_users']} users, {stats['total_xp']:,} total XP{estimated}, {stats['total_cookies']:,} total cookies{estimated}")
-                else:
-                    print(f"⚠️ Database stats warning: {stats['message']}")
-            except Exception as e:
-                print(f"⚠️ Could not get database stats: {e}")
+                import database as db
                 
-        else:
-            print(f"❌ Database health check failed: {health_check['error']}")
-            print("🔄 Bot will continue without database features")
-            
+                # Quick health check first
+                health_check = db.quick_db_health_check()
+                if health_check["success"]:
+                    print(f"✅ {health_check['message']}")
+                    
+                    # Get basic stats with timeout protection
+                    try:
+                        stats = db.get_database_stats()
+                        if stats["success"]:
+                            estimated = " (estimated)" if stats.get('is_estimated') else ""
+                            print(f"📊 Database stats - {stats['total_users']} users, {stats['total_xp']:,} total XP{estimated}, {stats['total_cookies']:,} total cookies{estimated}")
+                        else:
+                            print(f"⚠️ Database stats warning: {stats['message']}")
+                    except Exception as e:
+                        print(f"⚠️ Could not get database stats: {e}")
+                        
+                else:
+                    print(f"❌ Database health check failed: {health_check['error']}")
+                    print("🔄 Bot will continue without database features")
+                    
+            except Exception as e:
+                print(f"❌ Database import/check failed: {e}")
+                print("🔄 Bot will continue in limited mode")
+        
+        # Run database check with timeout
+        await asyncio.wait_for(check_database(), timeout=30)
+        print("✅ Database check completed")
+        
+    except asyncio.TimeoutError:
+        print("⏰ Database check timed out - continuing without database")
     except Exception as e:
         print(f"❌ Database check failed: {e}")
         print("🔄 Bot will continue in limited mode")
+    
+    print("🎉 Bot initialization complete! Ready to serve users.")
 
 # Load cogs
 async def load_cogs():
-    """Load all cogs"""
+    """Load all cogs with individual error handling"""
     cogs = [
         'cogs.leveling',
         'cogs.cookies', 
@@ -158,12 +176,24 @@ async def load_cogs():
         'cogs.tickets'
     ]
     
+    loaded_count = 0
+    failed_cogs = []
+    
     for cog in cogs:
         try:
             await bot.load_extension(cog)
             print(f"[Main] ✅ Loaded {cog}")
+            loaded_count += 1
         except Exception as e:
             print(f"[Main] ❌ Failed to load {cog}: {e}")
+            failed_cogs.append(cog)
+            # Continue loading other cogs instead of failing completely
+            
+    print(f"[Main] 📊 Cog loading complete: {loaded_count}/{len(cogs)} successful")
+    if failed_cogs:
+        print(f"[Main] ⚠️ Failed cogs: {', '.join(failed_cogs)}")
+    
+    return loaded_count > 0  # Return True if at least one cog loaded
 
 async def startup_maintenance():
     """Perform startup maintenance and optimization with timeouts"""
@@ -255,12 +285,16 @@ async def main():
         # Load all cogs with timeout
         print("📦 Loading cogs...")
         try:
-            await asyncio.wait_for(load_cogs(), timeout=45)
-            print("✅ All cogs loaded successfully")
+            cogs_loaded = await asyncio.wait_for(load_cogs(), timeout=45)
+            if cogs_loaded:
+                print("✅ Cogs loaded successfully (at least partially)")
+            else:
+                print("⚠️ No cogs loaded successfully - bot will have limited functionality")
         except asyncio.TimeoutError:
-            print("⏰ Cog loading timed out, continuing anyway...")
+            print("⏰ Cog loading timed out, continuing with bot startup...")
         except Exception as e:
-            print(f"❌ Error loading cogs: {e}")
+            print(f"❌ Error during cog loading: {e}")
+            print("🔄 Continuing with bot startup despite cog errors...")
         
         # Perform startup maintenance with timeout
         print("🔧 Running startup maintenance...")

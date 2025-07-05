@@ -260,7 +260,7 @@ class PaginationView(View):
                 streak_emoji = "🔥"
             elif streak >= 14:
                 streak_tier = "🌟 **COMMITTED**"
-                streak_emoji = "�"
+                streak_emoji = "🌟"
             elif streak >= 7:
                 streak_tier = "✨ **DEDICATED**"
                 streak_emoji = "⚡"
