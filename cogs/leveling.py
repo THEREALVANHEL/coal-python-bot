@@ -132,9 +132,8 @@ class Leveling(commands.Cog):
             progress_bar_length = 10
             progress_filled = int((xp_progress / (next_level_xp - current_level_xp)) * progress_bar_length)
             progress_bar = "█" * progress_filled + "░" * (progress_bar_length - progress_filled)
-            
             embed.add_field(
-            name="📊 Level Stats",
+                name="📊 Level Stats",
                 value=f"**Level:** {level}\n**XP:** {xp:,}\n**Rank:** #{xp_rank}\n**Progress:** {progress_bar} {xp_progress}/{next_level_xp - current_level_xp}",
                 inline=False
             )
