@@ -36,6 +36,42 @@ class GiveawayView(View):
             self.participants.add(user_id)
             await interaction.response.send_message("✅ You've entered the giveaway! Good luck!", ephemeral=True)
 
+class ShoutView(View):
+    def __init__(self, shout_data):
+        super().__init__(timeout=None)
+        self.shout_data = shout_data
+        self.participants = set()
+
+    @discord.ui.button(label="🔥 Join Event", style=discord.ButtonStyle.primary, emoji="🚀")
+    async def join_event(self, interaction: discord.Interaction, button: discord.ui.Button):
+        user_id = interaction.user.id
+        if user_id in self.participants:
+            await interaction.response.send_message("❌ You're already participating in this event!", ephemeral=True)
+        else:
+            self.participants.add(user_id)
+            await interaction.response.send_message(f"✅ You've joined **{self.shout_data['title']}**! Get ready!", ephemeral=True)
+            
+            # Update the embed with new participant count
+            embed = discord.Embed(
+                title=f"📢 {self.shout_data['title']}",
+                description=self.shout_data['description'],
+                color=0xff6b6b,
+                timestamp=datetime.now()
+            )
+            embed.add_field(name="🎯 Host", value=self.shout_data.get('host', 'Unknown'), inline=True)
+            embed.add_field(name="🤝 Co-Host", value=self.shout_data.get('co_host', 'None'), inline=True)
+            embed.add_field(name="⚕️ Medic", value=self.shout_data.get('medic', 'None'), inline=True)
+            embed.add_field(name="🗺️ Guide", value=self.shout_data.get('guide', 'None'), inline=True)
+            embed.add_field(name="👥 Participants", value=f"{len(self.participants)} joined", inline=True)
+            embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
+            embed.set_footer(text="Click the button below to join!")
+            
+            # Update the message
+            try:
+                await interaction.edit_original_response(embed=embed, view=self)
+            except:
+                pass
+
 GUILD_ID = 1370009417726169250
 
 ANNOUNCE_ROLES = [
@@ -56,69 +92,235 @@ class Community(commands.Cog):
     async def cog_load(self):
         print("[Community] Loaded successfully.")
 
-    def create_wheel_image(self, options):
-        """Create a wheel image with the given options"""
+    def create_pie_wheel_image(self, options, title="Spin the Wheel!"):
+        """Create a pie chart wheel image with the given options and title"""
         try:
-            # Load the wheel background
-            wheel_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'wheel.png')
-            wheel_img = Image.open(wheel_path).convert('RGBA')
+            # Create a new image with a white background
+            size = 400
+            img = Image.new('RGBA', (size, size), (255, 255, 255, 0))
+            draw = ImageDraw.Draw(img)
             
-            # Create a drawing context
-            draw = ImageDraw.Draw(wheel_img)
+            # Center and radius
+            center = size // 2
+            radius = center - 50
             
-            # Load font
-            font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-            try:
-                font = ImageFont.truetype(font_path, 24)
-            except:
-                font = ImageFont.load_default()
+            # Colors for each slice
+            colors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+                '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+            ]
             
-            # Calculate positions for text
-            center_x, center_y = wheel_img.size[0] // 2, wheel_img.size[1] // 2
-            radius = min(center_x, center_y) - 50
+            # Calculate angles for each slice
+            num_options = len(options)
+            angle_per_slice = 360 / num_options
             
-            # Draw options on the wheel
+            # Draw pie slices
+            start_angle = 0
             for i, option in enumerate(options):
-                angle = (2 * math.pi * i) / len(options)
-                text_x = center_x + (radius * 0.7) * math.cos(angle)
-                text_y = center_y + (radius * 0.7) * math.sin(angle)
+                end_angle = start_angle + angle_per_slice
+                color = colors[i % len(colors)]
+                
+                # Draw the slice
+                draw.pieslice(
+                    [center - radius, center - radius, center + radius, center + radius],
+                    start_angle, end_angle, fill=color, outline='white', width=3
+                )
+                
+                # Calculate text position
+                mid_angle = math.radians(start_angle + angle_per_slice / 2)
+                text_radius = radius * 0.7
+                text_x = center + text_radius * math.cos(mid_angle)
+                text_y = center + text_radius * math.sin(mid_angle)
+                
+                # Draw text with better font handling
+                try:
+                    font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
+                    font = ImageFont.truetype(font_path, 16)
+                except:
+                    font = ImageFont.load_default()
+                
+                # Get text size for centering
+                bbox = draw.textbbox((0, 0), option, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
                 
                 # Draw text with outline for better visibility
-                draw.text((text_x-1, text_y-1), option, font=font, fill='black')
-                draw.text((text_x+1, text_y-1), option, font=font, fill='black')
-                draw.text((text_x-1, text_y+1), option, font=font, fill='black')
-                draw.text((text_x+1, text_y+1), option, font=font, fill='black')
-                draw.text((text_x, text_y), option, font=font, fill='white')
+                for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                    draw.text((text_x - text_width//2 + dx, text_y - text_height//2 + dy), 
+                             option, font=font, fill='black')
+                draw.text((text_x - text_width//2, text_y - text_height//2), 
+                         option, font=font, fill='white')
+                
+                start_angle = end_angle
+            
+            # Draw center circle
+            center_radius = 20
+            draw.ellipse([center - center_radius, center - center_radius, 
+                         center + center_radius, center + center_radius], 
+                        fill='white', outline='black', width=2)
+            
+            # Draw title at the top
+            try:
+                title_font = ImageFont.truetype(font_path, 24)
+            except:
+                title_font = ImageFont.load_default()
+            
+            bbox = draw.textbbox((0, 0), title, font=title_font)
+            title_width = bbox[2] - bbox[0]
+            title_x = center - title_width // 2
+            title_y = 20
+            
+            # Draw title with outline
+            for dx, dy in [(-2, -2), (-2, 2), (2, -2), (2, 2)]:
+                draw.text((title_x + dx, title_y + dy), title, font=title_font, fill='black')
+            draw.text((title_x, title_y), title, font=title_font, fill='white')
             
             # Save the image
             output_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'temp_wheel.png')
-            wheel_img.save(output_path)
+            img.save(output_path)
             return output_path
             
         except Exception as e:
-            print(f"Error creating wheel image: {e}")
+            print(f"Error creating pie wheel image: {e}")
             return None
 
-    @app_commands.command(name="suggest", description="Submit a suggestion to the server")
+    @app_commands.command(name="suggest", description="Submit a suggestion to the designated suggestions channel")
     @app_commands.describe(suggestion="Your suggestion")
     async def suggest(self, interaction: discord.Interaction, suggestion: str):
-        embed = discord.Embed(
-            title="💡 New Suggestion",
-            description=suggestion,
-            color=0x00ff00,
-            timestamp=datetime.now()
-        )
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.set_footer(text="React with 👍 or 👎 to vote!")
+        try:
+            # Get the suggestion channel from settings
+            suggest_channel_id = db.get_guild_setting(interaction.guild.id, "suggest_channel", None)
+            
+            if suggest_channel_id:
+                suggest_channel = self.bot.get_channel(suggest_channel_id)
+                if not suggest_channel:
+                    await interaction.response.send_message("❌ Suggestion channel not found! Contact an admin.", ephemeral=True)
+                    return
+            else:
+                await interaction.response.send_message("❌ No suggestion channel set! Use `/setup suggest_channel` to set one.", ephemeral=True)
+                return
 
-        await interaction.response.send_message(embed=embed)
-        message = await interaction.original_response()
-        await message.add_reaction("👍")
-        await message.add_reaction("👎")
+            embed = discord.Embed(
+                title="💡 New Suggestion",
+                description=suggestion,
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.add_field(name="Submitted by", value=f"{interaction.user.mention} ({interaction.user.id})", inline=False)
+            embed.set_footer(text="React with 👍 or 👎 to vote!")
 
-    @app_commands.command(name="spinawheel", description="Spin a wheel with up to 10 options")
-    @app_commands.describe(options="Comma-separated options (up to 10)")
-    async def spinawheel(self, interaction: discord.Interaction, options: str):
+            message = await suggest_channel.send(embed=embed)
+            await message.add_reaction("👍")
+            await message.add_reaction("👎")
+            
+            # Confirm to user
+            await interaction.response.send_message(f"✅ Your suggestion has been forwarded to {suggest_channel.mention}!", ephemeral=True)
+
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error submitting suggestion: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="shout", description="Create a detailed event announcement with join functionality")
+    @app_commands.describe(
+        title="Event title",
+        description="Event description", 
+        host="Event host",
+        co_host="Co-host (optional)",
+        medic="Medic (optional)",
+        guide="Guide (optional)"
+    )
+    async def shout(self, interaction: discord.Interaction, title: str, description: str, host: str, 
+                   co_host: str = None, medic: str = None, guide: str = None):
+        # Check if user has required role
+        user_roles = [role.name for role in interaction.user.roles]
+        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        try:
+            shout_data = {
+                'title': title,
+                'description': description,
+                'host': host,
+                'co_host': co_host or 'None',
+                'medic': medic or 'None',
+                'guide': guide or 'None'
+            }
+            
+            embed = discord.Embed(
+                title=f"📢 {title}",
+                description=description,
+                color=0xff6b6b,
+                timestamp=datetime.now()
+            )
+            embed.add_field(name="🎯 Host", value=host, inline=True)
+            embed.add_field(name="🤝 Co-Host", value=co_host or 'None', inline=True)
+            embed.add_field(name="⚕️ Medic", value=medic or 'None', inline=True)
+            embed.add_field(name="🗺️ Guide", value=guide or 'None', inline=True)
+            embed.add_field(name="👥 Participants", value="0 joined", inline=True)
+            embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
+            embed.set_author(name=f"Event by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="Click the button below to join!")
+            
+            view = ShoutView(shout_data)
+            await interaction.response.send_message(embed=embed, view=view)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error creating shout: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="gamelog", description="Log a completed game with detailed information")
+    @app_commands.describe(
+        title="Game title",
+        summary="Game summary",
+        host="Game host",
+        co_host="Co-host (optional)",
+        medic="Medic (optional)",
+        guide="Guide (optional)",
+        participants="Participants (comma-separated)"
+    )
+    async def gamelog(self, interaction: discord.Interaction, title: str, summary: str, host: str,
+                     co_host: str = None, medic: str = None, guide: str = None, participants: str = None):
+        # Check if user has required role
+        user_roles = [role.name for role in interaction.user.roles]
+        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        try:
+            embed = discord.Embed(
+                title=f"🎮 Game Log: {title}",
+                description=f"**Summary:** {summary}",
+                color=0x7289da,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(name="🎯 Host", value=host, inline=True)
+            embed.add_field(name="🤝 Co-Host", value=co_host or 'None', inline=True)
+            embed.add_field(name="⚕️ Medic", value=medic or 'None', inline=True)
+            embed.add_field(name="🗺️ Guide", value=guide or 'None', inline=True)
+            
+            # Format participants
+            if participants:
+                participant_list = [p.strip() for p in participants.split(',') if p.strip()]
+                participant_text = ', '.join(participant_list)
+                if len(participant_text) > 1024:
+                    participant_text = participant_text[:1021] + "..."
+                embed.add_field(name="👥 Participants", value=participant_text, inline=False)
+            else:
+                embed.add_field(name="👥 Participants", value="None listed", inline=False)
+            
+            embed.add_field(name="⏰ Game Time", value=f"<t:{int(datetime.now().timestamp())}:F>", inline=False)
+            embed.set_author(name=f"Logged by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="Game completed successfully!")
+            
+            await interaction.response.send_message(embed=embed)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error creating game log: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="spinwheel", description="Spin a customizable pie wheel with up to 10 options")
+    @app_commands.describe(title="Wheel title", options="Comma-separated options (up to 10)")
+    async def spinwheel(self, interaction: discord.Interaction, title: str, options: str):
         option_list = [opt.strip() for opt in options.split(",") if opt.strip()]
         
         if len(option_list) < 2:
@@ -129,18 +331,24 @@ class Community(commands.Cog):
             await interaction.response.send_message("❌ Maximum 10 options allowed!", ephemeral=True)
             return
         
+        # Select winner
         winner = random.choice(option_list)
         
-        # Create wheel image
-        wheel_image_path = self.create_wheel_image(option_list)
+        # Create pie wheel image with title
+        wheel_image_path = self.create_pie_wheel_image(option_list, title)
         
         embed = discord.Embed(
-            title="🎡 Wheel Spin Results",
-            description=f"**Winner:** {winner}",
-            color=0xffd700
+            title=f"🎡 {title}",
+            description=f"🎊 **Winner: {winner}** 🎊",
+            color=0xffd700,
+            timestamp=datetime.now()
         )
-        embed.add_field(name="Options", value="\n".join([f"• {opt}" for opt in option_list]), inline=False)
+        
+        # Add all options
+        options_text = "\n".join([f"{'🎯 ' if opt == winner else '• '}{opt}" for opt in option_list])
+        embed.add_field(name="Available Options", value=options_text, inline=False)
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text="The wheel has spoken!")
         
         # Add wheel image if created successfully
         if wheel_image_path:
@@ -161,22 +369,62 @@ class Community(commands.Cog):
     async def userinfo(self, interaction: discord.Interaction, user: discord.Member = None):
         target = user or interaction.user
         
+        # Get user data from database
+        user_data = db.get_user_data(target.id)
+        xp = user_data.get('xp', 0)
+        cookies = user_data.get('cookies', 0)
+        coins = user_data.get('coins', 0)
+        
+        # Calculate level
+        level = self.calculate_level_from_xp(xp)
+        
         embed = discord.Embed(
             title=f"👤 User Info: {target.display_name}",
-            color=target.accent_color or 0x7289da
+            color=target.accent_color or 0x7289da,
+            timestamp=datetime.now()
         )
         embed.set_thumbnail(url=target.display_avatar.url)
         
+        # Basic info
         embed.add_field(name="👤 Username", value=f"{target.name}#{target.discriminator}", inline=True)
         embed.add_field(name="🆔 ID", value=target.id, inline=True)
-        embed.add_field(name="📅 Account Created", value=f"<t:{int(target.created_at.timestamp())}:F>", inline=False)
-        embed.add_field(name="📅 Joined Server", value=f"<t:{int(target.joined_at.timestamp())}:F>", inline=False)
+        embed.add_field(name="🏆 Level", value=level, inline=True)
         
+        # Server stats
+        embed.add_field(name="📅 Account Created", value=f"<t:{int(target.created_at.timestamp())}:R>", inline=True)
+        embed.add_field(name="📅 Joined Server", value=f"<t:{int(target.joined_at.timestamp())}:R>", inline=True)
+        embed.add_field(name="📱 Status", value=str(target.status).title(), inline=True)
+        
+        # Economy stats
+        embed.add_field(name="💰 Economy", value=f"XP: {xp:,}\nCoins: {coins:,}\nCookies: {cookies:,}", inline=True)
+        
+        # Roles (limit to avoid hitting embed limits)
         if target.roles[1:]:  # Skip @everyone role
             roles = [role.mention for role in reversed(target.roles[1:])]
-            embed.add_field(name="🎭 Roles", value=" ".join(roles[:10]), inline=False)
+            role_text = " ".join(roles[:10])
+            if len(roles) > 10:
+                role_text += f" and {len(roles) - 10} more..."
+            embed.add_field(name="🎭 Roles", value=role_text, inline=False)
 
         await interaction.response.send_message(embed=embed)
+
+    def calculate_level_from_xp(self, xp: int) -> int:
+        """Calculate level from XP"""
+        level = 0
+        while self.calculate_xp_for_level(level + 1) <= xp:
+            level += 1
+        return level
+
+    def calculate_xp_for_level(self, level: int) -> int:
+        """Calculate XP required for level"""
+        if level <= 10:
+            return int(200 * (level ** 2))
+        elif level <= 50:
+            return int(300 * (level ** 2.2))
+        elif level <= 100:
+            return int(500 * (level ** 2.5))
+        else:
+            return int(1000 * (level ** 2.8))
 
     @app_commands.command(name="serverinfo", description="Shows stats and info about the server")
     async def serverinfo(self, interaction: discord.Interaction):
@@ -184,7 +432,8 @@ class Community(commands.Cog):
         
         embed = discord.Embed(
             title=f"📈 Server Info: {guild.name}",
-            color=0x7289da
+            color=0x7289da,
+            timestamp=datetime.now()
         )
         
         if guild.icon:
@@ -192,7 +441,7 @@ class Community(commands.Cog):
         
         embed.add_field(name="👑 Owner", value=guild.owner.mention if guild.owner else "Unknown", inline=True)
         embed.add_field(name="🆔 ID", value=guild.id, inline=True)
-        embed.add_field(name="📅 Created", value=f"<t:{int(guild.created_at.timestamp())}:F>", inline=False)
+        embed.add_field(name="📅 Created", value=f"<t:{int(guild.created_at.timestamp())}:R>", inline=True)
         embed.add_field(name="👥 Members", value=guild.member_count, inline=True)
         embed.add_field(name="📁 Channels", value=len(guild.channels), inline=True)
         embed.add_field(name="🎭 Roles", value=len(guild.roles), inline=True)
@@ -204,10 +453,22 @@ class Community(commands.Cog):
 
     @app_commands.command(name="ping", description="Check the bot's ping to Discord servers")
     async def ping(self, interaction: discord.Interaction):
+        latency = round(self.bot.latency * 1000)
+        
+        if latency < 100:
+            color = 0x00ff00
+            status = "Excellent"
+        elif latency < 200:
+            color = 0xffff00
+            status = "Good"
+        else:
+            color = 0xff0000
+            status = "Poor"
+            
         embed = discord.Embed(
             title="🏓 Pong!",
-            description=f"**Latency:** {round(self.bot.latency * 1000)}ms",
-            color=0x00ff00
+            description=f"**Latency:** {latency}ms ({status})",
+            color=color
         )
         await interaction.response.send_message(embed=embed)
 
@@ -227,10 +488,12 @@ class Community(commands.Cog):
             embed = discord.Embed(
                 title="🤖 THE SAINT Responds",
                 description=response.text[:2000],
-                color=0x9932cc
+                color=0x9932cc,
+                timestamp=datetime.now()
             )
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
             embed.set_footer(text="THE SAINT • AI-powered responses")
+            embed.add_field(name="Question", value=question[:100] + ("..." if len(question) > 100 else ""), inline=False)
 
             # Check for URLs and add buttons if found
             urls = extract_urls(response.text)
@@ -252,7 +515,8 @@ class Community(commands.Cog):
         embed = discord.Embed(
             title="🪙 Coin Flip",
             description=f"**{result}!**",
-            color=0xffd700
+            color=0xffd700,
+            timestamp=datetime.now()
         )
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         
@@ -326,7 +590,8 @@ class Community(commands.Cog):
             congrats_embed = discord.Embed(
                 title="🎊 Giveaway Ended!",
                 description=f"Congratulations to the winner(s): {', '.join(winner_mentions)}\n\n**Prize:** {prize}",
-                color=0x00ff00
+                color=0x00ff00,
+                timestamp=datetime.now()
             )
             await target_channel.send(embed=congrats_embed)
             

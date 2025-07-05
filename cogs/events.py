@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import random
 import os, sys
 import asyncio
+from datetime import datetime
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -69,8 +70,8 @@ class Events(commands.Cog):
 
         # Give XP for messages
         try:
-            # Random XP between 15-25
-            base_xp_gain = random.randint(15, 25)
+            # Reduced XP range from 15-25 to 5-10
+            base_xp_gain = random.randint(5, 10)
             
             # Check for XP boost
             active_purchases = db.get_active_temporary_purchases(message.author.id)
@@ -87,6 +88,7 @@ class Events(commands.Cog):
             # 1 minute cooldown
             if current_time - last_xp_time >= 60:
                 old_xp = user_data.get('xp', 0)
+                old_cookies = user_data.get('cookies', 0)
                 new_xp = old_xp + xp_gain
                 
                 # Calculate level
@@ -97,9 +99,19 @@ class Events(commands.Cog):
                 db.add_xp(message.author.id, xp_gain)
                 db.update_last_xp_time(message.author.id, current_time)
                 
+                # Update XP roles
+                try:
+                    from cogs.leveling import Leveling
+                    leveling_cog = self.bot.get_cog('Leveling')
+                    if leveling_cog and hasattr(message.author, 'guild'):
+                        await leveling_cog.update_xp_roles(message.author, new_level)
+                        await leveling_cog.update_cookie_roles(message.author, old_cookies)
+                except Exception as e:
+                    print(f"Error updating roles: {e}")
+                
                 # Check for level up
                 if new_level > old_level:
-                    await self.handle_level_up(message, new_level)
+                    await self.handle_level_up(message, new_level, old_level)
 
         except Exception as e:
             print(f"Error processing XP for message: {e}")
@@ -122,6 +134,13 @@ class Events(commands.Cog):
                     embed.set_image(url=WELCOME_GIF)
                     await channel.send(embed=embed)
 
+            # Log to mod log
+            await self.log_to_modlog(member.guild, "member_join", {
+                "user": member,
+                "description": f"{member.mention} joined the server",
+                "color": 0x00ff00
+            })
+
         except Exception as e:
             print(f"Error in on_member_join: {e}")
 
@@ -143,8 +162,146 @@ class Events(commands.Cog):
                     
                     await channel.send(embed=embed)
 
+            # Log to mod log
+            await self.log_to_modlog(member.guild, "member_leave", {
+                "user": member,
+                "description": f"**{member.display_name}** left the server",
+                "color": 0xff6b6b
+            })
+
         except Exception as e:
             print(f"Error in on_member_remove: {e}")
+
+    @commands.Cog.listener()
+    async def on_member_update(self, before, after):
+        """Log member updates (role changes, nickname changes, etc.)"""
+        try:
+            if before.roles != after.roles:
+                # Role changes
+                added_roles = [role for role in after.roles if role not in before.roles]
+                removed_roles = [role for role in before.roles if role not in after.roles]
+                
+                if added_roles or removed_roles:
+                    description = []
+                    if added_roles:
+                        description.append(f"**Added:** {', '.join([role.mention for role in added_roles])}")
+                    if removed_roles:
+                        description.append(f"**Removed:** {', '.join([role.mention for role in removed_roles])}")
+                    
+                    await self.log_to_modlog(after.guild, "role_update", {
+                        "user": after,
+                        "description": f"{after.mention} role changes:\n" + "\n".join(description),
+                        "color": 0x7289da
+                    })
+
+            if before.nick != after.nick:
+                # Nickname change
+                await self.log_to_modlog(after.guild, "nickname_update", {
+                    "user": after,
+                    "description": f"{after.mention} nickname changed\n**Before:** {before.nick or 'None'}\n**After:** {after.nick or 'None'}",
+                    "color": 0xffa500
+                })
+
+        except Exception as e:
+            print(f"Error in on_member_update: {e}")
+
+    @commands.Cog.listener()
+    async def on_message_delete(self, message):
+        """Log message deletions"""
+        if message.author.bot:
+            return
+            
+        try:
+            await self.log_to_modlog(message.guild, "message_delete", {
+                "user": message.author,
+                "description": f"Message deleted in {message.channel.mention}\n**Content:** {message.content[:1000] if message.content else 'No text content'}",
+                "color": 0xff0000
+            })
+        except Exception as e:
+            print(f"Error in on_message_delete: {e}")
+
+    @commands.Cog.listener()
+    async def on_message_edit(self, before, after):
+        """Log message edits"""
+        if before.author.bot or before.content == after.content:
+            return
+            
+        try:
+            await self.log_to_modlog(after.guild, "message_edit", {
+                "user": after.author,
+                "description": f"Message edited in {after.channel.mention}\n**Before:** {before.content[:500] if before.content else 'No content'}\n**After:** {after.content[:500] if after.content else 'No content'}",
+                "color": 0xffa500
+            })
+        except Exception as e:
+            print(f"Error in on_message_edit: {e}")
+
+    @commands.Cog.listener()
+    async def on_user_update(self, before, after):
+        """Log user updates (username, avatar changes)"""
+        try:
+            # Find mutual guilds to log in
+            for guild in self.bot.guilds:
+                if guild.get_member(after.id):
+                    if before.name != after.name:
+                        await self.log_to_modlog(guild, "username_update", {
+                            "user": after,
+                            "description": f"{after.mention} username changed\n**Before:** {before.name}\n**After:** {after.name}",
+                            "color": 0x7289da
+                        })
+                    
+                    if before.avatar != after.avatar:
+                        await self.log_to_modlog(guild, "avatar_update", {
+                            "user": after,
+                            "description": f"{after.mention} changed their avatar",
+                            "color": 0x7289da
+                        })
+                    break
+        except Exception as e:
+            print(f"Error in on_user_update: {e}")
+
+    @commands.Cog.listener()
+    async def on_guild_channel_create(self, channel):
+        """Log channel creation"""
+        try:
+            await self.log_to_modlog(channel.guild, "channel_create", {
+                "description": f"Channel created: {channel.mention} ({channel.type})",
+                "color": 0x00ff00
+            })
+        except Exception as e:
+            print(f"Error in on_guild_channel_create: {e}")
+
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel):
+        """Log channel deletion"""
+        try:
+            await self.log_to_modlog(channel.guild, "channel_delete", {
+                "description": f"Channel deleted: **{channel.name}** ({channel.type})",
+                "color": 0xff0000
+            })
+        except Exception as e:
+            print(f"Error in on_guild_channel_delete: {e}")
+
+    @commands.Cog.listener()
+    async def on_guild_role_create(self, role):
+        """Log role creation"""
+        try:
+            await self.log_to_modlog(role.guild, "role_create", {
+                "description": f"Role created: {role.mention}",
+                "color": 0x00ff00
+            })
+        except Exception as e:
+            print(f"Error in on_guild_role_create: {e}")
+
+    @commands.Cog.listener()
+    async def on_guild_role_delete(self, role):
+        """Log role deletion"""
+        try:
+            await self.log_to_modlog(role.guild, "role_delete", {
+                "description": f"Role deleted: **{role.name}**",
+                "color": 0xff0000
+            })
+        except Exception as e:
+            print(f"Error in on_guild_role_delete: {e}")
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
@@ -155,6 +312,33 @@ class Events(commands.Cog):
 
         except Exception as e:
             print(f"Error in on_raw_reaction_add: {e}")
+
+    async def log_to_modlog(self, guild, event_type, data):
+        """Log events to mod log channel"""
+        try:
+            modlog_channel_id = db.get_guild_setting(guild.id, "modlog_channel", None)
+            if not modlog_channel_id:
+                return
+                
+            channel = guild.get_channel(modlog_channel_id)
+            if not channel:
+                return
+
+            embed = discord.Embed(
+                title=f"📋 {event_type.replace('_', ' ').title()}",
+                description=data.get("description", "No description"),
+                color=data.get("color", 0x7289da),
+                timestamp=datetime.now()
+            )
+            
+            if "user" in data:
+                embed.set_author(name=data["user"].display_name, icon_url=data["user"].display_avatar.url)
+                embed.add_field(name="User ID", value=data["user"].id, inline=True)
+            
+            await channel.send(embed=embed)
+            
+        except Exception as e:
+            print(f"Error logging to modlog: {e}")
 
     async def handle_starboard(self, payload):
         try:
@@ -227,9 +411,24 @@ class Events(commands.Cog):
             print(f"Error handling starboard: {e}")
 
     def calculate_level_from_xp(self, xp: int) -> int:
-        return int((xp / 100) ** (2/3))
+        """Calculate level from XP using binary search for efficiency"""
+        level = 0
+        while self.calculate_xp_for_level(level + 1) <= xp:
+            level += 1
+        return level
 
-    async def handle_level_up(self, message, new_level):
+    def calculate_xp_for_level(self, level: int) -> int:
+        """Increased XP requirement per level - much harder progression"""
+        if level <= 10:
+            return int(200 * (level ** 2))
+        elif level <= 50:
+            return int(300 * (level ** 2.2))
+        elif level <= 100:
+            return int(500 * (level ** 2.5))
+        else:
+            return int(1000 * (level ** 2.8))
+
+    async def handle_level_up(self, message, new_level, old_level):
         try:
             # Get levelup channel
             levelup_channel_id = db.get_guild_setting(message.guild.id, "levelup_channel", None)
@@ -240,12 +439,44 @@ class Events(commands.Cog):
                 channel = message.channel
 
             if channel:
+                # Get job title
+                from cogs.leveling import JOB_TITLES
+                job = None
+                for job_data in JOB_TITLES:
+                    if job_data["min_level"] <= new_level <= job_data["max_level"]:
+                        job = job_data
+                        break
+                if not job:
+                    job = JOB_TITLES[-1]
+
+                # Check for promotion
+                promotion_happened = False
+                for job_data in JOB_TITLES:
+                    if job_data["min_level"] == new_level and new_level > 0:
+                        # User got promoted, give bonus coins
+                        db.add_coins(message.author.id, job_data["promotion_bonus"])
+                        promotion_happened = True
+                        break
+
                 embed = discord.Embed(
                     title="🎉 Level Up!",
                     description=f"Congratulations {message.author.mention}! You reached **Level {new_level}**!",
                     color=0x00ff00
                 )
                 embed.set_thumbnail(url=message.author.display_avatar.url)
+                
+                if promotion_happened:
+                    embed.add_field(
+                        name="🎊 Promotion!",
+                        value=f"You've been promoted to **{job['name']}**!\nBonus: +{job['promotion_bonus']} coins",
+                        inline=False
+                    )
+                else:
+                    embed.add_field(
+                        name="💼 Current Position",
+                        value=job['name'],
+                        inline=True
+                    )
                 
                 await channel.send(embed=embed)
 

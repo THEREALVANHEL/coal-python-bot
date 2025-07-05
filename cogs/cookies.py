@@ -9,22 +9,25 @@ import database as db
 
 GUILD_ID = 1370009417726169250
 
-COOKIE_ROLES = {        # balance : role-id
+COOKIE_ROLES = {        # balance : role-id (updated with new IDs)
     100:  1370998669884788788,
     500:  1370999721593671760,
     1000: 1371000389444305017,
     1750: 1371001322131947591,
     3000: 1371001806930579518,
-    5000: 1371002217737842779,
-    7500: 1371002618477568050,
-    10000: 1371003018494550056,
+    5000: 1371304693715964005
 }
 
 MANAGER_ROLES = ["🦥 Overseer", "Forgotten one", "🚨 Lead moderator"]
+ADMIN_ROLES = ["🦥 Overseer", "Forgotten one"]  # Roles that can remove all cookies
 
 def has_manager_role(interaction: discord.Interaction) -> bool:
     user_roles = [role.name for role in interaction.user.roles]
     return any(role in MANAGER_ROLES for role in user_roles)
+
+def has_admin_role(interaction: discord.Interaction) -> bool:
+    user_roles = [role.name for role in interaction.user.roles]
+    return any(role in ADMIN_ROLES for role in user_roles)
 
 class Cookies(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -92,22 +95,37 @@ class Cookies(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error getting cookie data: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="cookietop", description="Shows the top 10 users with the most cookies")
-    async def cookietop(self, interaction: discord.Interaction):
+    @app_commands.command(name="cookietop", description="Shows paginated cookie leaderboard")
+    @app_commands.describe(page="Page number (default: 1)")
+    async def cookietop(self, interaction: discord.Interaction, page: int = 1):
         try:
-            leaderboard = db.get_leaderboard('cookies', limit=10)
+            if page < 1:
+                page = 1
+                
+            items_per_page = 10
+            skip = (page - 1) * items_per_page
             
-            if not leaderboard:
+            all_users = db.get_leaderboard('cookies')
+            total_users = len(all_users)
+            total_pages = (total_users + items_per_page - 1) // items_per_page
+            
+            if page > total_pages:
+                await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
+                return
+
+            page_users = all_users[skip:skip + items_per_page]
+            
+            if not page_users:
                 await interaction.response.send_message("❌ No cookie data available!", ephemeral=True)
                 return
 
             embed = discord.Embed(
-                title="🍪 Cookie Leaderboard - Top 10",
+                title=f"🍪 Cookie Leaderboard - Page {page}/{total_pages}",
                 color=0xdaa520
             )
 
             leaderboard_text = []
-            for i, user_data in enumerate(leaderboard, 1):
+            for i, user_data in enumerate(page_users, start=skip + 1):
                 user_id = user_data['user_id']
                 cookies = user_data.get('cookies', 0)
                 
@@ -121,7 +139,7 @@ class Cookies(commands.Cog):
                 leaderboard_text.append(f"{medal} **{username}** - {cookies:,} cookies")
 
             embed.description = "\n".join(leaderboard_text)
-            embed.set_footer(text="Keep collecting those cookies!")
+            embed.set_footer(text=f"Page {page}/{total_pages} • Keep collecting those cookies!")
 
             await interaction.response.send_message(embed=embed)
 
@@ -245,6 +263,77 @@ class Cookies(commands.Cog):
 
         except Exception as e:
             await interaction.response.send_message(f"❌ Error removing cookies: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="removeallcookies", description="Remove ALL cookies from ALL users (Admin only)")
+    async def removeallcookies(self, interaction: discord.Interaction):
+        if not has_admin_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command! Only Overseers and Forgotten ones can use this.", ephemeral=True)
+            return
+
+        # Confirmation view
+        class ConfirmView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=30)
+                self.confirmed = False
+
+            @discord.ui.button(label="⚠️ CONFIRM REMOVAL", style=discord.ButtonStyle.danger)
+            async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+                try:
+                    result = db.remove_all_cookies_admin(interaction.user.id)
+                    
+                    if result["success"]:
+                        embed = discord.Embed(
+                            title="🗑️ All Cookies Removed",
+                            description=f"**{result['users_affected']}** users had their cookies reset to 0",
+                            color=0xff0000
+                        )
+                        embed.add_field(name="⚠️ Admin Action", value=f"Performed by {interaction.user.mention}", inline=False)
+                        
+                        # Update all cookie roles for users in the server
+                        guild = interaction.guild
+                        updated_members = 0
+                        for member in guild.members:
+                            if not member.bot:
+                                try:
+                                    await self.update_cookie_roles(member, 0)
+                                    updated_members += 1
+                                except:
+                                    pass
+                        
+                        embed.add_field(name="🔄 Role Updates", value=f"Updated roles for {updated_members} members", inline=False)
+                        await interaction.response.edit_message(embed=embed, view=None)
+                    else:
+                        await interaction.response.edit_message(
+                            content=f"❌ Error removing cookies: {result['message']}", 
+                            embed=None, 
+                            view=None
+                        )
+                        
+                except Exception as e:
+                    await interaction.response.edit_message(
+                        content=f"❌ Error removing cookies: {str(e)}", 
+                        embed=None, 
+                        view=None
+                    )
+
+            @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+            async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+                embed = discord.Embed(
+                    title="❌ Action Cancelled",
+                    description="No cookies were removed",
+                    color=0x999999
+                )
+                await interaction.response.edit_message(embed=embed, view=None)
+
+        view = ConfirmView()
+        embed = discord.Embed(
+            title="⚠️ DANGER: Remove All Cookies",
+            description="This will remove ALL cookies from ALL users in the database!\n\n**This action cannot be undone!**",
+            color=0xff0000
+        )
+        embed.add_field(name="📊 Impact", value="• All users will have 0 cookies\n• All cookie roles will be removed\n• This affects the entire server", inline=False)
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     @app_commands.command(name="cookiesgiveall", description="Gives cookies to everyone in the server (Manager only)")
     @app_commands.describe(amount="Amount of cookies to give to each member")

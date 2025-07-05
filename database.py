@@ -211,6 +211,96 @@ def claim_daily_xp(user_id):
         print(f"Error claiming daily: {e}")
         return {"success": False, "message": str(e)}
 
+def claim_daily_bonus(user_id):
+    """Claim daily XP and coin bonus"""
+    if users_collection is None:
+        return {"success": False, "message": "Database unavailable"}
+    
+    try:
+        user_data = get_user_data(user_id)
+        last_daily = user_data.get('last_daily', 0)
+        current_time = datetime.now().timestamp()
+        
+        # Check if 24 hours have passed
+        if current_time - last_daily < 86400:  # 24 hours in seconds
+            time_left = 86400 - (current_time - last_daily)
+            hours = int(time_left // 3600)
+            minutes = int((time_left % 3600) // 60)
+            return {
+                "success": False, 
+                "time_left": f"{hours}h {minutes}m"
+            }
+        
+        # Calculate streak
+        streak = user_data.get('daily_streak', 0)
+        if current_time - last_daily <= 172800:  # Within 48 hours
+            streak += 1
+        else:
+            streak = 1
+        
+        # Calculate rewards (bonus every 7 days)
+        base_xp = 150
+        base_coins = 50
+        
+        # Streak bonuses
+        streak_multiplier = 1.5 if streak % 7 == 0 else 1.0
+        total_xp = int(base_xp * streak_multiplier)
+        total_coins = int(base_coins * streak_multiplier)
+        
+        # Update database
+        users_collection.update_one(
+            {"user_id": user_id},
+            {
+                "$inc": {
+                    "xp": total_xp,
+                    "coins": total_coins
+                },
+                "$set": {
+                    "last_daily": current_time,
+                    "daily_streak": streak
+                }
+            },
+            upsert=True
+        )
+        
+        # Get updated user data for return
+        updated_data = get_user_data(user_id)
+        
+        return {
+            "success": True,
+            "xp_gained": total_xp,
+            "coins_gained": total_coins,
+            "streak": streak,
+            "total_xp": updated_data.get('xp', 0),
+            "total_coins": updated_data.get('coins', 0)
+        }
+        
+    except Exception as e:
+        print(f"Error claiming daily bonus: {e}")
+        return {"success": False, "message": str(e)}
+
+def remove_all_cookies_admin(admin_user_id):
+    """Remove all cookies from all users (admin only)"""
+    if users_collection is None:
+        return {"success": False, "message": "Database unavailable"}
+    
+    try:
+        # Update all users to have 0 cookies
+        result = users_collection.update_many(
+            {},
+            {"$set": {"cookies": 0}}
+        )
+        
+        return {
+            "success": True,
+            "users_affected": result.modified_count,
+            "admin_id": admin_user_id
+        }
+        
+    except Exception as e:
+        print(f"Error removing all cookies: {e}")
+        return {"success": False, "message": str(e)}
+
 def get_leaderboard(field, limit=10):
     """Get leaderboard for a specific field"""
     if users_collection is None:
@@ -225,6 +315,40 @@ def get_leaderboard(field, limit=10):
     except Exception as e:
         print(f"Error getting leaderboard: {e}")
         return []
+
+def get_paginated_leaderboard(field, page=1, items_per_page=10):
+    """Get paginated leaderboard for a specific field"""
+    if users_collection is None:
+        return {"users": [], "total_pages": 0, "current_page": page}
+    
+    try:
+        # Get total count
+        total_users = users_collection.count_documents({field: {"$gt": 0}})
+        total_pages = (total_users + items_per_page - 1) // items_per_page
+        
+        # Calculate skip
+        skip = (page - 1) * items_per_page
+        
+        # Get users for this page
+        pipeline = [
+            {"$match": {field: {"$gt": 0}}},
+            {"$sort": {field: -1}},
+            {"$skip": skip},
+            {"$limit": items_per_page}
+        ]
+        
+        users = list(users_collection.aggregate(pipeline))
+        
+        return {
+            "users": users,
+            "total_pages": total_pages,
+            "current_page": page,
+            "total_users": total_users
+        }
+        
+    except Exception as e:
+        print(f"Error getting paginated leaderboard: {e}")
+        return {"users": [], "total_pages": 0, "current_page": page}
 
 def add_warning(user_id, reason, moderator_id):
     """Add warning to user"""
