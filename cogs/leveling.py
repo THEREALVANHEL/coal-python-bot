@@ -62,7 +62,10 @@ class Leveling(commands.Cog):
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting rank data: {str(e)}", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error getting rank data: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error getting rank data: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="leveltop", description="Displays the top 10 users by level")
     async def leveltop(self, interaction: discord.Interaction):
@@ -98,7 +101,10 @@ class Leveling(commands.Cog):
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="profile", description="Shows your level and cookie stats in one profile")
     @app_commands.describe(user="User to check profile for")
@@ -151,7 +157,10 @@ class Leveling(commands.Cog):
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting profile data: {str(e)}", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error getting profile data: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error getting profile data: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="chatlvlup", description="Announces your latest level-up in chat")
     async def chatlvlup(self, interaction: discord.Interaction):
@@ -173,7 +182,10 @@ class Leveling(commands.Cog):
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error announcing level: {str(e)}", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error announcing level: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error announcing level: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="daily", description="Claim your daily XP bonus")
     async def daily(self, interaction: discord.Interaction):
@@ -202,7 +214,50 @@ class Leveling(commands.Cog):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error claiming daily: {str(e)}", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error claiming daily: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error claiming daily: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="streaktop", description="Shows the top 10 users with the highest daily streaks")
+    async def streaktop(self, interaction: discord.Interaction):
+        try:
+            leaderboard = db.get_leaderboard('daily_streak', limit=10)
+            
+            if not leaderboard:
+                await interaction.response.send_message("❌ No streak data available!", ephemeral=True)
+                return
+
+            embed = discord.Embed(
+                title="🔥 Daily Streak Leaderboard - Top 10",
+                color=0xff4500
+            )
+
+            leaderboard_text = []
+            for i, user_data in enumerate(leaderboard, 1):
+                user_id = user_data['user_id']
+                streak = user_data.get('daily_streak', 0)
+                
+                try:
+                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                    username = user.display_name if hasattr(user, 'display_name') else user.name
+                except:
+                    username = f"User {user_id}"
+
+                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                fire_emoji = "🔥" * min(streak // 7, 5)  # Show fire emojis for every 7 days, max 5
+                leaderboard_text.append(f"{medal} **{username}** - {streak} day streak {fire_emoji}")
+
+            embed.description = "\n".join(leaderboard_text)
+            embed.set_footer(text="Keep your daily streak alive!")
+
+            await interaction.response.send_message(embed=embed)
+
+        except Exception as e:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error getting streak leaderboard: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error getting streak leaderboard: {str(e)}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Leveling(bot))

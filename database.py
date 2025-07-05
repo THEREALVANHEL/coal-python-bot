@@ -340,3 +340,142 @@ def update_starboard_count(message_id, new_count):
     except Exception as e:
         print(f"Error updating starboard count: {e}")
         return False
+
+def add_temporary_role(user_id, role_id, duration_seconds):
+    """Add a temporary role to user"""
+    if users_collection is None:
+        return False
+    
+    try:
+        end_time = datetime.now().timestamp() + duration_seconds
+        users_collection.update_one(
+            {"user_id": user_id},
+            {
+                "$push": {
+                    "temporary_roles": {
+                        "role_id": role_id,
+                        "end_time": end_time
+                    }
+                }
+            },
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error adding temporary role: {e}")
+        return False
+
+def add_temporary_purchase(user_id, item_type, duration_seconds):
+    """Add a temporary purchase (like XP boost, badge, etc.)"""
+    if users_collection is None:
+        return False
+    
+    try:
+        end_time = datetime.now().timestamp() + duration_seconds if duration_seconds > 0 else 0
+        users_collection.update_one(
+            {"user_id": user_id},
+            {
+                "$push": {
+                    "temporary_purchases": {
+                        "item_type": item_type,
+                        "end_time": end_time,
+                        "purchase_time": datetime.now().timestamp()
+                    }
+                }
+            },
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error adding temporary purchase: {e}")
+        return False
+
+def get_active_temporary_roles(user_id):
+    """Get all active temporary roles for a user"""
+    if users_collection is None:
+        return []
+    
+    try:
+        user_data = users_collection.find_one({"user_id": user_id})
+        if not user_data or "temporary_roles" not in user_data:
+            return []
+        
+        current_time = datetime.now().timestamp()
+        active_roles = []
+        expired_roles = []
+        
+        for role_data in user_data["temporary_roles"]:
+            if role_data["end_time"] > current_time:
+                active_roles.append(role_data)
+            else:
+                expired_roles.append(role_data)
+        
+        # Remove expired roles
+        if expired_roles:
+            users_collection.update_one(
+                {"user_id": user_id},
+                {"$pullAll": {"temporary_roles": expired_roles}}
+            )
+        
+        return active_roles
+    except Exception as e:
+        print(f"Error getting temporary roles: {e}")
+        return []
+
+def get_active_temporary_purchases(user_id):
+    """Get all active temporary purchases for a user"""
+    if users_collection is None:
+        return []
+    
+    try:
+        user_data = users_collection.find_one({"user_id": user_id})
+        if not user_data or "temporary_purchases" not in user_data:
+            return []
+        
+        current_time = datetime.now().timestamp()
+        active_purchases = []
+        expired_purchases = []
+        
+        for purchase_data in user_data["temporary_purchases"]:
+            # If end_time is 0, it's permanent
+            if purchase_data["end_time"] == 0 or purchase_data["end_time"] > current_time:
+                active_purchases.append(purchase_data)
+            else:
+                expired_purchases.append(purchase_data)
+        
+        # Remove expired purchases
+        if expired_purchases:
+            users_collection.update_one(
+                {"user_id": user_id},
+                {"$pullAll": {"temporary_purchases": expired_purchases}}
+            )
+        
+        return active_purchases
+    except Exception as e:
+        print(f"Error getting temporary purchases: {e}")
+        return []
+
+def cleanup_expired_items():
+    """Clean up all expired temporary roles and purchases"""
+    if users_collection is None:
+        return False
+    
+    try:
+        current_time = datetime.now().timestamp()
+        
+        # Remove expired temporary roles
+        users_collection.update_many(
+            {},
+            {
+                "$pull": {
+                    "temporary_roles": {"end_time": {"$lt": current_time}},
+                    "temporary_purchases": {
+                        "end_time": {"$lt": current_time, "$ne": 0}
+                    }
+                }
+            }
+        )
+        return True
+    except Exception as e:
+        print(f"Error cleaning up expired items: {e}")
+        return False

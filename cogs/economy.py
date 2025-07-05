@@ -58,13 +58,22 @@ class Economy(commands.Cog):
                 )
                 return
 
-            # Random earnings
+            # Random earnings and detailed job descriptions
             earnings = random.randint(50, 200)
             jobs = [
-                "coding", "streaming", "gaming", "teaching", "cooking",
-                "cleaning", "delivery", "mining", "fishing", "trading"
+                {"name": "Software Developer", "desc": "writing Discord bots"},
+                {"name": "Content Creator", "desc": "streaming on Twitch"},
+                {"name": "Pro Gamer", "desc": "competing in tournaments"},
+                {"name": "Teacher", "desc": "teaching Python programming"},
+                {"name": "Chef", "desc": "cooking in a fancy restaurant"},
+                {"name": "Cleaner", "desc": "maintaining server rooms"},
+                {"name": "Delivery Driver", "desc": "delivering pizza"},
+                {"name": "Crypto Miner", "desc": "mining digital currency"},
+                {"name": "Fisherman", "desc": "catching rare fish"},
+                {"name": "Day Trader", "desc": "trading stocks"}
             ]
             job = random.choice(jobs)
+            
             # Update database
             db.add_coins(interaction.user.id, earnings)
             db.update_last_work(interaction.user.id, current_time)
@@ -73,7 +82,7 @@ class Economy(commands.Cog):
             
             embed = discord.Embed(
                 title="💼 Work Complete!",
-                description=f"You worked as a **{job}** and earned **{earnings}** coins!",
+                description=f"You worked as a **{job['name']}** {job['desc']} and earned **{earnings}** coins!",
                 color=0x00ff00
             )
             embed.add_field(name="💰 New Balance", value=f"{new_balance:,} coins", inline=False)
@@ -88,14 +97,14 @@ class Economy(commands.Cog):
     async def shop(self, interaction: discord.Interaction):
         embed = discord.Embed(
             title="🛒 Server Shop",
-            description="Use `/buy <item>` to purchase items!",
+            description="Use `/buy <item>` to purchase items!\n**Note:** All roles are temporary!",
             color=0x7289da
         )
         
         items = [
-            {"name": "Cookie Pack", "price": 100, "description": "Get 10 cookies!"},
-            {"name": "XP Boost", "price": 250, "description": "Double XP for 1 hour"},
-            {"name": "Custom Role", "price": 1000, "description": "Create your own role"},
+            {"name": "XP Boost", "price": 250, "description": "Double XP for 1 hour (temporary)"},
+            {"name": "VIP Role", "price": 800, "description": "VIP role for 7 days (temporary)"},
+            {"name": "Custom Role", "price": 1500, "description": "Create your own role for 30 days (temporary)"},
             {"name": "Profile Badge", "price": 500, "description": "Special badge for your profile"}
         ]
         
@@ -106,22 +115,23 @@ class Economy(commands.Cog):
                 inline=False
             )
         
+        embed.set_footer(text="⏰ Roles are temporary and will be removed after the specified time!")
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="buy", description="Buy an item from the shop")
     @app_commands.describe(item="Item to purchase")
     @app_commands.choices(item=[
-        app_commands.Choice(name="Cookie Pack (100 coins)", value="cookie_pack"),
         app_commands.Choice(name="XP Boost (250 coins)", value="xp_boost"),
-        app_commands.Choice(name="Custom Role (1000 coins)", value="custom_role"),
+        app_commands.Choice(name="VIP Role (800 coins)", value="vip_role"),
+        app_commands.Choice(name="Custom Role (1500 coins)", value="custom_role"),
         app_commands.Choice(name="Profile Badge (500 coins)", value="profile_badge")
     ])
     async def buy(self, interaction: discord.Interaction, item: str):
         shop_items = {
-            "cookie_pack": {"price": 100, "name": "Cookie Pack"},
-            "xp_boost": {"price": 250, "name": "XP Boost"},
-            "custom_role": {"price": 1000, "name": "Custom Role"},
-            "profile_badge": {"price": 500, "name": "Profile Badge"}
+            "xp_boost": {"price": 250, "name": "XP Boost", "duration": 3600},  # 1 hour
+            "vip_role": {"price": 800, "name": "VIP Role", "duration": 604800},  # 7 days
+            "custom_role": {"price": 1500, "name": "Custom Role", "duration": 2592000},  # 30 days
+            "profile_badge": {"price": 500, "name": "Profile Badge", "duration": 0}  # Permanent
         }
         
         if item not in shop_items:
@@ -132,6 +142,7 @@ class Economy(commands.Cog):
             user_data = db.get_user_data(interaction.user.id)
             balance = user_data.get('coins', 0)
             item_data = shop_items[item]
+            
             if balance < item_data['price']:
                 await interaction.response.send_message(
                     f"❌ You don't have enough coins! You need {item_data['price']} coins but only have {balance}.",
@@ -141,10 +152,6 @@ class Economy(commands.Cog):
 
             # Process purchase
             db.remove_coins(interaction.user.id, item_data['price'])
-            
-            if item == "cookie_pack":
-                db.add_cookies(interaction.user.id, 10)
-                
             new_balance = db.get_user_data(interaction.user.id).get('coins', 0)
             
             embed = discord.Embed(
@@ -154,8 +161,32 @@ class Economy(commands.Cog):
             )
             embed.add_field(name="💰 Remaining Balance", value=f"{new_balance:,} coins", inline=False)
             
-            if item == "cookie_pack":
-                embed.add_field(name="🍪 Bonus", value="You received 10 cookies!", inline=False)
+            # Handle specific items
+            if item == "vip_role":
+                # Find or create VIP role
+                vip_role = discord.utils.get(interaction.guild.roles, name="🌟 VIP")
+                if not vip_role:
+                    vip_role = await interaction.guild.create_role(
+                        name="🌟 VIP", 
+                        color=discord.Color.gold(),
+                        reason="VIP role from shop purchase"
+                    )
+                
+                await interaction.user.add_roles(vip_role)
+                db.add_temporary_role(interaction.user.id, vip_role.id, item_data['duration'])
+                embed.add_field(name="🌟 VIP Role", value="You've been granted VIP status for 7 days!", inline=False)
+                
+            elif item == "custom_role":
+                embed.add_field(name="� Custom Role", value="Contact a moderator to create your custom role! Valid for 30 days.", inline=False)
+                db.add_temporary_purchase(interaction.user.id, "custom_role", item_data['duration'])
+                
+            elif item == "xp_boost":
+                db.add_temporary_purchase(interaction.user.id, "xp_boost", item_data['duration'])
+                embed.add_field(name="⚡ XP Boost", value="You'll get double XP for 1 hour!", inline=False)
+                
+            elif item == "profile_badge":
+                db.add_temporary_purchase(interaction.user.id, "profile_badge", 0)  # Permanent
+                embed.add_field(name="🏆 Badge", value="You've unlocked a special profile badge!", inline=False)
             
             await interaction.response.send_message(embed=embed)
 

@@ -126,7 +126,10 @@ class Cookies(commands.Cog):
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="cookiesrank", description="Displays your current rank in the cookie leaderboard")
     async def cookiesrank(self, interaction: discord.Interaction):

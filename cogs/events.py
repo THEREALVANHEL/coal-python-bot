@@ -1,7 +1,8 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import random
 import os, sys
+import asyncio
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -11,9 +12,50 @@ from assets.media_links import WELCOME_GIF, LEAVE_GIF
 class Events(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.cleanup_expired_items.start()
 
     async def cog_load(self):
         print("[Events] Loaded successfully.")
+
+    def cog_unload(self):
+        self.cleanup_expired_items.cancel()
+
+    @tasks.loop(hours=1)  # Run every hour
+    async def cleanup_expired_items(self):
+        """Clean up expired temporary roles and purchases"""
+        try:
+            db.cleanup_expired_items()
+            
+            # Also remove expired roles from users in Discord
+            for guild in self.bot.guilds:
+                for member in guild.members:
+                    if member.bot:
+                        continue
+                    
+                    active_roles = db.get_active_temporary_roles(member.id)
+                    active_role_ids = {role_data["role_id"] for role_data in active_roles}
+                    
+                    # Get all user's roles that might be temporary
+                    user_data = db.get_user_data(member.id)
+                    if "temporary_roles" in user_data:
+                        for role_data in user_data["temporary_roles"]:
+                            role_id = role_data["role_id"]
+                            if role_id not in active_role_ids:
+                                # Role expired, remove it
+                                role = guild.get_role(role_id)
+                                if role and role in member.roles:
+                                    try:
+                                        await member.remove_roles(role, reason="Temporary role expired")
+                                    except:
+                                        pass  # Role might have been deleted or no permission
+            
+            print("✅ Cleaned up expired temporary items")
+        except Exception as e:
+            print(f"❌ Error in cleanup task: {e}")
+
+    @cleanup_expired_items.before_loop
+    async def before_cleanup(self):
+        await self.bot.wait_until_ready()
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -28,7 +70,14 @@ class Events(commands.Cog):
         # Give XP for messages
         try:
             # Random XP between 15-25
-            xp_gain = random.randint(15, 25)
+            base_xp_gain = random.randint(15, 25)
+            
+            # Check for XP boost
+            active_purchases = db.get_active_temporary_purchases(message.author.id)
+            xp_boost_active = any(purchase["item_type"] == "xp_boost" for purchase in active_purchases)
+            
+            # Double XP if boost is active
+            xp_gain = base_xp_gain * 2 if xp_boost_active else base_xp_gain
             
             # Check for XP cooldown (prevent spam)
             user_data = db.get_user_data(message.author.id)
