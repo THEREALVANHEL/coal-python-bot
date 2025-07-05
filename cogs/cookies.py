@@ -1,22 +1,13 @@
-# cogs/cookies.py
-# Slash-only Cookie Economy cog (Pycord 2.x)
-# – Instant guild-scoped sync in cog_load()
-# – Role rewards for cookie milestones
-# – Manager-only admin actions
-
-import os
-import sys
 import discord
 from discord.ext import commands
-from discord import option
+from discord import app_commands
+import os, sys
 
-# ── project imports ───────────────────────────────────────
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import database as db  # noqa: E402
+# Local import
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import database as db
 
-# ── Config ───────────────────────────────────────────────
 GUILD_ID = 1370009417726169250
-guild_obj = discord.Object(id=GUILD_ID)
 
 COOKIE_ROLES = {        # balance : role-id
     100:  1370998669884788788,
@@ -24,334 +15,270 @@ COOKIE_ROLES = {        # balance : role-id
     1000: 1371000389444305017,
     1750: 1371001322131947591,
     3000: 1371001806930579518,
-    5000: 1371004762761461770,
+    5000: 1371002217737842779,
+    7500: 1371002618477568050,
+    10000: 1371003018494550056,
 }
-SORTED_TIERS = sorted(COOKIE_ROLES.keys(), reverse=True)
-COOKIE_MANAGER_ROLE = "🚨🚓Cookie Manager 🍪"
 
-# ── Pagination View ──────────────────────────────────────
-class CookieLeaderboardView(discord.ui.View):
-    def __init__(self, author: discord.Member, interaction: discord.Interaction):
-        super().__init__(timeout=180)
-        self.author = author
-        self.inter  = interaction
-        self.page   = 0
-        self.per    = 10
+MANAGER_ROLES = ["🦥 Overseer", "Forgotten one", "🚨 Lead moderator"]
 
-    async def on_timeout(self):
-        for c in self.children:
-            c.disabled = True
-        try:
-            await self.inter.edit_original_response(view=self)
-        except discord.NotFound:
-            pass
+def has_manager_role(interaction: discord.Interaction) -> bool:
+    user_roles = [role.name for role in interaction.user.roles]
+    return any(role in MANAGER_ROLES for role in user_roles)
 
-    async def build_embed(self) -> discord.Embed:
-        total = db.get_total_users_in_leaderboard()
-        if total == 0:
-            return discord.Embed(
-                title="🍪 Cookie Leaderboard",
-                description="No one has any cookies yet!",
-                color=discord.Color.blue(),
-            )
-
-        pages = (total + self.per - 1) // self.per
-        self.page = max(0, min(self.page, pages - 1))
-        skip = self.page * self.per
-        rows = db.get_leaderboard(skip=skip, limit=self.per)
-
-        desc = ""
-        for i, row in enumerate(rows):
-            rank = skip + i + 1
-            desc += f"**{rank}.** <@{row['user_id']}> — **{row.get('cookies',0)}** 🍪\n"
-
-        embed = discord.Embed(
-            title="🍪 Cookie Leaderboard", description=desc, color=discord.Color.gold()
-        )
-        embed.set_footer(
-            text=f"Page {self.page+1}/{pages} | VANHELISMYSENSEI ON TOP",
-            icon_url=self.inter.client.user.display_avatar.url,
-        )
-# button state
-        self.prev.disabled = self.page == 0
-        self.next.disabled = self.page >= pages - 1
-        return embed
-
-    @discord.ui.button(label="⬅️ Previous", style=discord.ButtonStyle.grey)
-    async def prev(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-        if interaction.user.id != self.author.id:
-            return await interaction.response.send_message("This isn't for you!", ephemeral=True)
-        self.page -= 1
-        await interaction.response.edit_message(embed=await self.build_embed(), view=self)
-
-    @discord.ui.button(label="Next ➡️", style=discord.ButtonStyle.grey)
-    async def next(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-        if interaction.user.id != self.author.id:
-            return await interaction.response.send_message("This isn't for you!", ephemeral=True)
-        self.page += 1
-        await interaction.response.edit_message(embed=await self.build_embed(), view=self)
-
-# ── Cog ──────────────────────────────────────────────────
 class Cookies(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # Load cog without syncing (main.py handles syncing)
     async def cog_load(self):
-        print("[Cookies] Cog loaded successfully.")
+        print("[Cookies] Loaded successfully.")
 
-    # ---------- helpers ----------------------------------
-    @staticmethod
-    async def _is_manager(ctx: discord.ApplicationContext) -> bool:
-        m: discord.Member = ctx.user  # type: ignore
-        return (
-            isinstance(m, discord.Member)
-            and (
-                m.guild_permissions.administrator
-                or any(r.name == COOKIE_MANAGER_ROLE for r in m.roles)
-            )
-        )
-
-    @staticmethod
-    async def _update_cookie_roles(member: discord.Member):
-        if member.bot:
-            return
-        balance = db.get_cookies(member.id)
-
-        target_role_id = next((COOKIE_ROLES[t] for t in SORTED_TIERS if balance >= t), None)
-        level_role_ids = set(COOKIE_ROLES.values())
-
-        roles_to_remove = [r for r in member.roles if r.id in level_role_ids and r.id != target_role_id]
-        role_to_add = member.guild.get_role(target_role_id) if target_role_id else None
-
+    async def update_cookie_roles(self, user: discord.Member, cookies: int):
+        """Update user's cookie milestone roles"""
         try:
+            roles_to_add = []
+            roles_to_remove = []
+            
+            for threshold, role_id in COOKIE_ROLES.items():
+                role = user.guild.get_role(role_id)
+                if role:
+                    if cookies >= threshold and role not in user.roles:
+                        roles_to_add.append(role)
+                    elif cookies < threshold and role in user.roles:
+                        roles_to_remove.append(role)
+            
+            if roles_to_add:
+                await user.add_roles(*roles_to_add)
             if roles_to_remove:
-                await member.remove_roles(*roles_to_remove, reason="Cookie role update")
-            if role_to_add and role_to_add not in member.roles:
-                await member.add_roles(role_to_add, reason="Cookie role update")
-        except discord.Forbidden:
-            print(f"[Cookies] Missing permissions for role update: {member}")
-        except Exception as exc:
-            print(f"[Cookies] Role update error for {member}:
-# cogs/cookies.py
-# Slash-only Cookie Economy cog (Pycord 2.x)
-# – Instant guild-scoped sync in cog_load()
-# – Role rewards for cookie milestones
-# – Manager-only admin actions
+                await user.remove_roles(*roles_to_remove)
+                
+        except Exception as e:
+            print(f"Error updating cookie roles for {user}: {e}")
 
-import os
-import sys
-import discord
-from discord.ext import commands
-from discord import option
-
-# ── project imports ───────────────────────────────────────
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import database as db  # noqa: E402
-
-# ── Config ───────────────────────────────────────────────
-GUILD_ID = 1370009417726169250
-guild_obj = discord.Object(id=GUILD_ID)
-
-COOKIE_ROLES = {        # balance : role-id
-    100:  1370998669884788788,
-    500:  1370999721593671760,
-    1000: 1371000389444305017,
-    1750: 1371001322131947591,
-    3000: 1371001806930579518,
-    5000: 1371004762761461770,
-}
-SORTED_TIERS = sorted(COOKIE_ROLES.keys(), reverse=True)
-COOKIE_MANAGER_ROLE = "🚨🚓Cookie Manager 🍪"
-
-# ── Pagination View ──────────────────────────────────────
-class CookieLeaderboardView(discord.ui.View):
-    def __init__(self, author: discord.Member, interaction: discord.Interaction):
-        super().__init__(timeout=180)
-        self.author = author
-        self.inter  = interaction
-        self.page   = 0
-        self.per    = 10
-
-    async def on_timeout(self):
-        for c in self.children:
-            c.disabled = True
+    @app_commands.command(name="cookies", description="View your or another user's cookie balance")
+    @app_commands.describe(user="User to check cookies for")
+    async def cookies(self, interaction: discord.Interaction, user: discord.Member = None):
+        target = user or interaction.user
+        
         try:
-            await self.inter.edit_original_response(view=self)
-        except discord.NotFound:
-            pass
+            user_data = db.get_user_data(target.id)
+            cookies = user_data.get('cookies', 0)
+            
+            # Get next milestone
+            next_milestone = None
+            for threshold in sorted(COOKIE_ROLES.keys()):
+                if cookies < threshold:
+                    next_milestone = threshold
+                    break
+            embed = discord.Embed(
+                title="🍪 Cookie Balance",
+                description=f"**{target.display_name}** has **{cookies:,}** cookies!",
+                color=0xdaa520
+            )
+            embed.set_thumbnail(url=target.display_avatar.url)
+            
+            if next_milestone:
+                needed = next_milestone - cookies
+                embed.add_field(
+                    name="🎯 Next Milestone", 
+                    value=f"{next_milestone:,} cookies ({needed:,} needed)", 
+                    inline=False
+                )
+            else:
+                embed.add_field(name="🏆 Status", value="All milestones achieved!", inline=False)
+            
+            await interaction.response.send_message(embed=embed)
 
-    async def build_embed(self) -> discord.Embed:
-        total = db.get_total_users_in_leaderboard()
-        if total == 0:
-            return discord.Embed(
-                title="🍪 Cookie Leaderboard",
-                description="No one has any cookies yet!",
-                color=discord.Color.blue(),
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error getting cookie data: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="cookietop", description="Shows the top 10 users with the most cookies")
+    async def cookietop(self, interaction: discord.Interaction):
+        try:
+            leaderboard = db.get_leaderboard('cookies', limit=10)
+            
+            if not leaderboard:
+                await interaction.response.send_message("❌ No cookie data available!", ephemeral=True)
+                return
+
+            embed = discord.Embed(
+                title="🍪 Cookie Leaderboard - Top 10",
+                color=0xdaa520
             )
 
-        pages = (total + self.per - 1) // self.per
-        self.page = max(0, min(self.page, pages - 1))
-        skip = self.page * self.per
-        rows = db.get_leaderboard(skip=skip, limit=self.per)
+            leaderboard_text = []
+            for i, user_data in enumerate(leaderboard, 1):
+                user_id = user_data['user_id']
+                cookies = user_data.get('cookies', 0)
+                
+                try:
+                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                    username = user.display_name if hasattr(user, 'display_name') else user.name
+                except:
+                    username = f"User {user_id}"
 
-        desc = ""
-        for i, row in enumerate(rows):
-            rank = skip + i + 1
-            desc += f"**{rank}.** <@{row['user_id']}> — **{row.get('cookies',0)}** 🍪\n"
-embed = discord.Embed(
-            title="🍪 Cookie Leaderboard", description=desc, color=discord.Color.gold()
-        )
-        embed.set_footer(
-            text=f"Page {self.page+1}/{pages} | VANHELISMYSENSEI ON TOP",
-            icon_url=self.inter.client.user.display_avatar.url,
-        )
-        # button state
-        self.prev.disabled = self.page == 0
-        self.next.disabled = self.page >= pages - 1
-        return embed
+                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                leaderboard_text.append(f"{medal} **{username}** - {cookies:,} cookies")
 
-    @discord.ui.button(label="⬅️ Previous", style=discord.ButtonStyle.grey)
-    async def prev(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-        if interaction.user.id != self.author.id:
-            return await interaction.response.send_message("This isn't for you!", ephemeral=True)
-        self.page -= 1
-        await interaction.response.edit_message(embed=await self.build_embed(), view=self)
+            embed.description = "\n".join(leaderboard_text)
+            embed.set_footer(text="Keep collecting those cookies!")
 
-    @discord.ui.button(label="Next ➡️", style=discord.ButtonStyle.grey)
-    async def next(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-        if interaction.user.id != self.author.id:
-            return await interaction.response.send_message("This isn't for you!", ephemeral=True)
-        self.page += 1
-        await interaction.response.edit_message(embed=await self.build_embed(), view=self)
+            await interaction.response.send_message(embed=embed)
 
-# ── Cog ──────────────────────────────────────────────────
-class Cookies(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
 
-    # Load cog without syncing (main.py handles syncing)
-    async def cog_load(self):
-        print("[Cookies] Cog loaded successfully.")
+    @app_commands.command(name="cookiesrank", description="Displays your current rank in the cookie leaderboard")
+    async def cookiesrank(self, interaction: discord.Interaction):
+        try:
+            leaderboard = db.get_leaderboard('cookies')
+            user_data = db.get_user_data(interaction.user.id)
+            cookies = user_data.get('cookies', 0)
+            
+            rank = next((i + 1 for i, u in enumerate(leaderboard) if u['user_id'] == interaction.user.id), None)
+            if rank is None:
+                await interaction.response.send_message("❌ You're not on the leaderboard yet! Start collecting cookies!", ephemeral=True)
+                return
 
-    # ---------- helpers ----------------------------------
-    @staticmethod
-    async def _is_manager(ctx: discord.ApplicationContext) -> bool:
-        m: discord.Member = ctx.user  # type: ignore
-        return (
-            isinstance(m, discord.Member)
-            and (
-                m.guild_permissions.administrator
-                or any(r.name == COOKIE_MANAGER_ROLE for r in m.roles)
+            embed = discord.Embed(
+                title="🏅 Your Cookie Rank",
+                description=f"**Rank:** #{rank}\n**Cookies:** {cookies:,}",
+                color=0xdaa520
             )
-        )
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            
+            # Show users around their rank
+            start_idx = max(0, rank - 3)
+            end_idx = min(len(leaderboard), rank + 2)
+            context_users = []
+            
+            for i in range(start_idx, end_idx):
+                user_data = leaderboard[i]
+                user_cookies = user_data.get('cookies', 0)
+                try:
+                    user = self.bot.get_user(user_data['user_id'])
+                    username = user.display_name if user else f"User {user_data['user_id']}"
+                except:
+                    username = f"User {user_data['user_id']}"
+                
+                prefix = "**" if i + 1 == rank else ""
+                suffix = "** ⬅️" if i + 1 == rank else ""
+                context_users.append(f"{prefix}#{i + 1} {username} - {user_cookies:,}{suffix}")
+            
+            embed.add_field(name="📊 Around Your Rank", value="\n".join(context_users), inline=False)
+            
+            await interaction.response.send_message(embed=embed)
 
-    @staticmethod
-    async def _update_cookie_roles(member: discord.Member):
-        if member.bot:
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error getting rank: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="addcookies", description="Adds cookies to a user (Manager only)")
+    @app_commands.describe(user="User to give cookies to", amount="Amount of cookies to add")
+    async def addcookies(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        if not has_manager_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
-        balance = db.get_cookies(member.id)
 
-        target_role_id = next((COOKIE_ROLES[t] for t in SORTED_TIERS if balance >= t), None)
-        level_role_ids = set(COOKIE_ROLES.values())
-
-        roles_to_remove = [r for r in member.roles if r.id in level_role_ids and r.id != target_role_id]
-        role_to_add = member.guild.get_role(target_role_id) if target_role_id else None
+        if amount <= 0:
+            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+            return
 
         try:
-            if roles_to_remove:
-                await member.remove_roles(*roles_to_remove, reason="Cookie role update")
-            if role_to_add and role_to_add not in member.roles:
-                await member.add_roles(role_to_add, reason="Cookie role update")
-        except discord.Forbidden:
-            print(f"[Cookies] Missing permissions for role update: {member}")
-        except Exception as exc:
-            print(f"[Cookies] Role update error for {member}: {exc}")
- # ---------- slash commands ----------------------------
-    @commands.slash_command(name="cookies", description="Show a user's cookie balance.", guild_ids=[GUILD_ID])
-    @option("user", description="User to check cookies for", type=discord.Member, required=False)
-    async def cookies(self, ctx: discord.ApplicationContext, user: discord.Member | None = None):
-        tgt = user or ctx.user
-        bal = db.get_cookies(tgt.id)
-        embed = discord.Embed(
-            description=f"**{tgt.display_name}** has **{bal}** 🍪 cookies.",
-            color=discord.Color.gold(),
-        )
-        await ctx.respond(embed=embed, ephemeral=True)
+            old_data = db.get_user_data(user.id)
+            old_cookies = old_data.get('cookies', 0)
+            
+            db.add_cookies(user.id, amount)
+            new_cookies = old_cookies + amount
+            
+            await self.update_cookie_roles(user, new_cookies)
+            
+            embed = discord.Embed(
+                title="🍪 Cookies Added",
+                description=f"Added **{amount:,}** cookies to {user.mention}",
+                color=0x00ff00
+            )
+            embed.add_field(name="Previous", value=f"{old_cookies:,}", inline=True)
+            embed.add_field(name="New Balance", value=f"{new_cookies:,}", inline=True)
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command(name="cookiesrank", description="Show a user's cookie leaderboard rank.", guild_ids=[GUILD_ID])
-    @option("user", description="User to check rank for", type=discord.Member, required=False)
-    async def cookiesrank(self, ctx: discord.ApplicationContext, user: discord.Member | None = None):
-        tgt = user or ctx.user
-        rank = db.get_user_rank(tgt.id)
-        bal = db.get_cookies(tgt.id)
-        embed = discord.Embed(
-            description=f"**{tgt.display_name}** is **#{rank}** with **{bal}** 🍪.",
-            color=discord.Color.orange(),
-        )
-        await ctx.respond(embed=embed, ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error adding cookies: {str(e)}", ephemeral=True)
 
-    @commands.slash_command(name="cookietop", description="Top cookie holders (paginated).", guild_ids=[GUILD_ID])
-    async def cookietop(self, ctx: discord.ApplicationContext):
-        view = CookieLeaderboardView(ctx.user, ctx.interaction)
-        await ctx.respond(embed=await view.build_embed(), view=view, ephemeral=True)
+    @app_commands.command(name="removecookies", description="Removes cookies from a user (Manager only)")
+    @app_commands.describe(user="User to remove cookies from", amount="Amount of cookies to remove")
+    async def removecookies(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        if not has_manager_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
 
-    # ----- manager commands ------------------------------
-    @commands.slash_command(name="addcookies", description="[Manager] Add cookies to a user.", guild_ids=[GUILD_ID])
-    @option("user", description="User to give cookies to", type=discord.Member)
-    @option("amount", description="Number of cookies to add", type=int, min_value=1)
-    async def addcookies(self, ctx: discord.ApplicationContext, user: discord.Member, amount: int):
-        if not await self._is_manager(ctx):
-            return await ctx.respond("No permission.", ephemeral=True)
         if amount <= 0:
-            return await ctx.respond("Amount must be positive.", ephemeral=True)
+            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+            return
 
-        db.add_cookies(user.id, amount)
-        await self._update_cookie_roles(user)
-        await ctx.respond(f"✅ Added **{amount}** 🍪 to **{user.display_name}**.")
+        try:
+            old_data = db.get_user_data(user.id)
+            old_cookies = old_data.get('cookies', 0)
+            
+            if old_cookies < amount:
+                await interaction.response.send_message(f"❌ User only has {old_cookies:,} cookies!", ephemeral=True)
+                return
+            
+            db.remove_cookies(user.id, amount)
+            new_cookies = old_cookies - amount
+            
+            await self.update_cookie_roles(user, new_cookies)
+            
+            embed = discord.Embed(
+                title="🍪 Cookies Removed",
+                description=f"Removed **{amount:,}** cookies from {user.mention}",
+                color=0xff6b6b
+            )
+            embed.add_field(name="Previous", value=f"{old_cookies:,}", inline=True)
+            embed.add_field(name="New Balance", value=f"{new_cookies:,}", inline=True)
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            
+            await interaction.response.send_message(embed=embed)
 
-   
-@commands.slash_command(name="removecookies", description="[Manager] Remove cookies from a user.", guild_ids=[GUILD_ID])
-    @option("user", description="User to remove cookies from", type=discord.Member)
-    @option("amount", description="Number of cookies to remove", type=int, min_value=1)
-    async def removecookies(self, ctx: discord.ApplicationContext, user: discord.Member, amount: int):
-        if not await self._is_manager(ctx):
-            return await ctx.respond("No permission.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error removing cookies: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="cookiesgiveall", description="Gives cookies to everyone in the server (Manager only)")
+    @app_commands.describe(amount="Amount of cookies to give to each member")
+    async def cookiesgiveall(self, interaction: discord.Interaction, amount: int):
+        if not has_manager_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
         if amount <= 0:
-            return await ctx.respond("Amount must be positive.", ephemeral=True)
+            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+            return
 
-        db.remove_cookies(user.id, amount)
-        await self._update_cookie_roles(user)
-        await ctx.respond(f"✅ Removed **{amount}** 🍪 from **{user.display_name}**.")
+        await interaction.response.defer()
 
-    @commands.slash_command(name="resetusercookies", description="[Manager] Reset a user's cookies to 0.", guild_ids=[GUILD_ID])
-    @option("user", description="User to reset cookies for", type=discord.Member)
-    async def resetcookies(self, ctx: discord.ApplicationContext, user: discord.Member):
-        if not await self._is_manager(ctx):
-            return await ctx.respond("No permission.", ephemeral=True)
+        try:
+            members = [member for member in interaction.guild.members if not member.bot]
+            total_given = 0
+            for member in members:
+                db.add_cookies(member.id, amount)
+                user_data = db.get_user_data(member.id)
+                new_cookies = user_data.get('cookies', 0)
+                await self.update_cookie_roles(member, new_cookies)
+                total_given += amount
 
-        db.set_cookies(user.id, 0)
-        await self._update_cookie_roles(user)
-        await ctx.respond(f"✅ Reset **{user.display_name}**'s cookies to 0.", ephemeral=True)
+            embed = discord.Embed(
+                title="🍪 Mass Cookie Distribution",
+                description=f"Gave **{amount:,}** cookies to **{len(members)}** members!",
+                color=0x00ff00
+            )
+            embed.add_field(name="📊 Total Distributed", value=f"{total_given:,} cookies", inline=False)
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            
+            await interaction.followup.send(embed=embed)
 
-    @commands.slash_command(name="cookiesgiveall", description="[Manager] Give cookies to everyone.", guild_ids=[GUILD_ID])
-    @option("amount", description="Number of cookies to give to all members", type=int, min_value=1)
-    async def cookiesgiveall(self, ctx: discord.ApplicationContext, amount: int):
-        if not await self._is_manager(ctx):
-            return await ctx.respond("No permission.", ephemeral=True)
-        if amount <= 0:
-            return await ctx.respond("Amount must be positive.", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error distributing cookies: {str(e)}", ephemeral=True)
 
-        await ctx.response.defer(ephemeral=True)
-        members = [m async for m in ctx.guild.fetch_members(limit=None) if not m.bot]
-        ids = [m.id for m in members]
-        db.give_cookies_to_all(amount, ids)
-
-        for m in members:
-            await self._update_cookie_roles(m)
-
-        await ctx.followup.send(f"✅ Gave **{amount}** 🍪 to **{len(members)}** members.")
-
-# ── setup ────────────────────────────────────────────────
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Cookies(bot), guilds=[guild_obj])
+    await bot.add_cog(Cookies(bot))
+    
