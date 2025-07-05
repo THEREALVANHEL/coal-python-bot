@@ -84,6 +84,8 @@
 - **Permissions:** Everyone
 - **Cooldown:** 30 minutes
 - **Earnings:** 50-200 coins per work
+- **Features:** Detailed job descriptions, realistic scenarios (Software Developer, Pro Gamer, etc.)
+- **Boost:** Double earnings with XP Boost active
 
 ### `/coinflip <amount> <choice>`
 - **Description:** Flip a coin and bet coins
@@ -96,13 +98,15 @@
 - **Description:** View the server shop
 - **Usage:** `/shop`
 - **Permissions:** Everyone
-- **Items:** Cookie Pack (100), XP Boost (250), Custom Role (1000), Profile Badge (500)
+- **Items:** XP Boost (250), VIP Role (800), Custom Role (1500), Profile Badge (500)
+- **Note:** All roles are temporary with time limits!
 
 ### `/buy <item>`
 - **Description:** Buy an item from the shop
-- **Usage:** `/buy Cookie Pack`
+- **Usage:** `/buy VIP Role`
 - **Permissions:** Everyone
-- **Items:** Cookie Pack, XP Boost, Custom Role, Profile Badge
+- **Items:** XP Boost (1 hour), VIP Role (7 days), Custom Role (30 days), Profile Badge (permanent)
+- **Features:** Temporary roles auto-removed when expired
 
 ---
 
@@ -147,6 +151,12 @@
 - **Cooldown:** 24 hours
 - **Reward:** 100 XP base + streak bonus
 - **Features:** Streak system (bonus every 7 days)
+
+### `/streaktop`
+- **Description:** Shows the top 10 users with the highest daily streaks
+- **Usage:** `/streaktop`
+- **Permissions:** Everyone
+- **Features:** Fire emojis for long streaks, tracks daily consistency
 
 ---
 
@@ -248,9 +258,10 @@
 
 ### **Message XP System**
 - **Trigger:** Sending messages
-- **Reward:** 15-25 XP per message
+- **Reward:** 15-25 XP per message (30-50 with XP Boost)
 - **Cooldown:** 1 minute between XP gains
-- **Features:** Automatic level up announcements
+- **Features:** Automatic level up announcements, XP boost detection
+- **Boost:** Double XP when XP Boost item is active
 
 ### **Welcome Messages**
 - **Trigger:** User joins server
@@ -266,6 +277,18 @@
 - **Trigger:** ⭐ reactions on messages
 - **Requirement:** Starboard enabled + threshold met
 - **Features:** Automatic message highlighting in starboard channel
+
+### **Temporary Role System**
+- **Trigger:** Purchasing roles from shop
+- **Features:** Automatic role removal when expired
+- **Cleanup:** Hourly cleanup task removes expired roles
+- **Tracking:** All temporary roles stored in MongoDB with timestamps
+
+### **Auto-Cleanup System**
+- **Frequency:** Every hour
+- **Function:** Removes expired roles, purchases, and temporary items
+- **Scope:** Server-wide cleanup of all expired items
+- **Logging:** Automatic cleanup status logging
 
 ---
 
@@ -289,6 +312,15 @@
 - 🌟 **Reaction Voting:** Automatic reactions on suggestions
 - 🔗 **Link Buttons:** Clickable links in AI responses
 - 🎮 **Event Buttons:** Join event buttons in announcements
+- ⚡ **XP Boost System:** Temporary double XP from shop purchases
+- 🌟 **VIP Role System:** Temporary premium roles with auto-removal
+- 🔄 **Auto-Cleanup:** Hourly removal of expired items
+
+### **Error Handling**
+- 🛡️ **Interaction Safety:** Prevents "already acknowledged" errors
+- 🔧 **MongoDB Compatibility:** Proper collection truth value testing
+- 📊 **Database Syncing:** All data stored and retrieved from MongoDB
+- 🔄 **Automatic Recovery:** Graceful error handling with fallbacks
 
 ---
 
@@ -299,8 +331,8 @@ If you need assistance with any command or feature, feel free to:
 - Ask a moderator for command-specific help
 - Check the bot's responses for usage examples
 
-**Bot Version:** Latest with Asset Integration
-**Last Updated:** January 2025
+**Bot Version:** Latest with Temporary Roles & Error Fixes
+**Last Updated:** January 2025 - Major System Update
 
 ---
 
