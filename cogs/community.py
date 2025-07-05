@@ -1,4 +1,4 @@
-import discord
+THIS SHOULD BE A LINTER ERRORimport discord
 from discord.ext import commands
 from discord import app_commands
 import random
