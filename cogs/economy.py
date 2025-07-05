@@ -132,13 +132,12 @@ class Economy(commands.Cog):
             user_data = db.get_user_data(interaction.user.id)
             balance = user_data.get('coins', 0)
             item_data = shop_items[item]
-            
             if balance < item_data['price']:
                 await interaction.response.send_message(
                     f"❌ You don't have enough coins! You need {item_data['price']} coins but only have {balance}.",
                     ephemeral=True
-            )
-return
+                )
+                return
 
             # Process purchase
             db.remove_coins(interaction.user.id, item_data['price'])
@@ -178,5 +177,43 @@ return
             return
 
         try:
-            user_data =
-                
+            user_data = db.get_user_data(interaction.user.id)
+            balance = user_data.get('coins', 0)
+            
+            if balance < amount:
+                await interaction.response.send_message(
+                    f"❌ You don't have enough coins! You have {balance} but tried to bet {amount}.",
+                    ephemeral=True
+                )
+                return
+
+            # Flip the coin
+            result = random.choice(["heads", "tails"])
+            won = choice == result
+            
+            embed = discord.Embed(
+                title="🪙 Coin Flip Results",
+                color=0x00ff00 if won else 0xff0000
+                         )
+            if won:
+                winnings = amount
+                db.add_coins(interaction.user.id, winnings)
+                new_balance = balance + winnings
+                embed.description = f"🎉 **You won!** The coin landed on **{result}**!"
+                embed.add_field(name="💰 Winnings", value=f"+{winnings} coins", inline=True)
+            else:
+                db.remove_coins(interaction.user.id, amount)
+                new_balance = balance - amount
+                embed.description = f"😔 **You lost!** The coin landed on **{result}**."
+                embed.add_field(name="💸 Lost", value=f"-{amount} coins", inline=True)
+            
+            embed.add_field(name="💰 New Balance", value=f"{new_balance:,} coins", inline=True)
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            
+            await interaction.response.send_message(embed=embed)
+
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error with coinflip: {str(e)}", ephemeral=True)
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Economy(bot))
