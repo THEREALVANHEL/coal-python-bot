@@ -454,7 +454,7 @@ class Tickets(commands.Cog):
     @app_commands.command(name="setuptickets", description="🎫 Set up the ticket system with interactive buttons")
     @app_commands.describe(
         channel="Channel where users can create tickets",
-        ticketzone="Category ID where ticket channels will be created",
+        ticketzone="Category ID where individual ticket channels will be created",
         support_roles="Support role IDs (comma-separated, optional)"
     )
     @app_commands.default_permissions(manage_channels=True)
@@ -467,8 +467,13 @@ class Tickets(commands.Cog):
             if not ticketzone.isdigit():
                 error_embed = discord.Embed(
                     title="❌ Invalid Category ID",
-                    description="Please provide a valid category ID (numbers only).",
+                    description="Please provide a valid **category ID** (numbers only).\n\n**How to get a category ID:**\n1. Enable Developer Mode in Discord\n2. Right-click on a category\n3. Select 'Copy ID'",
                     color=0xff6b6b
+                )
+                error_embed.add_field(
+                    name="⚠️ Important",
+                    value="You need a **CATEGORY** ID, not a text channel ID. Tickets are created as individual channels within the category.",
+                    inline=False
                 )
                 await interaction.response.send_message(embed=error_embed, ephemeral=True)
                 return
@@ -476,11 +481,25 @@ class Tickets(commands.Cog):
             category_id = int(ticketzone)
             category = interaction.guild.get_channel(category_id)
             
-            if not category or not isinstance(category, discord.CategoryChannel):
+            if not category:
                 error_embed = discord.Embed(
                     title="❌ Category Not Found",
-                    description=f"Category with ID `{category_id}` not found or is not a category channel.",
+                    description=f"No channel found with ID `{category_id}`.\n\nMake sure you copied the correct category ID.",
                     color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
+                return
+                
+            if not isinstance(category, discord.CategoryChannel):
+                error_embed = discord.Embed(
+                    title="❌ Not a Category",
+                    description=f"Channel `{category.name}` (ID: `{category_id}`) is a **{category.type}**, not a category.\n\n**You need to provide a CATEGORY ID**, not a text channel ID.",
+                    color=0xff6b6b
+                )
+                error_embed.add_field(
+                    name="📝 How it works",
+                    value="The ticket system creates individual ticket channels inside the category you specify. Each user gets their own private channel.",
+                    inline=False
                 )
                 await interaction.response.send_message(embed=error_embed, ephemeral=True)
                 return
