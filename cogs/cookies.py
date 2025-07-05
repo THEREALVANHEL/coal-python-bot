@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import os, sys
+from discord.ui import Button, View
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -58,6 +59,39 @@ class Cookies(commands.Cog):
         except Exception as e:
             print(f"Error updating cookie roles for {user}: {e}")
 
+    async def create_cookie_leaderboard_embed(self, page: int):
+        items_per_page = 10
+        skip = (page - 1) * items_per_page
+        
+        all_users = db.get_leaderboard('cookies')
+        total_users = len(all_users)
+        total_pages = (total_users + items_per_page - 1) // items_per_page
+        page_users = all_users[skip:skip + items_per_page]
+
+        embed = discord.Embed(
+            title=f"🍪 Cookie Leaderboard - Page {page}/{total_pages}",
+            color=0xdaa520
+        )
+
+        leaderboard_text = []
+        for i, user_data in enumerate(page_users, start=skip + 1):
+            user_id = user_data['user_id']
+            cookies = user_data.get('cookies', 0)
+            
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.display_name if hasattr(user, 'display_name') else user.name
+            except:
+                username = f"User {user_id}"
+
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            leaderboard_text.append(f"{medal} **{username}** - {cookies:,} cookies")
+
+        embed.description = "\n".join(leaderboard_text)
+        embed.set_footer(text=f"Page {page}/{total_pages} • Keep collecting those cookies!")
+        
+        return embed
+
     @app_commands.command(name="cookies", description="View your or another user's cookie balance")
     @app_commands.describe(user="User to check cookies for")
     async def cookies(self, interaction: discord.Interaction, user: discord.Member = None):
@@ -102,46 +136,23 @@ class Cookies(commands.Cog):
             if page < 1:
                 page = 1
                 
-            items_per_page = 10
-            skip = (page - 1) * items_per_page
-            
             all_users = db.get_leaderboard('cookies')
             total_users = len(all_users)
-            total_pages = (total_users + items_per_page - 1) // items_per_page
+            total_pages = (total_users + 10 - 1) // 10
             
             if page > total_pages:
                 await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
                 return
 
-            page_users = all_users[skip:skip + items_per_page]
-            
-            if not page_users:
+            if not all_users:
                 await interaction.response.send_message("❌ No cookie data available!", ephemeral=True)
                 return
 
-            embed = discord.Embed(
-                title=f"🍪 Cookie Leaderboard - Page {page}/{total_pages}",
-                color=0xdaa520
-            )
+            from cogs.leveling import PaginationView
+            embed = await self.create_cookie_leaderboard_embed(page)
+            view = PaginationView("cookies", total_pages, page, self.bot)
 
-            leaderboard_text = []
-            for i, user_data in enumerate(page_users, start=skip + 1):
-                user_id = user_data['user_id']
-                cookies = user_data.get('cookies', 0)
-                
-                try:
-                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                    username = user.display_name if hasattr(user, 'display_name') else user.name
-                except:
-                    username = f"User {user_id}"
-
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-                leaderboard_text.append(f"{medal} **{username}** - {cookies:,} cookies")
-
-            embed.description = "\n".join(leaderboard_text)
-            embed.set_footer(text=f"Page {page}/{total_pages} • Keep collecting those cookies!")
-
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, view=view)
 
         except Exception as e:
             if not interaction.response.is_done():

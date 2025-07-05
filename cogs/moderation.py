@@ -282,320 +282,242 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Error generating roleplay: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="dbmaintenance", description="Perform database maintenance and recovery (Admin only)")
-    async def dbmaintenance(self, interaction: discord.Interaction):
-        """Comprehensive database maintenance for admins"""
-        # Check permissions
-        user_roles = [role.name for role in interaction.user.roles]
-        admin_roles = ["🦥 Overseer", "Forgotten one"]
-        
-        if not any(role in admin_roles for role in user_roles):
-            await interaction.response.send_message("❌ You don't have permission to use this command! Only Overseers and Forgotten ones can perform maintenance.", ephemeral=True)
-            return
+    # ADMIN-ONLY DATABASE MANAGEMENT COMMANDS
+    # =====================================
 
-        await interaction.response.defer()
-        
-        try:
-            # Perform comprehensive maintenance
-            result = db.maintenance_cleanup()
-            
-            if result["success"]:
-                embed = discord.Embed(
-                    title="🔧 Database Maintenance Complete",
-                    description="Comprehensive database maintenance has been performed successfully!",
-                    color=0x00ff00,
-                    timestamp=datetime.now()
-                )
-                embed.add_field(name="📊 Users Recovered", value=f"{result['recovered_users']}", inline=True)
-                embed.add_field(name="🧹 Entries Cleaned", value=f"{result['cleaned_entries']}", inline=True)
-                embed.add_field(name="⚡ Database Optimized", value="✅ Yes" if result['optimized'] else "❌ No", inline=True)
-                embed.add_field(name="📋 Details", value=result['message'], inline=False)
-                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-                embed.set_footer(text="Database maintenance performed successfully")
-                
-                await interaction.followup.send(embed=embed)
-            else:
-                await interaction.followup.send(f"❌ Maintenance failed: {result['message']}", ephemeral=True)
-                
-        except Exception as e:
-            await interaction.followup.send(f"❌ Error during maintenance: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="datarecovery", description="Recover lost user data (Admin only)")
-    async def datarecovery(self, interaction: discord.Interaction):
-        """Recover lost user data"""
-        # Check permissions
-        user_roles = [role.name for role in interaction.user.roles]
-        admin_roles = ["🦥 Overseer", "Forgotten one"]
-        
-        if not any(role in admin_roles for role in user_roles):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
-        await interaction.response.defer()
-        
-        try:
-            result = db.recover_lost_data()
-            
-            if result["success"]:
-                embed = discord.Embed(
-                    title="� Data Recovery Complete",
-                    description=f"Successfully recovered data for **{result['recovered_count']}** users!",
-                    color=0x00ff00,
-                    timestamp=datetime.now()
-                )
-                embed.add_field(name="📊 Recovery Details", value=result['message'], inline=False)
-                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-                
-                await interaction.followup.send(embed=embed)
-            else:
-                await interaction.followup.send(f"❌ Recovery failed: {result['message']}", ephemeral=True)
-                
-        except Exception as e:
-            await interaction.followup.send(f"❌ Error during recovery: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="dbstats", description="View comprehensive database statistics (Admin only)")
+    @app_commands.command(name="dbstats", description="Get comprehensive database statistics (ADMIN ONLY)")
+    @app_commands.default_permissions(administrator=True)
     async def dbstats(self, interaction: discord.Interaction):
-        """View detailed database statistics"""
-        # Check permissions
-        user_roles = [role.name for role in interaction.user.roles]
-        admin_roles = ["🦥 Overseer", "Forgotten one", "🚨 Lead moderator"]
-        
-        if not any(role in admin_roles for role in user_roles):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
         try:
+            # Get basic stats
             stats = db.get_database_stats()
-            
-            if stats["success"]:
-                embed = discord.Embed(
-                    title="📊 Database Statistics",
-                    color=0x7289da,
-                    timestamp=datetime.now()
-                )
-                
-                # User statistics
-                embed.add_field(name="👥 Total Users", value=f"{stats['total_users']:,}", inline=True)
-                embed.add_field(name="⭐ Users with XP", value=f"{stats['users_with_xp']:,}", inline=True)
-                embed.add_field(name="🍪 Users with Cookies", value=f"{stats['users_with_cookies']:,}", inline=True)
-                embed.add_field(name="🪙 Users with Coins", value=f"{stats['users_with_coins']:,}", inline=True)
-                
-                # Total statistics
-                embed.add_field(name="📈 Total XP", value=f"{stats['total_xp']:,}", inline=True)
-                embed.add_field(name="🍪 Total Cookies", value=f"{stats['total_cookies']:,}", inline=True)
-                
-                # Calculate averages
-                avg_xp = stats['total_xp'] // max(1, stats['users_with_xp'])
-                avg_cookies = stats['total_cookies'] // max(1, stats['users_with_cookies'])
-                
-                embed.add_field(name="📊 Average XP", value=f"{avg_xp:,}", inline=True)
-                embed.add_field(name="📊 Average Cookies", value=f"{avg_cookies:,}", inline=True)
-                
-                embed.set_footer(text="Database statistics • Live data")
-                
-                await interaction.response.send_message(embed=embed)
-            else:
-                await interaction.response.send_message(f"❌ Error getting stats: {stats['message']}", ephemeral=True)
-                
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting database stats: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="syncallroles", description="Sync all user roles based on current XP and cookies (Admin only)")
-    async def syncallroles(self, interaction: discord.Interaction):
-        """Sync all user roles in the server"""
-        # Check permissions
-        user_roles = [role.name for role in interaction.user.roles]
-        admin_roles = ["🦥 Overseer", "Forgotten one"]
-        
-        if not any(role in admin_roles for role in user_roles):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
-        await interaction.response.defer()
-        
-        try:
-            # Get leveling cog for role update functions
-            leveling_cog = self.bot.get_cog('Leveling')
-            if not leveling_cog:
-                await interaction.followup.send("❌ Leveling system not available!", ephemeral=True)
-                return
-
-            updated_members = 0
-            errors = 0
-            
-            for member in interaction.guild.members:
-                if member.bot:
-                    continue
-                    
-                try:
-                    # Get user data
-                    user_data = db.get_live_user_stats(member.id)
-                    level = user_data.get('level', 0)
-                    cookies = user_data.get('cookies', 0)
-                    
-                    # Update both XP and cookie roles
-                    await leveling_cog.update_xp_roles(member, level)
-                    await leveling_cog.update_cookie_roles(member, cookies)
-                    
-                    updated_members += 1
-                except Exception as e:
-                    print(f"Error updating roles for {member}: {e}")
-                    errors += 1
+            health = db.get_database_health()
+            server_analytics = db.get_advanced_server_analytics(interaction.guild.id)
             
             embed = discord.Embed(
-                title="🔄 Role Sync Complete",
-                description=f"Successfully synchronized roles for **{updated_members}** members!",
-                color=0x00ff00,
+                title="📊 Database Statistics",
+                color=0x5865f2,
                 timestamp=datetime.now()
             )
-            embed.add_field(name="✅ Updated", value=f"{updated_members} members", inline=True)
-            embed.add_field(name="❌ Errors", value=f"{errors} errors", inline=True)
-            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="All roles synchronized with current XP and cookie levels")
             
-            await interaction.followup.send(embed=embed)
-            
-        except Exception as e:
-            await interaction.followup.send(f"❌ Error syncing roles: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="restoredata", description="Restore all user data from MongoDB (Administrator only)")
-    async def restoredata(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ You need 'Administrator' permission to use this command!", ephemeral=True)
-            return
-
-        await interaction.response.defer()
-
-        try:
-            result = db.restore_all_data()
-            
-            if result["success"]:
-                embed = discord.Embed(
-                    title="✅ Data Restoration Complete",
-                    description=f"Successfully restored data for **{result['restored_count']}** users!",
-                    color=0x00ff00,
-                    timestamp=datetime.now()
-                )
-                embed.add_field(name="📋 Details", value=result['message'], inline=False)
-                embed.add_field(name="🔄 Next Steps", value="All previous XP, cookies, and other data should now be accessible through bot commands.", inline=False)
-            else:
-                embed = discord.Embed(
-                    title="❌ Data Restoration Failed",
-                    description=f"Error: {result['message']}",
-                    color=0xff0000
-                )
-            
-            embed.set_footer(text=f"{FOOTER_TXT} • Data Restoration")
-            await interaction.followup.send(embed=embed)
-
-        except Exception as e:
-            await interaction.followup.send(f"❌ Error restoring data: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="syncuser", description="Sync specific user's data from MongoDB")
-    @app_commands.describe(user="User to sync data for")
-    async def syncuser(self, interaction: discord.Interaction, user: discord.Member):
-        if not has_moderator_role(interaction):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
-        await interaction.response.defer()
-
-        try:
-            # Sync user data
-            success = db.sync_user_data(user.id)
-            
-            if success:
-                # Get updated user data
-                user_data = db.get_user_data(user.id)
-                
-                embed = discord.Embed(
-                    title="🔄 User Data Synced",
-                    description=f"Successfully synced data for {user.mention}",
-                    color=0x00ff00,
-                    timestamp=datetime.now()
-                )
+            # Basic stats
+            if stats['success']:
                 embed.add_field(
-                    name="📊 Current Data",
-                    value=f"**XP:** {user_data.get('xp', 0):,}\n**Cookies:** {user_data.get('cookies', 0):,}\n**Coins:** {user_data.get('coins', 0):,}\n**Daily Streak:** {user_data.get('daily_streak', 0)}",
+                    name="📈 User Statistics", 
+                    value=f"**Total Users:** {stats.get('total_users', 0):,}\n**Total XP:** {stats.get('total_xp', 0):,}\n**Total Cookies:** {stats.get('total_cookies', 0):,}\n**Total Coins:** {stats.get('total_coins', 0):,}",
                     inline=False
                 )
-            else:
-                embed = discord.Embed(
-                    title="❌ Sync Failed",
-                    description=f"Failed to sync data for {user.mention}",
-                    color=0xff0000
-                )
             
-            embed.set_footer(text=f"{FOOTER_TXT} • User Data Sync")
-            await interaction.followup.send(embed=embed, ephemeral=True)
-
-        except Exception as e:
-            await interaction.followup.send(f"❌ Error syncing user: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="userdata", description="View raw user data from MongoDB")
-    @app_commands.describe(user="User to check data for")
-    async def userdata(self, interaction: discord.Interaction, user: discord.Member):
-        if not has_moderator_role(interaction):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
-        try:
-            user_data = db.get_user_data(user.id)
+            # Health metrics
+            if health and 'collections' in health:
+                collections_info = "\n".join([
+                    f"**{name.title()}:** {info.get('document_count', 'Error')} docs"
+                    for name, info in health['collections'].items()
+                    if isinstance(info, dict) and 'document_count' in info
+                ])
+                embed.add_field(name="🗄️ Collections", value=collections_info, inline=True)
             
-            if not user_data:
-                await interaction.response.send_message(f"❌ No data found for {user.mention} in MongoDB!", ephemeral=True)
-                return
-
-            embed = discord.Embed(
-                title="🗄️ Raw User Data",
-                description=f"MongoDB data for {user.mention}",
-                color=0x7289da,
-                timestamp=datetime.now()
-            )
-            
-            # Main stats
-            embed.add_field(
-                name="📊 Core Stats",
-                value=f"**XP:** {user_data.get('xp', 0):,}\n**Level:** {user_data.get('level', 'Not calculated')}\n**Cookies:** {user_data.get('cookies', 0):,}\n**Coins:** {user_data.get('coins', 0):,}",
-                inline=True
-            )
-            
-            # Time data
-            embed.add_field(
-                name="⏰ Timestamps",
-                value=f"**Last XP:** <t:{int(user_data.get('last_xp_time', 0))}:R>\n**Last Work:** <t:{int(user_data.get('last_work', 0))}:R>\n**Last Daily:** <t:{int(user_data.get('last_daily', 0))}:R>",
-                inline=True
-            )
-            
-            # Daily streak
-            embed.add_field(
-                name="🔥 Daily System",
-                value=f"**Streak:** {user_data.get('daily_streak', 0)} days",
-                inline=True
-            )
-            
-            # Temporary items
-            temp_roles = user_data.get('temporary_roles', [])
-            temp_purchases = user_data.get('temporary_purchases', [])
-            
-            if temp_roles or temp_purchases:
-                temp_info = []
-                if temp_roles:
-                    temp_info.append(f"**Roles:** {len(temp_roles)} active")
-                if temp_purchases:
-                    temp_info.append(f"**Purchases:** {len(temp_purchases)} active")
-                
+            # Server analytics
+            if server_analytics:
                 embed.add_field(
-                    name="⚡ Temporary Items",
-                    value="\n".join(temp_info),
+                    name="📊 Server Analytics",
+                    value=f"**Active (30d):** {server_analytics.get('active_users_30d', 0)}\n**Avg XP:** {server_analytics.get('server_totals', {}).get('avg_xp', 0):.0f}\n**Avg Coins:** {server_analytics.get('server_totals', {}).get('avg_coins', 0):.0f}",
                     inline=True
                 )
             
-            embed.set_footer(text=f"{FOOTER_TXT} • MongoDB Raw Data")
+            embed.set_footer(text="Admin-only command • Data is live and validated")
             await interaction.response.send_message(embed=embed, ephemeral=True)
-
+            
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting user data: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Error getting database stats: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="dbmaintenance", description="Perform comprehensive database maintenance (ADMIN ONLY)")
+    @app_commands.default_permissions(administrator=True)
+    async def db_maintenance(self, interaction: discord.Interaction):
+        try:
+            await interaction.response.defer(ephemeral=True)
+            
+            maintenance_results = []
+            
+            # Remove deprecated warning system
+            warning_removal = db.remove_deprecated_warning_system()
+            if warning_removal['success']:
+                maintenance_results.append(f"✅ Removed warnings from {warning_removal['users_updated']} users")
+            else:
+                maintenance_results.append(f"❌ Warning removal failed: {warning_removal.get('error', 'Unknown error')}")
+            
+            # Optimize database
+            optimization = db.optimize_database_live()
+            if optimization['success']:
+                maintenance_results.append(f"✅ Created {len(optimization['indexes_created'])} database indexes")
+            else:
+                maintenance_results.append(f"❌ Optimization failed: {optimization.get('error', 'Unknown error')}")
+            
+            # Auto-sync user data
+            users_synced = 0
+            try:
+                all_users = db.get_all_users_for_maintenance()[:50]  # Limit for performance
+                for user_data in all_users:
+                    db.auto_sync_user_data(user_data['user_id'])
+                    users_synced += 1
+                maintenance_results.append(f"✅ Auto-synced {users_synced} user profiles")
+            except Exception as e:
+                maintenance_results.append(f"❌ User sync failed: {str(e)}")
+            
+            embed = discord.Embed(
+                title="🔧 Database Maintenance Complete",
+                description="\n".join(maintenance_results),
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            embed.set_footer(text="Maintenance performed by admin")
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.followup.send(f"❌ Maintenance error: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="datarecovery", description="Recover lost user data (ADMIN ONLY)")
+    @app_commands.describe(user="User to recover data for")
+    @app_commands.default_permissions(administrator=True)
+    async def data_recovery(self, interaction: discord.Interaction, user: discord.Member):
+        try:
+            await interaction.response.defer(ephemeral=True)
+            
+            # Get current user data
+            current_data = db.get_user_data(user.id)
+            
+            # Perform auto-sync (which includes recovery)
+            recovered_data = db.auto_sync_user_data(user.id)
+            
+            # Compare and show what was recovered
+            recovery_info = []
+            
+            if current_data.get('xp', 0) != recovered_data.get('xp', 0):
+                recovery_info.append(f"XP: {current_data.get('xp', 0)} → {recovered_data.get('xp', 0)}")
+            
+            if current_data.get('cookies', 0) != recovered_data.get('cookies', 0):
+                recovery_info.append(f"Cookies: {current_data.get('cookies', 0)} → {recovered_data.get('cookies', 0)}")
+            
+            if current_data.get('coins', 0) != recovered_data.get('coins', 0):
+                recovery_info.append(f"Coins: {current_data.get('coins', 0)} → {recovered_data.get('coins', 0)}")
+            
+            embed = discord.Embed(
+                title=f"🔄 Data Recovery - {user.display_name}",
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            
+            if recovery_info:
+                embed.description = "**Data Changes:**\n" + "\n".join(recovery_info)
+            else:
+                embed.description = "✅ No data corruption found. User profile is healthy."
+            
+            embed.add_field(name="Current Stats", value=f"**XP:** {recovered_data.get('xp', 0):,}\n**Cookies:** {recovered_data.get('cookies', 0):,}\n**Coins:** {recovered_data.get('coins', 0):,}", inline=True)
+            embed.set_thumbnail(url=user.display_avatar.url)
+            embed.set_footer(text="Recovery performed by admin")
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.followup.send(f"❌ Recovery error: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="syncallroles", description="Sync all user roles with current stats (ADMIN ONLY)")
+    @app_commands.default_permissions(administrator=True)
+    async def sync_all_roles(self, interaction: discord.Interaction):
+        try:
+            await interaction.response.defer(ephemeral=True)
+            
+            synced_count = 0
+            error_count = 0
+            
+            # Get all members
+            for member in interaction.guild.members:
+                try:
+                    # Get user data
+                    user_data = db.get_user_data(member.id)
+                    xp = user_data.get('xp', 0)
+                    cookies = user_data.get('cookies', 0)
+                    
+                    # Update XP roles
+                    from cogs.leveling import Leveling
+                    leveling_cog = self.bot.get_cog('Leveling')
+                    if leveling_cog:
+                        level = leveling_cog.calculate_level_from_xp(xp)
+                        await leveling_cog.update_user_roles(member, level)
+                    
+                    # Update cookie roles
+                    from cogs.cookies import Cookies
+                    cookies_cog = self.bot.get_cog('Cookies')
+                    if cookies_cog:
+                        await cookies_cog.update_cookie_roles(member, cookies)
+                    
+                    synced_count += 1
+                    
+                except Exception as e:
+                    error_count += 1
+                    continue
+            
+            embed = discord.Embed(
+                title="🔄 Role Sync Complete",
+                description=f"**Successfully synced:** {synced_count} members\n**Errors:** {error_count} members",
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            embed.set_footer(text="Role sync performed by admin")
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.followup.send(f"❌ Role sync error: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="databasehealth", description="Get detailed database health report (ADMIN ONLY)")
+    @app_commands.default_permissions(administrator=True)
+    async def database_health(self, interaction: discord.Interaction):
+        try:
+            health = db.get_database_health()
+            
+            embed = discord.Embed(
+                title="🏥 Database Health Report",
+                color=0x5865f2,
+                timestamp=datetime.now()
+            )
+            
+            if 'error' in health:
+                embed.description = f"❌ **Health Check Failed:** {health['error']}"
+                embed.color = 0xff0000
+            else:
+                # Overall stats
+                embed.add_field(
+                    name="📊 Overview",
+                    value=f"**Total Documents:** {health.get('total_documents', 0):,}\n**Collections:** {len(health.get('collections', {}))}\n**Status:** {'🟢 Healthy' if health.get('total_documents', 0) > 0 else '🟡 Warning'}",
+                    inline=False
+                )
+                
+                # Collection details
+                collections_info = []
+                for name, info in health.get('collections', {}).items():
+                    if isinstance(info, dict) and 'document_count' in info:
+                        collections_info.append(f"**{name.title()}:** {info['document_count']:,} docs, {len(info.get('indexes', []))} indexes")
+                    else:
+                        collections_info.append(f"**{name.title()}:** ❌ Error")
+                
+                if collections_info:
+                    embed.add_field(name="🗄️ Collections", value="\n".join(collections_info), inline=False)
+                
+                # Performance
+                perf = health.get('performance', {})
+                embed.add_field(
+                    name="⚡ Performance",
+                    value=f"**Connection:** {perf.get('connection_status', 'Unknown')}\n**Response Time:** {perf.get('avg_response_time', 'N/A')}\n**Last Optimization:** {perf.get('last_optimization', 'N/A')}",
+                    inline=False
+                )
+            
+            embed.set_footer(text="Admin-only health report")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Health check error: {str(e)}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Moderation(bot))

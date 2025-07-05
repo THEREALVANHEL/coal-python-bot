@@ -6,6 +6,7 @@ import numpy as np
 from datetime import datetime
 import os, sys
 import io
+from discord.ui import Button, View
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -46,6 +47,147 @@ JOB_TITLES = [
     {"name": "CTO", "min_level": 450, "max_level": 999, "promotion_bonus": 1500},
     {"name": "Tech Legend", "min_level": 1000, "max_level": 9999, "promotion_bonus": 2000}
 ]
+
+class PaginationView(View):
+    def __init__(self, leaderboard_type, total_pages, current_page, bot):
+        super().__init__(timeout=300)
+        self.leaderboard_type = leaderboard_type
+        self.total_pages = total_pages
+        self.current_page = current_page
+        self.bot = bot
+        
+        # Update button states
+        self.first_page.disabled = current_page == 1
+        self.previous_page.disabled = current_page == 1
+        self.next_page.disabled = current_page == total_pages
+        self.last_page.disabled = current_page == total_pages
+
+    @discord.ui.button(label="⏪ First", style=discord.ButtonStyle.secondary)
+    async def first_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.update_leaderboard(interaction, 1)
+
+    @discord.ui.button(label="◀️ Previous", style=discord.ButtonStyle.secondary)
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.update_leaderboard(interaction, max(1, self.current_page - 1))
+
+    @discord.ui.button(label="▶️ Next", style=discord.ButtonStyle.secondary)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.update_leaderboard(interaction, min(self.total_pages, self.current_page + 1))
+
+    @discord.ui.button(label="⏩ Last", style=discord.ButtonStyle.secondary)
+    async def last_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.update_leaderboard(interaction, self.total_pages)
+
+    async def update_leaderboard(self, interaction: discord.Interaction, page: int):
+        self.current_page = page
+        
+        # Update button states
+        self.first_page.disabled = page == 1
+        self.previous_page.disabled = page == 1
+        self.next_page.disabled = page == self.total_pages
+        self.last_page.disabled = page == self.total_pages
+
+        # Get the appropriate cog and call the leaderboard function
+        if self.leaderboard_type == "xp":
+            leveling_cog = self.bot.get_cog('Leveling')
+            embed = await leveling_cog.create_level_leaderboard_embed(page)
+        elif self.leaderboard_type == "cookies":
+            cookies_cog = self.bot.get_cog('Cookies')
+            embed = await cookies_cog.create_cookie_leaderboard_embed(page)
+        elif self.leaderboard_type == "coins":
+            economy_cog = self.bot.get_cog('Economy')
+            embed = await economy_cog.create_coin_leaderboard_embed(page)
+        elif self.leaderboard_type == "streak":
+            leveling_cog = self.bot.get_cog('Leveling')
+            embed = await leveling_cog.create_streak_leaderboard_embed(page)
+
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def create_level_leaderboard_embed(self, page: int):
+        items_per_page = 10
+        skip = (page - 1) * items_per_page
+        
+        all_users = db.get_leaderboard('xp')
+        total_users = len(all_users)
+        total_pages = (total_users + items_per_page - 1) // items_per_page
+        page_users = all_users[skip:skip + items_per_page]
+
+        embed = discord.Embed(
+            title=f"🥇 Level Leaderboard - Page {page}/{total_pages}",
+            color=0xffd700
+        )
+
+        leaderboard_text = []
+        for i, user_data in enumerate(page_users, start=skip + 1):
+            user_id = user_data['user_id']
+            xp = user_data.get('xp', 0)
+            level = self.calculate_level_from_xp(xp)
+            job = self.get_job_title(level)
+            
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.display_name if hasattr(user, 'display_name') else user.name
+            except:
+                username = f"User {user_id}"
+
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            
+            # Only show job if user has worked recently
+            user_full_data = db.get_user_data(user_id)
+            last_work = user_full_data.get('last_work', 0)
+            show_job = last_work > 0  # Only show if they've worked at least once
+            
+            if show_job:
+                leaderboard_text.append(f"{medal} **{username}** - Level {level} ({xp:,} XP)\n`{job['name']}`")
+            else:
+                leaderboard_text.append(f"{medal} **{username}** - Level {level} ({xp:,} XP)")
+
+        embed.description = "\n\n".join(leaderboard_text)
+        embed.set_footer(text=f"Page {page}/{total_pages} • Keep chatting to climb the ranks!")
+        
+        return embed
+
+    async def create_streak_leaderboard_embed(self, page: int):
+        items_per_page = 10
+        skip = (page - 1) * items_per_page
+        
+        streak_data = db.get_streak_leaderboard(page, 10)
+        page_users = streak_data['users']
+        total_pages = streak_data['total_pages']
+
+        embed = discord.Embed(
+            title=f"🔥 Daily Streak Leaderboard - Page {page}/{total_pages}",
+            color=0xff4500
+        )
+
+        leaderboard_text = []
+        for i, user_data in enumerate(page_users, start=skip + 1):
+            user_id = user_data['user_id']
+            streak = user_data.get('daily_streak', 0)
+            
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.display_name if hasattr(user, 'display_name') else user.name
+            except:
+                username = f"User {user_id}"
+
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            
+            # Streak emojis
+            streak_emoji = "🔥" * min(streak // 7, 5)  # Fire emoji for every 7 days
+            if streak >= 365:
+                streak_emoji += " 🏆"  # Trophy for year-long streaks
+            elif streak >= 100:
+                streak_emoji += " 💎"  # Diamond for 100+ days
+            elif streak >= 30:
+                streak_emoji += " ⭐"  # Star for 30+ days
+            
+            leaderboard_text.append(f"{medal} **{username}** - {streak} days {streak_emoji}")
+
+        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No streak data available"
+        embed.set_footer(text=f"Page {page}/{total_pages} • Keep your daily streak alive!")
+        
+        return embed
 
 class Leveling(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -183,50 +325,22 @@ class Leveling(commands.Cog):
             if page < 1:
                 page = 1
                 
-            items_per_page = 10
-            skip = (page - 1) * items_per_page
-            
-            # Get total users for pagination
             all_users = db.get_leaderboard('xp')
             total_users = len(all_users)
-            total_pages = (total_users + items_per_page - 1) // items_per_page
+            total_pages = (total_users + 10 - 1) // 10
             
             if page > total_pages:
                 await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
                 return
 
-            # Get users for this page
-            page_users = all_users[skip:skip + items_per_page]
-            
-            if not page_users:
+            if not all_users:
                 await interaction.response.send_message("❌ No leaderboard data available!", ephemeral=True)
                 return
 
-            embed = discord.Embed(
-                title=f"🥇 Level Leaderboard - Page {page}/{total_pages}",
-                color=0xffd700
-            )
+            embed = await self.create_level_leaderboard_embed(page)
+            view = PaginationView("xp", total_pages, page, self.bot)
 
-            leaderboard_text = []
-            for i, user_data in enumerate(page_users, start=skip + 1):
-                user_id = user_data['user_id']
-                xp = user_data.get('xp', 0)
-                level = self.calculate_level_from_xp(xp)
-                job = self.get_job_title(level)
-                
-                try:
-                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                    username = user.display_name if hasattr(user, 'display_name') else user.name
-                except:
-                    username = f"User {user_id}"
-
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-                leaderboard_text.append(f"{medal} **{username}** - Level {level} ({xp:,} XP)\n`{job['name']}`")
-
-            embed.description = "\n\n".join(leaderboard_text)
-            embed.set_footer(text=f"Page {page}/{total_pages} • Keep chatting to climb the ranks!")
-
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, view=view)
 
         except Exception as e:
             if not interaction.response.is_done():
@@ -245,6 +359,7 @@ class Leveling(commands.Cog):
             cookies = user_data.get('cookies', 0)
             coins = user_data.get('coins', 0)
             daily_streak = user_data.get('daily_streak', 0)
+            last_work = user_data.get('last_work', 0)
             level = self.calculate_level_from_xp(xp)
             
             # Get ranks
@@ -255,9 +370,6 @@ class Leveling(commands.Cog):
             xp_rank = next((i + 1 for i, u in enumerate(xp_leaderboard) if u['user_id'] == target.id), 'N/A')
             cookie_rank = next((i + 1 for i, u in enumerate(cookie_leaderboard) if u['user_id'] == target.id), 'N/A')
             coin_rank = next((i + 1 for i, u in enumerate(coin_leaderboard) if u['user_id'] == target.id), 'N/A')
-
-            # Get job title
-            job = self.get_job_title(level)
 
             embed = discord.Embed(
                 title=f"👤 Profile - {target.display_name}",
@@ -279,12 +391,28 @@ class Leveling(commands.Cog):
                 inline=False
             )
             
-            # Job section
-            embed.add_field(
-                name="💼 Career",
-                value=f"**Job Title:** {job['name']}\n**Level Range:** {job['min_level']}-{job['max_level']}\n**Promotion Bonus:** {job['promotion_bonus']} coins",
-                inline=False
-            )
+            # Job section - only show if user has worked
+            if last_work > 0:
+                job = self.get_job_title(level)
+                # Check if it's been more than 7 days since last work
+                current_time = datetime.now().timestamp()
+                days_since_work = (current_time - last_work) / 86400
+                
+                if days_since_work <= 7:
+                    status = "Active"
+                    status_emoji = "🟢"
+                elif days_since_work <= 30:
+                    status = "Inactive"
+                    status_emoji = "🟡"
+                else:
+                    status = "Retired"
+                    status_emoji = "🔴"
+                
+                embed.add_field(
+                    name="💼 Career",
+                    value=f"**Job Title:** {job['name']}\n**Status:** {status_emoji} {status}\n**Level Range:** {job['min_level']}-{job['max_level']}\n**Last Worked:** <t:{int(last_work)}:R>",
+                    inline=False
+                )
             
             # Currency section
             embed.add_field(
@@ -346,9 +474,6 @@ class Leveling(commands.Cog):
             result = db.claim_daily_bonus(interaction.user.id)
             
             if result['success']:
-                level = self.calculate_level_from_xp(result.get('total_xp', 0))
-                job = self.get_job_title(level)
-                
                 embed = discord.Embed(
                     title="🎁 Daily Bonus Claimed!",
                     description=f"**XP Gained:** {result['xp_gained']}\n**Coins Gained:** {result['coins_gained']}\n**Streak:** {result['streak']} day(s)",
@@ -358,7 +483,6 @@ class Leveling(commands.Cog):
                 if result['streak'] % 7 == 0:
                     embed.add_field(name="🎉 Streak Bonus!", value="You got extra rewards for your 7-day streak!", inline=False)
                 
-                embed.add_field(name="💼 Current Job", value=job['name'], inline=True)
                 embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
                 await interaction.response.send_message(embed=embed)
             else:
@@ -383,47 +507,21 @@ class Leveling(commands.Cog):
             if page < 1:
                 page = 1
                 
-            items_per_page = 10
-            skip = (page - 1) * items_per_page
+            streak_data = db.get_streak_leaderboard(page, 10)
+            total_pages = streak_data['total_pages']
             
-            all_users = db.get_leaderboard('daily_streak')
-            total_users = len(all_users)
-            total_pages = (total_users + items_per_page - 1) // items_per_page
-            
-            if page > total_pages:
+            if page > total_pages and total_pages > 0:
                 await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
                 return
 
-            page_users = all_users[skip:skip + items_per_page]
-            
-            if not page_users:
+            if not streak_data['users']:
                 await interaction.response.send_message("❌ No streak data available!", ephemeral=True)
                 return
 
-            embed = discord.Embed(
-                title=f"🔥 Daily Streak Leaderboard - Page {page}/{total_pages}",
-                color=0xff4500
-            )
+            embed = await self.create_streak_leaderboard_embed(page)
+            view = PaginationView("streak", total_pages, page, self.bot)
 
-            leaderboard_text = []
-            for i, user_data in enumerate(page_users, start=skip + 1):
-                user_id = user_data['user_id']
-                streak = user_data.get('daily_streak', 0)
-                
-                try:
-                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                    username = user.display_name if hasattr(user, 'display_name') else user.name
-                except:
-                    username = f"User {user_id}"
-
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-                fire_emoji = "🔥" * min(streak // 7, 5)  # Show fire emojis for every 7 days, max 5
-                leaderboard_text.append(f"{medal} **{username}** - {streak} day streak {fire_emoji}")
-
-            embed.description = "\n".join(leaderboard_text)
-            embed.set_footer(text=f"Page {page}/{total_pages} • Keep your daily streak alive!")
-
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, view=view)
 
         except Exception as e:
             if not interaction.response.is_done():

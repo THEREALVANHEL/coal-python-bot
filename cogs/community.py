@@ -51,7 +51,23 @@ class ShoutView(View):
             self.participants.add(user_id)
             await interaction.response.send_message(f"✅ You've joined **{self.shout_data['title']}**! Get ready!", ephemeral=True)
             
-            # Update the embed with new participant count
+            # Update the embed with new participant names (live update)
+            participant_names = []
+            for p_id in list(self.participants)[:10]:  # Show max 10 names to avoid embed limits
+                try:
+                    user = interaction.client.get_user(p_id)
+                    if user:
+                        participant_names.append(user.display_name)
+                    else:
+                        participant_names.append(f"User {p_id}")
+                except:
+                    participant_names.append(f"User {p_id}")
+            
+            if len(self.participants) > 10:
+                participant_display = ", ".join(participant_names) + f" and {len(self.participants) - 10} more..."
+            else:
+                participant_display = ", ".join(participant_names) if participant_names else "None yet"
+            
             embed = discord.Embed(
                 title=f"📢 {self.shout_data['title']}",
                 description=self.shout_data['description'],
@@ -62,8 +78,9 @@ class ShoutView(View):
             embed.add_field(name="🤝 Co-Host", value=self.shout_data.get('co_host', 'None'), inline=True)
             embed.add_field(name="⚕️ Medic", value=self.shout_data.get('medic', 'None'), inline=True)
             embed.add_field(name="🗺️ Guide", value=self.shout_data.get('guide', 'None'), inline=True)
-            embed.add_field(name="👥 Participants", value=f"{len(self.participants)} joined", inline=True)
+            embed.add_field(name="👥 Participants", value=f"**{len(self.participants)} joined**", inline=True)
             embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
+            embed.add_field(name="🔥 Live Participants", value=participant_display, inline=False)
             embed.set_footer(text="Click the button below to join!")
             
             # Update the message
@@ -92,27 +109,38 @@ class Community(commands.Cog):
     async def cog_load(self):
         print("[Community] Loaded successfully.")
 
-    def create_pie_wheel_image(self, options, title="Spin the Wheel!"):
-        """Create a pie chart wheel image with the given options and title"""
+    def create_pie_wheel_image(self, options, title="Spin the Wheel!", winner=None):
+        """Create an enhanced pie chart wheel with arrow pointing to winner and elegant colors"""
         try:
-            # Create a new image with a white background
-            size = 400
+            # Create a larger image for better quality
+            size = 500
             img = Image.new('RGBA', (size, size), (255, 255, 255, 0))
             draw = ImageDraw.Draw(img)
             
             # Center and radius
             center = size // 2
-            radius = center - 50
+            radius = center - 60
             
-            # Colors for each slice
+            # Elegant color palette - 10 beautiful colors
             colors = [
-                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-                '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+                '#FF6B6B',  # Coral Red
+                '#4ECDC4',  # Turquoise
+                '#45B7D1',  # Sky Blue
+                '#96CEB4',  # Mint Green
+                '#FFEAA7',  # Warm Yellow
+                '#DDA0DD',  # Plum
+                '#98D8C8',  # Seafoam
+                '#F7DC6F',  # Golden Yellow
+                '#BB8FCE',  # Lavender
+                '#85C1E9'   # Light Blue
             ]
             
             # Calculate angles for each slice
             num_options = len(options)
             angle_per_slice = 360 / num_options
+            
+            # Find winner index
+            winner_index = options.index(winner) if winner in options else 0
             
             # Draw pie slices
             start_angle = 0
@@ -120,22 +148,26 @@ class Community(commands.Cog):
                 end_angle = start_angle + angle_per_slice
                 color = colors[i % len(colors)]
                 
+                # Highlight winner slice
+                outline_color = '#FFD700' if i == winner_index else 'white'
+                outline_width = 5 if i == winner_index else 3
+                
                 # Draw the slice
                 draw.pieslice(
                     [center - radius, center - radius, center + radius, center + radius],
-                    start_angle, end_angle, fill=color, outline='white', width=3
+                    start_angle, end_angle, fill=color, outline=outline_color, width=outline_width
                 )
                 
                 # Calculate text position
                 mid_angle = math.radians(start_angle + angle_per_slice / 2)
-                text_radius = radius * 0.7
+                text_radius = radius * 0.75
                 text_x = center + text_radius * math.cos(mid_angle)
                 text_y = center + text_radius * math.sin(mid_angle)
                 
-                # Draw text with better font handling
+                # Draw text with larger font
                 try:
                     font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-                    font = ImageFont.truetype(font_path, 16)
+                    font = ImageFont.truetype(font_path, 24)  # Increased from 16 to 24
                 except:
                     font = ImageFont.load_default()
                 
@@ -144,8 +176,8 @@ class Community(commands.Cog):
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
                 
-                # Draw text with outline for better visibility
-                for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                # Draw text with strong outline for better visibility
+                for dx, dy in [(-2, -2), (-2, 2), (2, -2), (2, 2), (-1, 0), (1, 0), (0, -1), (0, 1)]:
                     draw.text((text_x - text_width//2 + dx, text_y - text_height//2 + dy), 
                              option, font=font, fill='black')
                 draw.text((text_x - text_width//2, text_y - text_height//2), 
@@ -154,24 +186,53 @@ class Community(commands.Cog):
                 start_angle = end_angle
             
             # Draw center circle
-            center_radius = 20
+            center_radius = 25
             draw.ellipse([center - center_radius, center - center_radius, 
                          center + center_radius, center + center_radius], 
-                        fill='white', outline='black', width=2)
+                        fill='white', outline='black', width=3)
             
-            # Draw title at the top
+            # Draw arrow pointing to winner
+            if winner:
+                winner_angle = math.radians(winner_index * angle_per_slice + angle_per_slice / 2)
+                arrow_start_radius = center_radius + 10
+                arrow_end_radius = radius - 10
+                
+                # Calculate arrow position
+                arrow_start_x = center + arrow_start_radius * math.cos(winner_angle)
+                arrow_start_y = center + arrow_start_radius * math.sin(winner_angle)
+                arrow_end_x = center + arrow_end_radius * math.cos(winner_angle)
+                arrow_end_y = center + arrow_end_radius * math.sin(winner_angle)
+                
+                # Draw arrow shaft
+                draw.line([(arrow_start_x, arrow_start_y), (arrow_end_x, arrow_end_y)], 
+                         fill='#FF0000', width=6)
+                
+                # Draw arrowhead
+                arrow_head_size = 15
+                head_angle1 = winner_angle + math.pi * 0.8
+                head_angle2 = winner_angle - math.pi * 0.8
+                
+                head_x1 = arrow_end_x + arrow_head_size * math.cos(head_angle1)
+                head_y1 = arrow_end_y + arrow_head_size * math.sin(head_angle1)
+                head_x2 = arrow_end_x + arrow_head_size * math.cos(head_angle2)
+                head_y2 = arrow_end_y + arrow_head_size * math.sin(head_angle2)
+                
+                draw.polygon([(arrow_end_x, arrow_end_y), (head_x1, head_y1), (head_x2, head_y2)], 
+                           fill='#FF0000', outline='#8B0000', width=2)
+            
+            # Draw title at the top with larger font
             try:
-                title_font = ImageFont.truetype(font_path, 24)
+                title_font = ImageFont.truetype(font_path, 32)  # Increased from 24 to 32
             except:
                 title_font = ImageFont.load_default()
             
             bbox = draw.textbbox((0, 0), title, font=title_font)
             title_width = bbox[2] - bbox[0]
             title_x = center - title_width // 2
-            title_y = 20
+            title_y = 15
             
-            # Draw title with outline
-            for dx, dy in [(-2, -2), (-2, 2), (2, -2), (2, 2)]:
+            # Draw title with strong outline
+            for dx, dy in [(-3, -3), (-3, 3), (3, -3), (3, 3), (-2, 0), (2, 0), (0, -2), (0, 2)]:
                 draw.text((title_x + dx, title_y + dy), title, font=title_font, fill='black')
             draw.text((title_x, title_y), title, font=title_font, fill='white')
             
@@ -181,7 +242,7 @@ class Community(commands.Cog):
             return output_path
             
         except Exception as e:
-            print(f"Error creating pie wheel image: {e}")
+            print(f"Error creating enhanced pie wheel image: {e}")
             return None
 
     @app_commands.command(name="suggest", description="Submit a suggestion to the designated suggestions channel")
@@ -220,7 +281,7 @@ class Community(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error submitting suggestion: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="shout", description="Create a detailed event announcement with join functionality")
+    @app_commands.command(name="shout", description="Create a detailed event announcement with live participant tracking")
     @app_commands.describe(
         title="Event title",
         description="Event description", 
@@ -257,8 +318,9 @@ class Community(commands.Cog):
             embed.add_field(name="🤝 Co-Host", value=co_host or 'None', inline=True)
             embed.add_field(name="⚕️ Medic", value=medic or 'None', inline=True)
             embed.add_field(name="🗺️ Guide", value=guide or 'None', inline=True)
-            embed.add_field(name="👥 Participants", value="0 joined", inline=True)
+            embed.add_field(name="👥 Participants", value="**0 joined**", inline=True)
             embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
+            embed.add_field(name="🔥 Live Participants", value="None yet - be the first to join!", inline=False)
             embed.set_author(name=f"Event by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
             embed.set_footer(text="Click the button below to join!")
             
@@ -268,7 +330,7 @@ class Community(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error creating shout: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="gamelog", description="Log a completed game with detailed information")
+    @app_commands.command(name="gamelog", description="Log a completed game with detailed information and optional picture")
     @app_commands.describe(
         title="Game title",
         summary="Game summary",
@@ -276,10 +338,11 @@ class Community(commands.Cog):
         co_host="Co-host (optional)",
         medic="Medic (optional)",
         guide="Guide (optional)",
-        participants="Participants (comma-separated)"
+        participants="Participants (comma-separated)",
+        picture="Picture URL (optional)"
     )
     async def gamelog(self, interaction: discord.Interaction, title: str, summary: str, host: str,
-                     co_host: str = None, medic: str = None, guide: str = None, participants: str = None):
+                     co_host: str = None, medic: str = None, guide: str = None, participants: str = None, picture: str = None):
         # Check if user has required role
         user_roles = [role.name for role in interaction.user.roles]
         if not any(role in ANNOUNCE_ROLES for role in user_roles):
@@ -313,12 +376,21 @@ class Community(commands.Cog):
             embed.set_author(name=f"Logged by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
             embed.set_footer(text="Game completed successfully!")
             
+            # Add picture if provided
+            if picture:
+                # Basic URL validation
+                if picture.startswith(('http://', 'https://')) and any(picture.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                    embed.set_image(url=picture)
+                    embed.add_field(name="📸 Game Picture", value="Picture attached above", inline=False)
+                else:
+                    embed.add_field(name="⚠️ Picture", value="Invalid picture URL provided", inline=False)
+            
             await interaction.response.send_message(embed=embed)
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error creating game log: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="spinwheel", description="Spin a customizable pie wheel with up to 10 options")
+    @app_commands.command(name="spinwheel", description="Spin an enhanced wheel with arrow pointing to winner")
     @app_commands.describe(title="Wheel title", options="Comma-separated options (up to 10)")
     async def spinwheel(self, interaction: discord.Interaction, title: str, options: str):
         option_list = [opt.strip() for opt in options.split(",") if opt.strip()]
@@ -334,26 +406,26 @@ class Community(commands.Cog):
         # Select winner
         winner = random.choice(option_list)
         
-        # Create pie wheel image with title
-        wheel_image_path = self.create_pie_wheel_image(option_list, title)
+        # Create enhanced pie wheel image with arrow pointing to winner
+        wheel_image_path = self.create_pie_wheel_image(option_list, title, winner)
         
         embed = discord.Embed(
             title=f"🎡 {title}",
-            description=f"🎊 **Winner: {winner}** 🎊",
+            description=f"🎊 **WINNER: {winner}** 🎊",
             color=0xffd700,
             timestamp=datetime.now()
         )
         
-        # Add all options
-        options_text = "\n".join([f"{'🎯 ' if opt == winner else '• '}{opt}" for opt in option_list])
-        embed.add_field(name="Available Options", value=options_text, inline=False)
+        # Add all options with winner highlighted
+        options_text = "\n".join([f"{'� **' + opt + '**' if opt == winner else '• ' + opt}" for opt in option_list])
+        embed.add_field(name="🎯 All Options", value=options_text, inline=False)
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.set_footer(text="The wheel has spoken!")
+        embed.set_footer(text="🎯 The arrow points to the winner!")
         
         # Add wheel image if created successfully
         if wheel_image_path:
-            file = discord.File(wheel_image_path, filename="wheel.png")
-            embed.set_image(url="attachment://wheel.png")
+            file = discord.File(wheel_image_path, filename="enhanced_wheel.png")
+            embed.set_image(url="attachment://enhanced_wheel.png")
             await interaction.response.send_message(embed=embed, file=file)
             
             # Clean up temporary file

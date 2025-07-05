@@ -4,6 +4,7 @@ from discord import app_commands
 from datetime import datetime, timedelta
 import random
 import os, sys
+from discord.ui import Button, View
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -13,14 +14,78 @@ GUILD_ID = 1370009417726169250
 
 # Job opportunities with varying pay and requirements
 JOB_OPPORTUNITIES = [
-    {"name": "Pizza Delivery", "min_pay": 25, "max_pay": 50, "cooldown": 1800, "description": "delivering hot pizzas"},
-    {"name": "Code Review", "min_pay": 40, "max_pay": 80, "cooldown": 2700, "description": "reviewing code for bugs"},
-    {"name": "Bug Hunting", "min_pay": 60, "max_pay": 120, "cooldown": 3600, "description": "finding and reporting bugs"},
-    {"name": "Teaching Session", "min_pay": 80, "max_pay": 150, "cooldown": 4500, "description": "teaching programming"},
-    {"name": "Freelance Project", "min_pay": 100, "max_pay": 200, "cooldown": 5400, "description": "completing a freelance project"},
-    {"name": "Consulting", "min_pay": 150, "max_pay": 300, "cooldown": 7200, "description": "providing tech consulting"},
-    {"name": "System Architecture", "min_pay": 200, "max_pay": 400, "cooldown": 9000, "description": "designing system architecture"},
-    {"name": "Product Launch", "min_pay": 300, "max_pay": 600, "cooldown": 10800, "description": "launching a new product"}
+    {
+        "name": "Pizza Delivery", 
+        "min_pay": 25, 
+        "max_pay": 50, 
+        "cooldown": 1800, 
+        "description": "delivering hot pizzas",
+        "full_description": "🍕 You hop on your delivery bike and navigate through busy streets, delivering steaming hot pizzas to hungry customers. Tips depend on your speed and customer satisfaction!",
+        "requirements": "No experience needed"
+    },
+    {
+        "name": "Code Review", 
+        "min_pay": 40, 
+        "max_pay": 80, 
+        "cooldown": 2700, 
+        "description": "reviewing code for bugs",
+        "full_description": "👨‍💻 You carefully examine lines of code, hunting for bugs and suggesting improvements. Your attention to detail helps prevent crashes and security vulnerabilities!",
+        "requirements": "Basic programming knowledge"
+    },
+    {
+        "name": "Bug Hunting", 
+        "min_pay": 60, 
+        "max_pay": 120, 
+        "cooldown": 3600, 
+        "description": "finding and reporting bugs",
+        "full_description": "🐛 Armed with testing tools, you systematically search for elusive bugs in software. Each bug you find and report earns bounty rewards from grateful developers!",
+        "requirements": "Problem-solving skills"
+    },
+    {
+        "name": "Teaching Session", 
+        "min_pay": 80, 
+        "max_pay": 150, 
+        "cooldown": 4500, 
+        "description": "teaching programming",
+        "full_description": "📚 You lead an engaging coding workshop, helping eager students understand complex programming concepts. Seeing that 'aha!' moment makes it all worthwhile!",
+        "requirements": "Teaching experience"
+    },
+    {
+        "name": "Freelance Project", 
+        "min_pay": 100, 
+        "max_pay": 200, 
+        "cooldown": 5400, 
+        "description": "completing a freelance project",
+        "full_description": "💼 You work independently on a custom software solution for a client. From requirements gathering to final delivery, you handle the entire project lifecycle!",
+        "requirements": "Portfolio and experience"
+    },
+    {
+        "name": "Consulting", 
+        "min_pay": 150, 
+        "max_pay": 300, 
+        "cooldown": 7200, 
+        "description": "providing tech consulting",
+        "full_description": "🤝 You advise companies on their technology strategy, helping them make informed decisions about architecture, tools, and processes. Your expertise drives business success!",
+        "requirements": "Senior level expertise"
+    },
+    {
+        "name": "System Architecture", 
+        "min_pay": 200, 
+        "max_pay": 400, 
+        "cooldown": 9000, 
+        "description": "designing system architecture",
+        "full_description": "🏗️ You design the blueprint for complex software systems, ensuring scalability, reliability, and performance. Your architectural decisions shape the future of technology!",
+        "requirements": "Expert level experience"
+    },
+    {
+        "name": "Product Launch", 
+        "min_pay": 300, 
+        "max_pay": 600, 
+        "cooldown": 10800, 
+        "description": "launching a new product",
+        "full_description": "🚀 You orchestrate the launch of a groundbreaking product, coordinating with marketing, engineering, and sales teams. The success of the launch determines the company's future!",
+        "requirements": "Leadership and vision"
+    }
 ]
 
 class Economy(commands.Cog):
@@ -29,6 +94,39 @@ class Economy(commands.Cog):
 
     async def cog_load(self):
         print("[Economy] Loaded successfully.")
+
+    async def create_coin_leaderboard_embed(self, page: int):
+        items_per_page = 10
+        skip = (page - 1) * items_per_page
+        
+        all_users = db.get_leaderboard('coins')
+        total_users = len(all_users)
+        total_pages = (total_users + items_per_page - 1) // items_per_page
+        page_users = all_users[skip:skip + items_per_page]
+
+        embed = discord.Embed(
+            title=f"🪙 Coin Leaderboard - Page {page}/{total_pages}",
+            color=0xffd700
+        )
+
+        leaderboard_text = []
+        for i, user_data in enumerate(page_users, start=skip + 1):
+            user_id = user_data['user_id']
+            coins = user_data.get('coins', 0)
+            
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.display_name if hasattr(user, 'display_name') else user.name
+            except:
+                username = f"User {user_id}"
+
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            leaderboard_text.append(f"{medal} **{username}** - {coins:,} coins")
+
+        embed.description = "\n".join(leaderboard_text)
+        embed.set_footer(text=f"Page {page}/{total_pages} • Work hard to earn more coins!")
+        
+        return embed
 
     @app_commands.command(name="balance", description="Check your or another user's coin balance")
     @app_commands.describe(user="User to check balance for")
@@ -63,46 +161,23 @@ class Economy(commands.Cog):
             if page < 1:
                 page = 1
                 
-            items_per_page = 10
-            skip = (page - 1) * items_per_page
-            
             all_users = db.get_leaderboard('coins')
             total_users = len(all_users)
-            total_pages = (total_users + items_per_page - 1) // items_per_page
+            total_pages = (total_users + 10 - 1) // 10
             
             if page > total_pages:
                 await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
                 return
 
-            page_users = all_users[skip:skip + items_per_page]
-            
-            if not page_users:
+            if not all_users:
                 await interaction.response.send_message("❌ No coin data available!", ephemeral=True)
                 return
 
-            embed = discord.Embed(
-                title=f"🪙 Coin Leaderboard - Page {page}/{total_pages}",
-                color=0xffd700
-            )
+            from cogs.leveling import PaginationView
+            embed = await self.create_coin_leaderboard_embed(page)
+            view = PaginationView("coins", total_pages, page, self.bot)
 
-            leaderboard_text = []
-            for i, user_data in enumerate(page_users, start=skip + 1):
-                user_id = user_data['user_id']
-                coins = user_data.get('coins', 0)
-                
-                try:
-                    user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                    username = user.display_name if hasattr(user, 'display_name') else user.name
-                except:
-                    username = f"User {user_id}"
-
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-                leaderboard_text.append(f"{medal} **{username}** - {coins:,} coins")
-
-            embed.description = "\n".join(leaderboard_text)
-            embed.set_footer(text=f"Page {page}/{total_pages} • Work hard to earn more coins!")
-
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, view=view)
 
         except Exception as e:
             if not interaction.response.is_done():
@@ -156,23 +231,28 @@ class Economy(commands.Cog):
                 
                 embed = discord.Embed(
                     title="💼 Work Complete!",
-                    description=f"You worked as **{job['name']}** {job['description']} and earned **{total_earnings}** coins!",
+                    description=f"**{job['name']}** - {job['full_description']}",
                     color=0x00ff00
                 )
-                embed.add_field(name="💰 Breakdown", value=f"Base Pay: {base_earnings}\nLevel Bonus: {level_bonus}\nTotal: {total_earnings}", inline=True)
+                embed.add_field(name="💰 Earnings", value=f"**{total_earnings}** coins earned!", inline=True)
                 embed.add_field(name="💰 New Balance", value=f"{new_balance:,} coins", inline=True)
+                embed.add_field(name="� Breakdown", value=f"Base: {base_earnings}\nLevel Bonus: {level_bonus}", inline=True)
+                embed.add_field(name="� Requirements", value=job["requirements"], inline=False)
                 embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+                embed.set_footer(text=f"Great job! Come back in 30 minutes for more work.")
             else:
                 # Failure
                 db.update_last_work(interaction.user.id, current_time)
                 
                 embed = discord.Embed(
                     title="💼 Work Failed!",
-                    description=f"You attempted **{job['name']}** but it didn't go well. Better luck next time!",
+                    description=f"**{job['name']}** - You attempted this job but it didn't go as planned.",
                     color=0xff9900
                 )
+                embed.add_field(name="😔 What happened", value=f"The {job['name'].lower()} was more challenging than expected. Sometimes these things happen!", inline=False)
                 embed.add_field(name="💡 Tip", value="Higher level jobs have lower success rates but better pay!", inline=False)
                 embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+                embed.set_footer(text="Don't give up! Try again in 30 minutes.")
             
             await interaction.response.send_message(embed=embed)
 

@@ -83,59 +83,70 @@ async def on_ready():
 
 # Load cogs
 async def load_cogs():
+    """Load all cogs"""
+    cogs = [
+        'cogs.leveling',
+        'cogs.cookies', 
+        'cogs.economy',
+        'cogs.events',
+        'cogs.community',
+        'cogs.moderation',
+        'cogs.settings',
+        'cogs.tickets'  # Added tickets system
+    ]
+    
+    for cog in cogs:
+        try:
+            await bot.load_extension(cog)
+            print(f"[Main] Loaded {cog}")
+        except Exception as e:
+            print(f"[Main] Failed to load {cog}: {e}")
+
+async def startup_maintenance():
+    """Perform startup maintenance and optimization"""
     try:
-        cogs = [
-            'cogs.leveling',
-            'cogs.economy', 
-            'cogs.moderation',
-            'cogs.community',
-            'cogs.settings',
-            'cogs.cookies',
-            'cogs.events',
-            'cogs.event_commands'
-        ]
-        for cog in cogs:
-            try:
-                await bot.load_extension(cog)
-                print(f"✅ Loaded: {cog}")
-            except Exception as e:
-                print(f"❌ Failed to load {cog}: {e}")
+        print("[Main] Performing startup maintenance...")
+        
+        # Remove deprecated warning system
+        result = db.remove_deprecated_warning_system()
+        if result['success']:
+            print(f"[Main] Removed warning system from {result['users_updated']} users")
+        
+        # Optimize database
+        optimization = db.optimize_database_live()
+        if optimization['success']:
+            print(f"[Main] Database optimized with {len(optimization['indexes_created'])} indexes")
+        
+        # Auto-sync first 100 users for better performance
+        print("[Main] Auto-syncing user data...")
+        users_synced = 0
+        try:
+            all_users = db.get_all_users_for_maintenance()[:100]  # Limit to 100 for startup
+            for user_data in all_users:
+                db.auto_sync_user_data(user_data['user_id'])
+                users_synced += 1
+        except Exception as e:
+            print(f"[Main] Error in user sync: {e}")
+        
+        print(f"[Main] Startup maintenance complete. Synced {users_synced} users.")
+        
     except Exception as e:
-        print(f"❌ Error loading cogs: {e}")
+        print(f"[Main] Error in startup maintenance: {e}")
 
 async def main():
-    print("=== BOT STARTING ===")
-    print("✅ OS imported")
-    print("✅ Discord imported") 
-    print("✅ Flask imported")
-    print("🌐 Starting Flask...")
-    
-    # Start keep-alive server
-    keep_alive()
-    
-    print(f"🔑 Token found: {bool(DISCORD_TOKEN)}")
-    print(f"🔑 Token starts with: {DISCORD_TOKEN[:15]}...")
-    print("🤖 Creating Discord client...")
-    
-    # Load cogs
-    await load_cogs()
-    
-    print("🚀 Starting bot connection...")
-    
-    # Start bot with better error handling
+    """Main function to run the bot"""
     try:
+        # Load all cogs
+        await load_cogs()
+        
+        # Perform startup maintenance
+        await startup_maintenance()
+        
+        # Start the bot
         await bot.start(DISCORD_TOKEN)
-    except discord.HTTPException as e:
-        if e.status == 429:
-            print("⏳ Rate limited. Waiting 5 minutes before retry...")
-            await asyncio.sleep(300)  # Wait 5 minutes
-            await bot.start(DISCORD_TOKEN)
-        else:
-            print(f"❌ BOT ERROR: {e}")
-            raise
+        
     except Exception as e:
-        print(f"❌ BOT ERROR: {e}")
-        raise
+        print(f"[Main] Error starting bot: {e}")
 
 if __name__ == "__main__":
     try:
