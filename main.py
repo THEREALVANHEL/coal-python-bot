@@ -112,11 +112,41 @@ async def on_ready():
     # Sync slash commands
     print("⚡ Starting command sync...")
     try:
+        # Clear existing commands first (helps with sync issues)
+        print("🔄 Clearing existing commands...")
+        bot.tree.clear_commands(guild=None)
+        
+        # Sync commands globally
+        print("🌐 Syncing commands globally...")
         synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} slash commands successfully")
+        print(f"✅ Successfully synced {len(synced)} slash commands globally")
+        
+        # Log the commands that were synced
+        if synced:
+            command_names = [cmd.name for cmd in synced]
+            print(f"📋 Synced commands: {', '.join(command_names)}")
+        else:
+            print("⚠️ No commands were synced - this might indicate an issue")
+            
+    except discord.HTTPException as e:
+        print(f"❌ HTTP error during command sync: {e}")
+        print("🔄 Bot will continue, but commands may not work properly")
+    except discord.Forbidden as e:
+        print(f"❌ Permission error during command sync: {e}")
+        print("🔧 Check bot permissions in Discord Developer Portal")
     except Exception as e:
-        print(f"❌ Failed to sync commands: {e}")
-        print("🔄 Bot will continue without command sync")
+        print(f"❌ Unexpected error during command sync: {e}")
+        print(f"� Error type: {type(e).__name__}")
+        print("�🔄 Bot will continue without command sync")
+        
+        # Try emergency sync without clearing
+        try:
+            print("🚨 Attempting emergency sync...")
+            emergency_synced = await bot.tree.sync()
+            print(f"✅ Emergency sync successful: {len(emergency_synced)} commands")
+        except Exception as emergency_error:
+            print(f"❌ Emergency sync also failed: {emergency_error}")
+            print("⚠️ Manual intervention may be required")
     
     # Check database connectivity and stats with timeout
     print("💾 Starting database connectivity check...")
