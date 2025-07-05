@@ -60,8 +60,8 @@ class Cookies(commands.Cog):
         except Exception as e:
             print(f"Error updating cookie roles for {user}: {e}")
 
-    async def create_cookie_leaderboard_embed(self, page: int):
-        items_per_page = 10
+    async def create_cookie_leaderboard_embed(self, page: int, members: int = 10):
+        items_per_page = members
         skip = (page - 1) * items_per_page
         
         all_users = db.get_leaderboard('cookies')
@@ -69,10 +69,8 @@ class Cookies(commands.Cog):
         total_pages = (total_users + items_per_page - 1) // items_per_page
         page_users = all_users[skip:skip + items_per_page]
 
-        # Super sweet cookie-themed design
         embed = discord.Embed(
-            title="🍪 **COOKIE EMPIRE** 🍪",
-            description="🌟 *The Sweet Champions of Deliciousness* 🌟",
+            title="🍪 Cookie Leaderboard",
             color=0xdaa520,
             timestamp=datetime.now()
         )
@@ -88,81 +86,10 @@ class Cookies(commands.Cog):
             except:
                 username = f"User {user_id}"
 
-            # Epic cookie ranking system
-            if i == 1:
-                rank_style = f"👑 **#{i} COOKIE EMPEROR {username}** 👑"
-                style_suffix = " 🍪🍪🍪"
-            elif i == 2:
-                rank_style = f"🥈 **#{i} SWEET MASTER {username}** 🥈"
-                style_suffix = " 🍪🍪"
-            elif i == 3:
-                rank_style = f"🥉 **#{i} DESSERT KING {username}** 🥉"
-                style_suffix = " 🍪"
-            elif i <= 5:
-                rank_style = f"🔸 **#{i} SUGAR LORD {username}**"
-                style_suffix = " ⭐"
-            elif i <= 10:
-                rank_style = f"▫️ **#{i} TREAT COLLECTOR {username}**"
-                style_suffix = " 🍰"
-            else:
-                rank_style = f"#{i} • {username}"
-                style_suffix = ""
+            leaderboard_text.append(f"**#{i}** {username} - **{cookies:,} cookies**")
 
-            # Cookie tier system
-            if cookies >= 10000:
-                cookie_tier = "🏆 **LEGENDARY BAKER**"
-                cookie_emoji = "🍪🍪🍪🍪🍪"
-            elif cookies >= 5000:
-                cookie_tier = "💎 **MASTER BAKER**"
-                cookie_emoji = "🍪🍪🍪🍪"
-            elif cookies >= 1750:
-                cookie_tier = "⭐ **EXPERT BAKER**"
-                cookie_emoji = "🍪🍪🍪"
-            elif cookies >= 1000:
-                cookie_tier = "⭐ **SKILLED BAKER**"
-                cookie_emoji = "🍪🍪"
-            elif cookies >= 500:
-                cookie_tier = "🌟 **AMATEUR BAKER**"
-                cookie_emoji = "🍪"
-            elif cookies >= 100:
-                cookie_tier = "✨ **COOKIE LOVER**"
-                cookie_emoji = "🧁"
-            else:
-                cookie_tier = "🔰 **SWEET TOOTH**"
-                cookie_emoji = "🍰"
-            
-            # Create cookie progress bar towards next milestone
-            milestones = [100, 500, 1000, 1750, 3000, 5000, 10000, 25000]
-            next_milestone = next((m for m in milestones if cookies < m), 25000)
-            prev_milestone = max([m for m in milestones if cookies >= m] + [0])
-            
-            if next_milestone > prev_milestone:
-                progress = (cookies - prev_milestone) / (next_milestone - prev_milestone)
-                progress_bars = int(progress * 8)
-                cookie_bar = "🍪" * progress_bars + "▱" * (8 - progress_bars)
-                progress_text = f"`{cookie_bar}` → {next_milestone:,}"
-            else:
-                progress_text = "🏆 **MAX LEVEL ACHIEVED!**"
-            
-            entry = f"{rank_style}{style_suffix}\n🍪 **{cookies:,} Cookies** • {cookie_tier}\n{progress_text} {cookie_emoji}"
-            leaderboard_text.append(entry)
-
-        embed.description = f"🌟 *The Sweet Champions of Deliciousness* 🌟\n\n" + "\n\n".join(leaderboard_text)
-        
-        # Sweet stats section
-        embed.add_field(
-            name="🍪 **Cookie Stats**",
-            value=f"🧁 **{total_users}** Cookie Collectors\n🍰 **Page {page}/{total_pages}**\n🎯 **Stay Sweet!**",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="💡 **Cookie Tips**",
-            value="💬 Stay active to collect\n🎮 Participate in events\n🏆 Reach role milestones!",
-            inline=True
-        )
-        
-        embed.set_footer(text="🍪 Cookie Leaderboard • Sweetness overload! • 🌟 Deliciously competitive!")
+        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No cookie data available!"
+        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(page_users)} of {total_users} users")
         
         return embed
 
@@ -251,47 +178,7 @@ class Cookies(commands.Cog):
             )
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-    # REMOVED: cookietop command - now use /leaderboard cookies
-    @app_commands.command(name="cookietop", description="🍪 View cookie leaderboard (use /leaderboard instead)")
-    async def cookietop_redirect(self, interaction: discord.Interaction, page: int = 1):
-        embed = discord.Embed(
-            title="🔄 Command Updated",
-            description="The cookie leaderboard has been moved to our new unified system!",
-            color=0x7c3aed
-        )
-        embed.add_field(
-            name="✨ New Command",
-            value="Use `/leaderboard type:🍪 Cookies` for the cookie leaderboard",
-            inline=False
-        )
-        embed.add_field(
-            name="🎉 What's New",
-            value="• Better pagination\n• Elegant design\n• All leaderboards in one place",
-            inline=False
-        )
-        embed.set_footer(text="💫 This command will be removed in a future update")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # REMOVED: cookiesrank command - now use unified leaderboard
-    @app_commands.command(name="cookiesrank", description="🍪 View your cookie rank (use /leaderboard instead)")
-    async def cookiesrank_redirect(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="🔄 **Command Updated**",
-            description="Cookie ranking has been moved to our unified leaderboard system!",
-            color=0x7c3aed
-        )
-        embed.add_field(
-            name="✨ **New Command**",
-            value="Use `/leaderboard type:🍪 Cookies` for the cookie leaderboard with your rank!",
-            inline=False
-        )
-        embed.add_field(
-            name="🎉 **What's New**",
-            value="• Beautiful cookie empire design\n• Progress bars and milestones\n• Smooth pagination\n• Cookie tier system with achievements",
-            inline=False
-        )
-        embed.set_footer(text="💫 This command will be removed soon")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="addcookies", description="Adds cookies to a user (Manager only)")
     @app_commands.describe(user="User to give cookies to", amount="Amount of cookies to add")

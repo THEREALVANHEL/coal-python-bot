@@ -101,26 +101,125 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error adding warning: {str(e)}", ephemeral=True)
 
-    # REMOVED: warnings command - deprecated warning system removed
-    @app_commands.command(name="warnings", description="⚠️ Command removed (warning system deprecated)")
-    async def warnings_removed(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="🔄 **Command Deprecated**",
-            description="The warning system has been removed from this bot.",
-            color=0xff9966
-        )
-        embed.add_field(
-            name="🛡️ **Alternative Moderation**",
-            value="Use Discord's built-in moderation features or third-party bots for warnings.",
-            inline=False
-        )
-        embed.add_field(
-            name="💡 **Available Commands**",
-            value="• `/modclear` - Clear messages\n• `/updateroles` - Sync user roles\n• `/roleplay` - AI roleplay scenarios",
-            inline=False
-        )
-        embed.set_footer(text="💫 This command will be removed completely soon")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+    @app_commands.command(name="checkwarnlist", description="📋 Check warnings for a user")
+    @app_commands.describe(user="User to check warnings for")
+    async def check_warn_list(self, interaction: discord.Interaction, user: discord.Member):
+        if not has_moderator_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        try:
+            warnings = db.get_user_warnings(user.id)
+            
+            embed = discord.Embed(
+                title="⚠️ Warning List",
+                description=f"**User:** {user.mention}\n**Total Warnings:** {len(warnings)}",
+                color=0xff9900 if warnings else 0x00ff00,
+                timestamp=datetime.now()
+            )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            
+            if warnings:
+                warning_text = []
+                for i, warning in enumerate(warnings[-10:], 1):  # Show last 10 warnings
+                    timestamp = datetime.fromtimestamp(warning.get('timestamp', 0))
+                    moderator_id = warning.get('moderator_id', 'Unknown')
+                    reason = warning.get('reason', 'No reason provided')
+                    
+                    try:
+                        moderator = self.bot.get_user(moderator_id)
+                        mod_name = moderator.display_name if moderator else f"Unknown ({moderator_id})"
+                    except:
+                        mod_name = f"Unknown ({moderator_id})"
+                    
+                    warning_text.append(f"**{i}.** {reason}\n*By {mod_name} on {timestamp.strftime('%Y-%m-%d %H:%M')}*")
+                
+                embed.add_field(
+                    name="📝 Recent Warnings",
+                    value="\n\n".join(warning_text),
+                    inline=False
+                )
+                
+                if len(warnings) > 10:
+                    embed.set_footer(text=f"Showing 10 most recent warnings out of {len(warnings)} total")
+                else:
+                    embed.set_footer(text=FOOTER_TXT)
+            else:
+                embed.add_field(
+                    name="✅ Clean Record",
+                    value="This user has no warnings on record.",
+                    inline=False
+                )
+                embed.set_footer(text=FOOTER_TXT)
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error retrieving warnings: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="removewarnlist", description="🗑️ Remove specific warning or clear all warnings for a user")
+    @app_commands.describe(
+        user="User to remove warnings from",
+        warning_index="Warning number to remove (leave empty to clear all)",
+        reason="Reason for removing warning(s)"
+    )
+    async def remove_warn_list(self, interaction: discord.Interaction, user: discord.Member, warning_index: int = None, reason: str = "No reason provided"):
+        if not has_moderator_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        try:
+            warnings = db.get_user_warnings(user.id)
+            
+            if not warnings:
+                embed = discord.Embed(
+                    title="ℹ️ No Warnings",
+                    description=f"{user.mention} has no warnings to remove.",
+                    color=0x7289da
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            if warning_index is None:
+                # Remove all warnings
+                db.clear_user_warnings(user.id)
+                
+                embed = discord.Embed(
+                    title="🗑️ All Warnings Cleared",
+                    description=f"Cleared **{len(warnings)}** warning(s) for {user.mention}",
+                    color=0x00ff00,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="� Reason", value=reason, inline=False)
+                embed.add_field(name="👮 Moderator", value=interaction.user.mention, inline=True)
+                embed.set_footer(text=FOOTER_TXT)
+                
+                await interaction.response.send_message(embed=embed)
+            else:
+                # Remove specific warning
+                if warning_index < 1 or warning_index > len(warnings):
+                    await interaction.response.send_message(f"❌ Invalid warning index! User has {len(warnings)} warning(s). Use `/checkwarnlist` to see warning numbers.", ephemeral=True)
+                    return
+                
+                removed_warning = warnings[warning_index - 1]
+                db.remove_specific_warning(user.id, warning_index - 1)
+                
+                embed = discord.Embed(
+                    title="🗑️ Warning Removed",
+                    description=f"Removed warning #{warning_index} from {user.mention}",
+                    color=0x00ff00,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="📝 Removed Warning", value=removed_warning.get('reason', 'No reason'), inline=False)
+                embed.add_field(name="� Removal Reason", value=reason, inline=False)
+                embed.add_field(name="👮 Moderator", value=interaction.user.mention, inline=True)
+                embed.add_field(name="📊 Remaining", value=f"{len(warnings) - 1} warning(s)", inline=True)
+                embed.set_footer(text=FOOTER_TXT)
+                
+                await interaction.response.send_message(embed=embed)
+                
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error removing warning(s): {str(e)}", ephemeral=True)
 
     @app_commands.command(name="updateroles", description="Updates roles based on a user's current level and cookies")
     @app_commands.describe(user="User to update roles for")
@@ -230,7 +329,12 @@ class Moderation(commands.Cog):
             # Call Gemini AI
             import google.generativeai as genai
             
-            genai.configure(api_key=GEMINI_API_KEY)
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            if not gemini_api_key:
+                await interaction.followup.send("❌ Gemini AI service not configured. Please contact an administrator.", ephemeral=True)
+                return
+                
+            genai.configure(api_key=gemini_api_key)
             model = genai.GenerativeModel('gemini-pro')
             
             response = model.generate_content(prompt)

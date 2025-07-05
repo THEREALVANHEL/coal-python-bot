@@ -454,15 +454,37 @@ class Tickets(commands.Cog):
     @app_commands.command(name="setuptickets", description="🎫 Set up the ticket system with interactive buttons")
     @app_commands.describe(
         channel="Channel where users can create tickets",
-        category="Category where ticket channels will be created",
+        ticketzone="Category ID where ticket channels will be created",
         support_roles="Support role IDs (comma-separated, optional)"
     )
     @app_commands.default_permissions(manage_channels=True)
     async def setup_tickets(self, interaction: discord.Interaction, 
                            channel: discord.TextChannel, 
-                           category: discord.CategoryChannel, 
+                           ticketzone: str, 
                            support_roles: str = None):
         try:
+            # Parse and validate category ID
+            if not ticketzone.isdigit():
+                error_embed = discord.Embed(
+                    title="❌ Invalid Category ID",
+                    description="Please provide a valid category ID (numbers only).",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
+                return
+                
+            category_id = int(ticketzone)
+            category = interaction.guild.get_channel(category_id)
+            
+            if not category or not isinstance(category, discord.CategoryChannel):
+                error_embed = discord.Embed(
+                    title="❌ Category Not Found",
+                    description=f"Category with ID `{category_id}` not found or is not a category channel.",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
+                return
+            
             # Parse support roles
             support_role_ids = []
             if support_roles:

@@ -103,8 +103,8 @@ class PaginationView(View):
 
         await interaction.response.edit_message(embed=embed, view=self)
 
-    async def create_level_leaderboard_embed(self, page: int):
-        items_per_page = 10
+    async def create_level_leaderboard_embed(self, page: int, members: int = 10):
+        items_per_page = members
         skip = (page - 1) * items_per_page
         
         all_users = db.get_leaderboard('xp')
@@ -112,11 +112,9 @@ class PaginationView(View):
         total_pages = (total_users + items_per_page - 1) // items_per_page
         page_users = all_users[skip:skip + items_per_page]
 
-        # Cool animated gradient colors for XP leaderboard
         embed = discord.Embed(
-            title="🏆 **LEVEL LEADERBOARD** 🏆",
-            description="⚡ *The Elite XP Champions* ⚡",
-            color=0x00ff88,
+            title="🏆 XP Leaderboard",
+            color=0x7c3aed,
             timestamp=datetime.now()
         )
 
@@ -124,8 +122,6 @@ class PaginationView(View):
         for i, user_data in enumerate(page_users, start=skip + 1):
             user_id = user_data['user_id']
             xp = user_data.get('xp', 0)
-            level = self.calculate_level_from_xp(xp)
-            job = self.get_job_title(level)
             
             try:
                 user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
@@ -133,83 +129,24 @@ class PaginationView(View):
             except:
                 username = f"User {user_id}"
 
-            # Cool medal system with special effects
-            if i == 1:
-                medal = "👑"
-                rank_style = f"**#{i} {medal} {username}**"
-                style_suffix = " ✨🔥✨"
-            elif i == 2:
-                medal = "🥈"
-                rank_style = f"**#{i} {medal} {username}**"
-                style_suffix = " ⭐💎⭐"
-            elif i == 3:
-                medal = "🥉"
-                rank_style = f"**#{i} {medal} {username}**"
-                style_suffix = " 🌟⚡🌟"
-            elif i <= 5:
-                rank_style = f"**#{i} 🔸 {username}**"
-                style_suffix = " 💫"
-            elif i <= 10:
-                rank_style = f"**#{i} ▫️ {username}**"
-                style_suffix = " ⭐"
-            else:
-                rank_style = f"#{i} • {username}"
-                style_suffix = ""
-            
-            # Create progress bar for level
-            current_level_xp = self.calculate_xp_for_level(level)
-            next_level_xp = self.calculate_xp_for_level(level + 1)
-            progress = (xp - current_level_xp) / (next_level_xp - current_level_xp) if next_level_xp > current_level_xp else 1
-            progress_bars = int(progress * 8)
-            progress_display = "▰" * progress_bars + "▱" * (8 - progress_bars)
-            
-            # Only show job if user has worked recently
-            user_full_data = db.get_user_data(user_id)
-            last_work = user_full_data.get('last_work', 0)
-            show_job = last_work > 0
-            
-            level_display = f"🎯 **Level {level}** • {xp:,} XP"
-            progress_line = f"`{progress_display}` {int(progress * 100)}%"
-            
-            if show_job:
-                job_line = f"💼 *{job['name']}*"
-                entry = f"{rank_style}{style_suffix}\n{level_display}\n{progress_line}\n{job_line}"
-            else:
-                entry = f"{rank_style}{style_suffix}\n{level_display}\n{progress_line}"
-            
-            leaderboard_text.append(entry)
+            level = self.calculate_level_from_xp(xp)
+            leaderboard_text.append(f"**#{i}** {username} - **{xp:,} XP** (Level {level})")
 
-        embed.description = f"⚡ *The Elite XP Champions* ⚡\n\n" + "\n\n".join(leaderboard_text)
-        
-        # Cool footer with stats
-        embed.add_field(
-            name="📊 **Server Stats**",
-            value=f"🔥 **{total_users}** Active Members\n⚡ **Page {page}/{total_pages}**\n🎯 **Keep Grinding!**",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="🎮 **Pro Tips**",
-            value="💬 Chat more to gain XP\n📈 Higher levels = better rewards\n🔄 Check `/profile` for details",
-            inline=True
-        )
-        
-        embed.set_footer(text="🔥 Level Leaderboard • Keep chatting to climb the ranks! • 💫 Live Data")
+        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No XP data available!"
+        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(page_users)} of {total_users} users")
         
         return embed
 
-    async def create_streak_leaderboard_embed(self, page: int):
-        items_per_page = 10
+    async def create_streak_leaderboard_embed(self, page: int, members: int = 10):
+        items_per_page = members
         skip = (page - 1) * items_per_page
         
-        streak_data = db.get_streak_leaderboard(page, 10)
+        streak_data = db.get_streak_leaderboard(page, items_per_page)
         page_users = streak_data['users']
         total_pages = streak_data['total_pages']
 
-        # Super cool fire-themed design
         embed = discord.Embed(
-            title="🔥 **STREAK CHAMPIONS** 🔥",
-            description="🌟 *The Daily Dedication Masters* 🌟",
+            title="🔥 Streak Leaderboard",
             color=0xff4500,
             timestamp=datetime.now()
         )
@@ -225,75 +162,10 @@ class PaginationView(View):
             except:
                 username = f"User {user_id}"
 
-            # Epic streak ranking system
-            if i == 1:
-                rank_style = f"👑 **#{i} STREAK EMPEROR {username}** 👑"
-                style_suffix = " 🔥🔥🔥"
-            elif i == 2:
-                rank_style = f"🥈 **#{i} FLAME MASTER {username}** 🥈"
-                style_suffix = " 🔥🔥"
-            elif i == 3:
-                rank_style = f"🥉 **#{i} FIRE KEEPER {username}** 🥉"
-                style_suffix = " 🔥"
-            elif i <= 5:
-                rank_style = f"🔸 **#{i} EMBER LORD {username}**"
-                style_suffix = " ⚡"
-            else:
-                rank_style = f"▫️ **#{i} {username}**"
-                style_suffix = ""
-            
-            # Streak visualization with cool effects
-            if streak >= 365:
-                streak_tier = "🏆 **LEGENDARY**"
-                streak_emoji = "🔥🔥🔥🔥🔥"
-            elif streak >= 180:
-                streak_tier = "💎 **DIAMOND**"
-                streak_emoji = "🔥🔥🔥🔥"
-            elif streak >= 100:
-                streak_tier = "💎 **MASTER**"
-                streak_emoji = "🔥🔥🔥"
-            elif streak >= 50:
-                streak_tier = "⭐ **EXPERT**"
-                streak_emoji = "🔥🔥"
-            elif streak >= 30:
-                streak_tier = "⭐ **VETERAN**"
-                streak_emoji = "🔥"
-            elif streak >= 14:
-                streak_tier = "🌟 **COMMITTED**"
-                streak_emoji = "🌟"
-            elif streak >= 7:
-                streak_tier = "✨ **DEDICATED**"
-                streak_emoji = "⚡"
-            else:
-                streak_tier = "🔰 **ROOKIE**"
-                streak_emoji = "✨"
-            
-            # Create streak progress bar
-            progress = min(streak / 365, 1)  # Max out at 1 year
-            progress_bars = int(progress * 10)
-            streak_bar = "🔥" * progress_bars + "▱" * (10 - progress_bars)
-            
-            entry = f"{rank_style}{style_suffix}\n🔥 **{streak} Days** • {streak_tier}\n`{streak_bar}` {streak_emoji}"
-            leaderboard_text.append(entry)
+            leaderboard_text.append(f"**#{i}** {username} - **{streak} days**")
 
-        embed.description = f"🌟 *The Daily Dedication Masters* 🌟\n\n" + "\n\n".join(leaderboard_text) if leaderboard_text else "🔥 No streak warriors yet! Be the first to start your daily journey!"
-        
-        # Cool stats section
-        if leaderboard_text:
-            total_streaks = len(streak_data.get('users', []))
-            embed.add_field(
-                name="🔥 **Streak Stats**",
-                value=f"⚡ **{total_streaks}** Active Streakers\n🔥 **Page {page}/{total_pages}**\n🎯 **Never Give Up!**",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="💡 **Streak Tips**",
-                value="📅 Use `/daily` every day\n🔔 Set phone reminders\n🏆 Build the longest streak!",
-                inline=True
-            )
-        
-        embed.set_footer(text="🔥 Streak Leaderboard • Consistency is key! • ⚡ Never break the chain!")
+        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No streak data available!"
+        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(page_users)} users")
         
         return embed
 
@@ -375,31 +247,13 @@ class Leveling(commands.Cog):
         except Exception as e:
             print(f"Error updating cookie roles for {member}: {e}")
 
-    # REMOVED: rank command - now use /profile
-    @app_commands.command(name="rank", description="📊 View your rank (use /profile instead)")
-    async def rank_redirect(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="🔄 **Command Updated**",
-            description="The rank command has been integrated into our profile system!",
-            color=0x7c3aed
-        )
-        embed.add_field(
-            name="✨ **New Command**",
-            value="Use `/profile` to see your complete stats including rank!",
-            inline=False
-        )
-        embed.add_field(
-            name="🎉 **What's Better**",
-            value="• Complete overview of your progress\n• XP, level, and rank all in one place\n• Job information and streak data\n• Much more detailed information",
-            inline=False
-        )
-        embed.set_footer(text="💫 This command will be removed soon")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
     @app_commands.command(name="leaderboard", description="🏆 View all server leaderboards with elegant pagination")
     @app_commands.describe(
         type="Choose leaderboard type",
-        page="Page number (default: 1)"
+        page="Page number (default: 1)",
+        members="Number of members to show per page (default: 10, max: 50)"
     )
     @app_commands.choices(type=[
         app_commands.Choice(name="🥇 XP & Levels", value="xp"),
@@ -408,33 +262,38 @@ class Leveling(commands.Cog):
         app_commands.Choice(name="🔥 Daily Streaks", value="streak")
     ])
     async def unified_leaderboard(self, interaction: discord.Interaction, 
-                                type: str = "xp", page: int = 1):
+                                type: str = "xp", page: int = 1, members: int = 10):
         try:
             if page < 1:
                 page = 1
+                
+            if members < 1:
+                members = 10
+            elif members > 50:
+                members = 50
 
             # Get leaderboard data based on type
             if type == "xp":
                 all_users = db.get_leaderboard('xp')
-                total_pages = (len(all_users) + 10 - 1) // 10
+                total_pages = (len(all_users) + members - 1) // members
                 embed_func = self.create_level_leaderboard_embed
                 no_data_msg = "❌ No XP data available! Start chatting to appear on the leaderboard."
             elif type == "cookies":
                 all_users = db.get_leaderboard('cookies')
-                total_pages = (len(all_users) + 10 - 1) // 10
+                total_pages = (len(all_users) + members - 1) // members
                 from cogs.cookies import Cookies
                 cookies_cog = self.bot.get_cog('Cookies')
                 embed_func = cookies_cog.create_cookie_leaderboard_embed if cookies_cog else None
                 no_data_msg = "❌ No cookie data available! Start collecting cookies to appear here."
             elif type == "coins":
                 all_users = db.get_leaderboard('coins')
-                total_pages = (len(all_users) + 10 - 1) // 10
+                total_pages = (len(all_users) + members - 1) // members
                 from cogs.economy import Economy
                 economy_cog = self.bot.get_cog('Economy')
                 embed_func = economy_cog.create_coin_leaderboard_embed if economy_cog else None
                 no_data_msg = "❌ No coin data available! Use `/work` to start earning coins."
             elif type == "streak":
-                streak_data = db.get_streak_leaderboard(page, 10)
+                streak_data = db.get_streak_leaderboard(page, members)
                 total_pages = streak_data['total_pages']
                 embed_func = self.create_streak_leaderboard_embed
                 no_data_msg = "❌ No streak data available! Use `/daily` to start your streak."
@@ -467,7 +326,7 @@ class Leveling(commands.Cog):
 
             # Create embed
             if embed_func:
-                embed = await embed_func(page)
+                embed = await embed_func(page, members)
             else:
                 error_embed = discord.Embed(
                     title="❌ System Error",
@@ -478,7 +337,7 @@ class Leveling(commands.Cog):
                 return
 
             # Add elegant branding
-            embed.set_footer(text="💫 Unified Leaderboard System • Use the buttons to navigate")
+            embed.set_footer(text=f"💫 Unified Leaderboard System • Showing {members} per page")
             
             # Create pagination view
             view = PaginationView(type, total_pages, page, self.bot)
@@ -590,32 +449,7 @@ class Leveling(commands.Cog):
             else:
                 await interaction.followup.send(f"❌ Error getting profile data: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="chatlvlup", description="Announces your latest level-up in chat")
-    async def chatlvlup(self, interaction: discord.Interaction):
-        try:
-            user_data = db.get_user_data(interaction.user.id)
-            xp = user_data.get('xp', 0)
-            level = self.calculate_level_from_xp(xp)
-            job = self.get_job_title(level)
 
-            embed = discord.Embed(
-                title="🎉 Level Up Announcement!",
-                description=f"🎊 **{interaction.user.display_name}** has reached **Level {level}**! 🎊\n\n💼 **New Job Title:** {job['name']}",
-                color=0x00ff00,
-                timestamp=datetime.now()
-            )
-            embed.set_thumbnail(url=interaction.user.display_avatar.url)
-            embed.add_field(name="📊 Stats", value=f"**Total XP:** {xp:,}\n**Level:** {level}", inline=True)
-            embed.add_field(name="💼 Career", value=f"**Position:** {job['name']}\n**Range:** Lv{job['min_level']}-{job['max_level']}", inline=True)
-            embed.set_footer(text="Keep chatting to level up even more!")
-
-            await interaction.response.send_message(embed=embed)
-
-        except Exception as e:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error announcing level: {str(e)}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"❌ Error announcing level: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="daily", description="🎁 Claim your daily XP and coin bonus with streak rewards")
     async def daily(self, interaction: discord.Interaction):
@@ -677,26 +511,7 @@ class Leveling(commands.Cog):
             else:
                 await interaction.followup.send(embed=error_embed, ephemeral=True)
 
-    # REMOVED: streaktop command - now use /leaderboard streak
-    @app_commands.command(name="streaktop", description="🔥 View streak leaderboard (use /leaderboard instead)")
-    async def streaktop_redirect(self, interaction: discord.Interaction, page: int = 1):
-        embed = discord.Embed(
-            title="🔄 Command Upgraded",
-            description="The streak leaderboard is now part of our unified leaderboard system!",
-            color=0x7c3aed
-        )
-        embed.add_field(
-            name="✨ New Command",
-            value="Use `/leaderboard type:🔥 Daily Streaks` for the streak leaderboard",
-            inline=False
-        )
-        embed.add_field(
-            name="🎉 Enhanced Features",
-            value="• Beautiful pagination\n• Special streak badges\n• Elegant design\n• All leaderboards in one place",
-            inline=False
-        )
-        embed.set_footer(text="💫 This old command will be removed soon")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Leveling(bot))

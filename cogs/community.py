@@ -102,9 +102,14 @@ class Community(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.genai_api_key = os.getenv("GEMINI_API_KEY")
+        self.model = None
         if self.genai_api_key:
-            genai.configure(api_key=self.genai_api_key)
-            self.model = genai.GenerativeModel('gemini-pro')
+            try:
+                genai.configure(api_key=self.genai_api_key)
+                self.model = genai.GenerativeModel('gemini-pro')
+            except Exception as e:
+                print(f"[Community] Failed to initialize Gemini AI: {e}")
+                self.model = None
 
     async def cog_load(self):
         print("[Community] Loaded successfully.")
@@ -387,26 +392,7 @@ class Community(commands.Cog):
             error_embed.set_footer(text="💫 If this persists, contact an administrator")
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-    # REMOVED: suggestmsg command - merged into enhanced suggest command
-    @app_commands.command(name="suggestmsg", description="🔄 This command has been merged (use /suggest instead)")
-    async def suggestmsg_redirect(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="🔄 **Command Updated**",
-            description="The `suggestmsg` command has been merged into our enhanced suggestion system!",
-            color=0x7c3aed
-        )
-        embed.add_field(
-            name="✨ **New Enhanced Command**",
-            value="Use `/suggest` with optional image and additional_notes parameters!",
-            inline=False
-        )
-        embed.add_field(
-            name="🎉 **What's Better**",
-            value="• Single command for all suggestions\n• Support for images, GIFs, and videos\n• Optional additional notes field\n• Better error handling and validation",
-            inline=False
-        )
-        embed.set_footer(text="💫 This command will be removed soon")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
     @app_commands.command(name="shout", description="Create a detailed event announcement with live participant tracking")
     @app_commands.describe(
@@ -674,8 +660,18 @@ class Community(commands.Cog):
     @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
     @app_commands.describe(question="Your question for the AI")
     async def askblecknephew(self, interaction: discord.Interaction, question: str):
-        if not self.genai_api_key:
-            await interaction.response.send_message("❌ AI service not configured!", ephemeral=True)
+        if not self.genai_api_key or not self.model:
+            embed = discord.Embed(
+                title="❌ AI Service Unavailable",
+                description="THE SAINT is currently unavailable. The Gemini AI service is not configured properly.",
+                color=0xff6b6b
+            )
+            embed.add_field(
+                name="🔧 Admin Note",
+                value="Please set the `GEMINI_API_KEY` environment variable with a valid Google Gemini API key.",
+                inline=False
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
         await interaction.response.defer()
@@ -683,6 +679,10 @@ class Community(commands.Cog):
         try:
             prompt = f"You are 'THE SAINT' - a wise and helpful AI assistant. Answer this question: {question}"
             response = self.model.generate_content(prompt)
+            
+            if not response.text:
+                await interaction.followup.send("❌ THE SAINT couldn't generate a response. Please try rephrasing your question.", ephemeral=True)
+                return
             
             embed = discord.Embed(
                 title="🤖 THE SAINT Responds",
@@ -701,7 +701,17 @@ class Community(commands.Cog):
             await interaction.followup.send(embed=embed, view=view)
 
         except Exception as e:
-            await interaction.followup.send(f"❌ Error generating response: {str(e)}", ephemeral=True)
+            error_embed = discord.Embed(
+                title="❌ Error generating response",
+                description="THE SAINT encountered an issue while processing your question.",
+                color=0xff6b6b
+            )
+            error_embed.add_field(
+                name="Error Details",
+                value=f"```{str(e)[:500]}```",
+                inline=False
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="flip", description="Flip a coin - heads or tails")
     async def flip(self, interaction: discord.Interaction):
