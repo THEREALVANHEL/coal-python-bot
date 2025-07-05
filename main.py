@@ -120,3 +120,4 @@ if __name__ == "__main__":
         print("🛑 Bot stopped by user")
     except Exception as e:
         print(f"❌ FATAL ERROR: {e}")
+2. database.py
