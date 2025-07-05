@@ -1311,56 +1311,11 @@ def optimize_database():
         return {"success": False, "message": str(e)}
 
 def validate_user_data(user_id):
-    """Validate and fix user data integrity in real-time"""
-    if users_collection is None:
-        return False
-    
-    try:
-        # Get user data directly from database to prevent recursion
-        user_data = users_collection.find_one({"user_id": user_id})
-        if not user_data:
-            # Create default user data if none exists
-            user_data = {
-                "user_id": user_id,
-                "xp": 0,
-                "cookies": 0,
-                "coins": 0,
-                "daily_streak": 0,
-                "last_daily": 0,
-                "last_work": 0
-            }
-        
-        # Validate and fix data types
-        updates = {}
-        
-        # Ensure numeric fields are proper integers
-        for field in ['xp', 'cookies', 'coins', 'daily_streak']:
-            value = user_data.get(field, 0)
-            if not isinstance(value, int) or value < 0:
-                updates[field] = max(0, int(value) if isinstance(value, (int, float, str)) and str(value).isdigit() else 0)
-        
-        # Ensure timestamp fields are proper
-        for field in ['last_daily', 'last_xp_time', 'last_work', 'join_date', 'last_seen']:
-            value = user_data.get(field, 0)
-            if not isinstance(value, (int, float)) or value < 0:
-                updates[field] = 0
-        
-        # Update last seen
-        updates['last_seen'] = datetime.now().timestamp()
-        
-        # Apply updates if any
-        if updates:
-            users_collection.update_one(
-                {"user_id": user_id},
-                {"$set": updates},
-                upsert=True
-            )
-        
-        return True
-        
-    except Exception as e:
-        print(f"Error validating user data for {user_id}: {e}")
-        return False
+    """DEPRECATED - This function has been removed to prevent infinite recursion"""
+    # This function was causing infinite recursion loops
+    # All validation is now done inline where needed
+    print(f"[Database] validate_user_data called for {user_id} - this function is deprecated")
+    return True
 
 # Enhanced Live Data Functions
 def get_live_user_stats(user_id):

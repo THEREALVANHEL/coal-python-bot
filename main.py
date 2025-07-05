@@ -109,44 +109,79 @@ async def on_ready():
     print(f"🔗 Invite: https://discord.com/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
     print(f"🌐 Connected to {len(bot.guilds)} guild(s)")
     
-    # Sync slash commands
-    print("⚡ Starting command sync...")
-    try:
-        # Clear existing commands first (helps with sync issues)
-        print("🔄 Clearing existing commands...")
-        bot.tree.clear_commands(guild=None)
+    # Sync slash commands with multiple fallback methods
+    print("⚡ Starting comprehensive command sync...")
+    commands_synced = False
+    sync_attempts = 0
+    max_attempts = 3
+    
+    while not commands_synced and sync_attempts < max_attempts:
+        sync_attempts += 1
+        print(f"🔄 Sync attempt {sync_attempts}/{max_attempts}")
         
-        # Sync commands globally
-        print("🌐 Syncing commands globally...")
-        synced = await bot.tree.sync()
-        print(f"✅ Successfully synced {len(synced)} slash commands globally")
-        
-        # Log the commands that were synced
-        if synced:
-            command_names = [cmd.name for cmd in synced]
-            print(f"📋 Synced commands: {', '.join(command_names)}")
-        else:
-            print("⚠️ No commands were synced - this might indicate an issue")
-            
-    except discord.HTTPException as e:
-        print(f"❌ HTTP error during command sync: {e}")
-        print("🔄 Bot will continue, but commands may not work properly")
-    except discord.Forbidden as e:
-        print(f"❌ Permission error during command sync: {e}")
-        print("🔧 Check bot permissions in Discord Developer Portal")
-    except Exception as e:
-        print(f"❌ Unexpected error during command sync: {e}")
-        print(f"� Error type: {type(e).__name__}")
-        print("� Bot will continue without command sync")
-        
-        # Try emergency sync without clearing
         try:
-            print("🚨 Attempting emergency sync...")
-            emergency_synced = await bot.tree.sync()
-            print(f"✅ Emergency sync successful: {len(emergency_synced)} commands")
-        except Exception as emergency_error:
-            print(f"❌ Emergency sync also failed: {emergency_error}")
-            print("⚠️ Manual intervention may be required")
+            if sync_attempts == 1:
+                # First attempt: Standard global sync
+                print("🌐 Attempting standard global sync...")
+                synced = await bot.tree.sync()
+                
+            elif sync_attempts == 2:
+                # Second attempt: Clear and sync
+                print("🧹 Clearing existing commands and syncing...")
+                bot.tree.clear_commands(guild=None)
+                await asyncio.sleep(2)  # Small delay
+                synced = await bot.tree.sync()
+                
+            elif sync_attempts == 3:
+                # Third attempt: Force sync with delay
+                print("🚨 Force sync with longer delay...")
+                bot.tree.clear_commands(guild=None)
+                await asyncio.sleep(5)  # Longer delay
+                synced = await bot.tree.sync()
+            
+            if synced:
+                commands_synced = True
+                print(f"✅ SUCCESS! Synced {len(synced)} slash commands globally")
+                
+                # Log all synced commands
+                command_names = [cmd.name for cmd in synced]
+                print(f"📋 Synced commands: {', '.join(command_names)}")
+                
+                # Verify commands are in tree
+                tree_commands = [cmd.name for cmd in bot.tree.get_commands()]
+                print(f"🌳 Commands in tree: {', '.join(tree_commands)}")
+                
+                if len(synced) == 0:
+                    print("⚠️ WARNING: 0 commands synced - there may be an issue")
+                    commands_synced = False
+                    
+            else:
+                print(f"❌ Sync attempt {sync_attempts} returned None")
+                
+        except discord.HTTPException as e:
+            print(f"❌ HTTP error on attempt {sync_attempts}: {e}")
+            if "rate limited" in str(e).lower():
+                print("⏰ Rate limited, waiting 10 seconds...")
+                await asyncio.sleep(10)
+            
+        except discord.Forbidden as e:
+            print(f"❌ Permission error on attempt {sync_attempts}: {e}")
+            print("🔧 Check bot permissions: applications.commands scope required")
+            
+        except Exception as e:
+            print(f"❌ Unexpected error on attempt {sync_attempts}: {e}")
+            print(f"🔍 Error type: {type(e).__name__}")
+            
+        if not commands_synced and sync_attempts < max_attempts:
+            print(f"⏳ Waiting 3 seconds before attempt {sync_attempts + 1}...")
+            await asyncio.sleep(3)
+    
+    if commands_synced:
+        print("🎉 Command sync completed successfully!")
+    else:
+        print("⚠️ All sync attempts failed, but bot will continue")
+        print("💡 Commands may take up to 1 hour to appear due to Discord caching")
+        print("🔧 Try using the /sync command (if visible) to manually sync")
     
     # Check database connectivity and stats with timeout
     print("💾 Starting database connectivity check...")

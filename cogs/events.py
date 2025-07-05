@@ -71,9 +71,6 @@ class Events(commands.Cog):
 
         # Give XP for messages
         try:
-            # Validate user data first (live validation)
-            db.validate_user_data(message.author.id)
-            
             # Reduced XP range from 15-25 to 5-10
             base_xp_gain = random.randint(5, 10)
             
@@ -124,8 +121,6 @@ class Events(commands.Cog):
     async def on_member_join(self, member):
         try:
             # Initialize user data when they join
-            db.validate_user_data(member.id)
-            
             # Get welcome channel
             welcome_channel_id = db.get_guild_setting(member.guild.id, "welcome_channel", None)
             if welcome_channel_id:
