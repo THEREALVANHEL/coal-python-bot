@@ -69,9 +69,12 @@ class Cookies(commands.Cog):
         total_pages = (total_users + items_per_page - 1) // items_per_page
         page_users = all_users[skip:skip + items_per_page]
 
+        # Super sweet cookie-themed design
         embed = discord.Embed(
-            title=f"🍪 Cookie Leaderboard - Page {page}/{total_pages}",
-            color=0xdaa520
+            title="🍪 **COOKIE EMPIRE** 🍪",
+            description="🌟 *The Sweet Champions of Deliciousness* 🌟",
+            color=0xdaa520,
+            timestamp=datetime.now()
         )
 
         leaderboard_text = []
@@ -85,11 +88,81 @@ class Cookies(commands.Cog):
             except:
                 username = f"User {user_id}"
 
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-            leaderboard_text.append(f"{medal} **{username}** - {cookies:,} cookies")
+            # Epic cookie ranking system
+            if i == 1:
+                rank_style = f"👑 **#{i} COOKIE EMPEROR {username}** 👑"
+                style_suffix = " 🍪🍪🍪"
+            elif i == 2:
+                rank_style = f"🥈 **#{i} SWEET MASTER {username}** 🥈"
+                style_suffix = " 🍪🍪"
+            elif i == 3:
+                rank_style = f"� **#{i} DESSERT KING {username}** 🥉"
+                style_suffix = " 🍪"
+            elif i <= 5:
+                rank_style = f"🔸 **#{i} SUGAR LORD {username}**"
+                style_suffix = " �"
+            elif i <= 10:
+                rank_style = f"▫️ **#{i} TREAT COLLECTOR {username}**"
+                style_suffix = " 🍰"
+            else:
+                rank_style = f"#{i} • {username}"
+                style_suffix = ""
 
-        embed.description = "\n".join(leaderboard_text)
-        embed.set_footer(text=f"Page {page}/{total_pages} • Keep collecting those cookies!")
+            # Cookie tier system
+            if cookies >= 10000:
+                cookie_tier = "🏆 **LEGENDARY BAKER**"
+                cookie_emoji = "🍪🍪🍪🍪🍪"
+            elif cookies >= 5000:
+                cookie_tier = "💎 **MASTER BAKER**"
+                cookie_emoji = "🍪🍪🍪🍪"
+            elif cookies >= 1750:
+                cookie_tier = "⭐ **EXPERT BAKER**"
+                cookie_emoji = "🍪🍪🍪"
+            elif cookies >= 1000:
+                cookie_tier = "⭐ **SKILLED BAKER**"
+                cookie_emoji = "🍪🍪"
+            elif cookies >= 500:
+                cookie_tier = "🌟 **AMATEUR BAKER**"
+                cookie_emoji = "🍪"
+            elif cookies >= 100:
+                cookie_tier = "✨ **COOKIE LOVER**"
+                cookie_emoji = "🧁"
+            else:
+                cookie_tier = "🔰 **SWEET TOOTH**"
+                cookie_emoji = "🍰"
+            
+            # Create cookie progress bar towards next milestone
+            milestones = [100, 500, 1000, 1750, 3000, 5000, 10000, 25000]
+            next_milestone = next((m for m in milestones if cookies < m), 25000)
+            prev_milestone = max([m for m in milestones if cookies >= m] + [0])
+            
+            if next_milestone > prev_milestone:
+                progress = (cookies - prev_milestone) / (next_milestone - prev_milestone)
+                progress_bars = int(progress * 8)
+                cookie_bar = "🍪" * progress_bars + "▱" * (8 - progress_bars)
+                progress_text = f"`{cookie_bar}` → {next_milestone:,}"
+            else:
+                progress_text = "🏆 **MAX LEVEL ACHIEVED!**"
+            
+            entry = f"{rank_style}{style_suffix}\n🍪 **{cookies:,} Cookies** • {cookie_tier}\n{progress_text} {cookie_emoji}"
+            leaderboard_text.append(entry)
+
+        embed.description = f"🌟 *The Sweet Champions of Deliciousness* 🌟\n\n" + "\n\n".join(leaderboard_text)
+        
+        # Sweet stats section
+        embed.add_field(
+            name="🍪 **Cookie Stats**",
+            value=f"🧁 **{total_users}** Cookie Collectors\n🍰 **Page {page}/{total_pages}**\n🎯 **Stay Sweet!**",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="💡 **Cookie Tips**",
+            value="💬 Stay active to collect\n🎮 Participate in events\n🏆 Reach role milestones!",
+            inline=True
+        )
+        
+        embed.set_footer(text="🍪 Cookie Leaderboard • Sweetness overload! • 🌟 Deliciously competitive!")
         
         return embed
 

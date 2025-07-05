@@ -104,9 +104,12 @@ class Economy(commands.Cog):
         total_pages = (total_users + items_per_page - 1) // items_per_page
         page_users = all_users[skip:skip + items_per_page]
 
+        # Luxurious wealth-themed design
         embed = discord.Embed(
-            title=f"🪙 Coin Leaderboard - Page {page}/{total_pages}",
-            color=0xffd700
+            title="💰 **WEALTH EMPIRE** 💰",
+            description="✨ *The Financial Elite & Money Masters* ✨",
+            color=0xffd700,
+            timestamp=datetime.now()
         )
 
         leaderboard_text = []
@@ -120,11 +123,87 @@ class Economy(commands.Cog):
             except:
                 username = f"User {user_id}"
 
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-            leaderboard_text.append(f"{medal} **{username}** - {coins:,} coins")
+            # Luxury wealth ranking system
+            if i == 1:
+                rank_style = f"👑 **#{i} FINANCIAL EMPEROR {username}** 👑"
+                style_suffix = " 💰💎💰"
+            elif i == 2:
+                rank_style = f"🥈 **#{i} WEALTH MASTER {username}** 🥈"
+                style_suffix = " 💰💰"
+            elif i == 3:
+                rank_style = f"🥉 **#{i} MONEY MOGUL {username}** �"
+                style_suffix = " 💰"
+            elif i <= 5:
+                rank_style = f"🔸 **#{i} BUSINESS TYCOON {username}**"
+                style_suffix = " 💎"
+            elif i <= 10:
+                rank_style = f"▫️ **#{i} ENTREPRENEUR {username}**"
+                style_suffix = " 🪙"
+            else:
+                rank_style = f"#{i} • {username}"
+                style_suffix = ""
 
-        embed.description = "\n".join(leaderboard_text)
-        embed.set_footer(text=f"Page {page}/{total_pages} • Work hard to earn more coins!")
+            # Wealth tier classification
+            if coins >= 50000:
+                wealth_tier = "🏆 **BILLIONAIRE**"
+                wealth_emoji = "💰💰💰💰💰"
+            elif coins >= 25000:
+                wealth_tier = "💎 **MILLIONAIRE**"
+                wealth_emoji = "💰💰💰💰"
+            elif coins >= 10000:
+                wealth_tier = "⭐ **HIGH ROLLER**"
+                wealth_emoji = "💰💰💰"
+            elif coins >= 5000:
+                wealth_tier = "⭐ **WEALTHY**"
+                wealth_emoji = "💰💰"
+            elif coins >= 2500:
+                wealth_tier = "🌟 **SUCCESSFUL**"
+                wealth_emoji = "💰"
+            elif coins >= 1000:
+                wealth_tier = "✨ **RISING STAR**"
+                wealth_emoji = "🪙"
+            elif coins >= 500:
+                wealth_tier = "🔰 **WORKER**"
+                wealth_emoji = "⚡"
+            else:
+                wealth_tier = "🆕 **NEWCOMER**"
+                wealth_emoji = "✨"
+            
+            # Create wealth progress bar
+            wealth_milestones = [500, 1000, 2500, 5000, 10000, 25000, 50000, 100000]
+            next_milestone = next((m for m in wealth_milestones if coins < m), 100000)
+            prev_milestone = max([m for m in wealth_milestones if coins >= m] + [0])
+            
+            if next_milestone > prev_milestone:
+                progress = (coins - prev_milestone) / (next_milestone - prev_milestone)
+                progress_bars = int(progress * 8)
+                wealth_bar = "💰" * progress_bars + "▱" * (8 - progress_bars)
+                progress_text = f"`{wealth_bar}` → {next_milestone:,}"
+            else:
+                progress_text = "🏆 **ULTIMATE WEALTH!**"
+            
+            # Format coins with comma separators
+            coin_display = f"🪙 **{coins:,} Coins** • {wealth_tier}"
+            
+            entry = f"{rank_style}{style_suffix}\n{coin_display}\n{progress_text} {wealth_emoji}"
+            leaderboard_text.append(entry)
+
+        embed.description = f"✨ *The Financial Elite & Money Masters* ✨\n\n" + "\n\n".join(leaderboard_text)
+        
+        # Rich stats section
+        embed.add_field(
+            name="💰 **Economy Stats**",
+            value=f"🏦 **{total_users}** Active Earners\n📊 **Page {page}/{total_pages}**\n🎯 **Get Rich!**",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="💡 **Wealth Tips**",
+            value="💼 Use `/work` regularly\n📈 Higher levels = more pay\n🛒 Visit `/shop` to spend!",
+            inline=True
+        )
+        
+        embed.set_footer(text="💰 Coin Leaderboard • Work hard, earn more! • 💎 Financial success awaits!")
         
         return embed
 

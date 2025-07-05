@@ -112,9 +112,12 @@ class PaginationView(View):
         total_pages = (total_users + items_per_page - 1) // items_per_page
         page_users = all_users[skip:skip + items_per_page]
 
+        # Cool animated gradient colors for XP leaderboard
         embed = discord.Embed(
-            title=f"🥇 Level Leaderboard - Page {page}/{total_pages}",
-            color=0xffd700
+            title="🏆 **LEVEL LEADERBOARD** 🏆",
+            description="⚡ *The Elite XP Champions* ⚡",
+            color=0x00ff88,
+            timestamp=datetime.now()
         )
 
         leaderboard_text = []
@@ -130,20 +133,68 @@ class PaginationView(View):
             except:
                 username = f"User {user_id}"
 
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            # Cool medal system with special effects
+            if i == 1:
+                medal = "👑"
+                rank_style = f"**#{i} {medal} {username}**"
+                style_suffix = " ✨🔥✨"
+            elif i == 2:
+                medal = "🥈"
+                rank_style = f"**#{i} {medal} {username}**"
+                style_suffix = " ⭐💎⭐"
+            elif i == 3:
+                medal = "🥉"
+                rank_style = f"**#{i} {medal} {username}**"
+                style_suffix = " 🌟⚡🌟"
+            elif i <= 5:
+                rank_style = f"**#{i} 🔸 {username}**"
+                style_suffix = " 💫"
+            elif i <= 10:
+                rank_style = f"**#{i} ▫️ {username}**"
+                style_suffix = " ⭐"
+            else:
+                rank_style = f"#{i} • {username}"
+                style_suffix = ""
+            
+            # Create progress bar for level
+            current_level_xp = self.calculate_xp_for_level(level)
+            next_level_xp = self.calculate_xp_for_level(level + 1)
+            progress = (xp - current_level_xp) / (next_level_xp - current_level_xp) if next_level_xp > current_level_xp else 1
+            progress_bars = int(progress * 8)
+            progress_display = "▰" * progress_bars + "▱" * (8 - progress_bars)
             
             # Only show job if user has worked recently
             user_full_data = db.get_user_data(user_id)
             last_work = user_full_data.get('last_work', 0)
-            show_job = last_work > 0  # Only show if they've worked at least once
+            show_job = last_work > 0
+            
+            level_display = f"🎯 **Level {level}** • {xp:,} XP"
+            progress_line = f"`{progress_display}` {int(progress * 100)}%"
             
             if show_job:
-                leaderboard_text.append(f"{medal} **{username}** - Level {level} ({xp:,} XP)\n`{job['name']}`")
+                job_line = f"💼 *{job['name']}*"
+                entry = f"{rank_style}{style_suffix}\n{level_display}\n{progress_line}\n{job_line}"
             else:
-                leaderboard_text.append(f"{medal} **{username}** - Level {level} ({xp:,} XP)")
+                entry = f"{rank_style}{style_suffix}\n{level_display}\n{progress_line}"
+            
+            leaderboard_text.append(entry)
 
-        embed.description = "\n\n".join(leaderboard_text)
-        embed.set_footer(text=f"Page {page}/{total_pages} • Keep chatting to climb the ranks!")
+        embed.description = f"⚡ *The Elite XP Champions* ⚡\n\n" + "\n\n".join(leaderboard_text)
+        
+        # Cool footer with stats
+        embed.add_field(
+            name="📊 **Server Stats**",
+            value=f"🔥 **{total_users}** Active Members\n⚡ **Page {page}/{total_pages}**\n🎯 **Keep Grinding!**",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🎮 **Pro Tips**",
+            value="💬 Chat more to gain XP\n📈 Higher levels = better rewards\n🔄 Check `/profile` for details",
+            inline=True
+        )
+        
+        embed.set_footer(text="🔥 Level Leaderboard • Keep chatting to climb the ranks! • 💫 Live Data")
         
         return embed
 
@@ -155,9 +206,12 @@ class PaginationView(View):
         page_users = streak_data['users']
         total_pages = streak_data['total_pages']
 
+        # Super cool fire-themed design
         embed = discord.Embed(
-            title=f"🔥 Daily Streak Leaderboard - Page {page}/{total_pages}",
-            color=0xff4500
+            title="🔥 **STREAK CHAMPIONS** 🔥",
+            description="🌟 *The Daily Dedication Masters* 🌟",
+            color=0xff4500,
+            timestamp=datetime.now()
         )
 
         leaderboard_text = []
@@ -171,21 +225,75 @@ class PaginationView(View):
             except:
                 username = f"User {user_id}"
 
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            # Epic streak ranking system
+            if i == 1:
+                rank_style = f"👑 **#{i} STREAK EMPEROR {username}** 👑"
+                style_suffix = " 🔥🔥🔥"
+            elif i == 2:
+                rank_style = f"🥈 **#{i} FLAME MASTER {username}** 🥈"
+                style_suffix = " 🔥🔥"
+            elif i == 3:
+                rank_style = f"🥉 **#{i} FIRE KEEPER {username}** 🥉"
+                style_suffix = " 🔥"
+            elif i <= 5:
+                rank_style = f"🔸 **#{i} EMBER LORD {username}**"
+                style_suffix = " ⚡"
+            else:
+                rank_style = f"▫️ **#{i} {username}**"
+                style_suffix = ""
             
-            # Streak emojis
-            streak_emoji = "🔥" * min(streak // 7, 5)  # Fire emoji for every 7 days
+            # Streak visualization with cool effects
             if streak >= 365:
-                streak_emoji += " 🏆"  # Trophy for year-long streaks
+                streak_tier = "🏆 **LEGENDARY**"
+                streak_emoji = "🔥🔥🔥🔥🔥"
+            elif streak >= 180:
+                streak_tier = "💎 **DIAMOND**"
+                streak_emoji = "🔥🔥🔥🔥"
             elif streak >= 100:
-                streak_emoji += " 💎"  # Diamond for 100+ days
+                streak_tier = "💎 **MASTER**"
+                streak_emoji = "🔥🔥🔥"
+            elif streak >= 50:
+                streak_tier = "⭐ **EXPERT**"
+                streak_emoji = "🔥🔥"
             elif streak >= 30:
-                streak_emoji += " ⭐"  # Star for 30+ days
+                streak_tier = "⭐ **VETERAN**"
+                streak_emoji = "🔥"
+            elif streak >= 14:
+                streak_tier = "🌟 **COMMITTED**"
+                streak_emoji = "�"
+            elif streak >= 7:
+                streak_tier = "✨ **DEDICATED**"
+                streak_emoji = "⚡"
+            else:
+                streak_tier = "🔰 **ROOKIE**"
+                streak_emoji = "✨"
             
-            leaderboard_text.append(f"{medal} **{username}** - {streak} days {streak_emoji}")
+            # Create streak progress bar
+            progress = min(streak / 365, 1)  # Max out at 1 year
+            progress_bars = int(progress * 10)
+            streak_bar = "🔥" * progress_bars + "▱" * (10 - progress_bars)
+            
+            entry = f"{rank_style}{style_suffix}\n🔥 **{streak} Days** • {streak_tier}\n`{streak_bar}` {streak_emoji}"
+            leaderboard_text.append(entry)
 
-        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No streak data available"
-        embed.set_footer(text=f"Page {page}/{total_pages} • Keep your daily streak alive!")
+        embed.description = f"🌟 *The Daily Dedication Masters* 🌟\n\n" + "\n\n".join(leaderboard_text) if leaderboard_text else "🔥 No streak warriors yet! Be the first to start your daily journey!"
+        
+        # Cool stats section
+        if leaderboard_text:
+            total_streaks = len(streak_data.get('users', []))
+            embed.add_field(
+                name="🔥 **Streak Stats**",
+                value=f"⚡ **{total_streaks}** Active Streakers\n🔥 **Page {page}/{total_pages}**\n🎯 **Never Give Up!**",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="💡 **Streak Tips**",
+                value="📅 Use `/daily` every day\n🔔 Set phone reminders\n🏆 Build the longest streak!",
+                inline=True
+            )
+        
+        embed.set_footer(text="🔥 Streak Leaderboard • Consistency is key! • ⚡ Never break the chain!")
         
         return embed
 
