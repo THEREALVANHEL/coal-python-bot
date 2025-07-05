@@ -4,6 +4,7 @@ import random
 import os, sys
 import asyncio
 from datetime import datetime
+import io
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -384,6 +385,10 @@ class Events(commands.Cog):
             channel = guild.get_channel(payload.channel_id)
             message = await channel.fetch_message(payload.message_id)
 
+            # Don't star bot messages or messages in starboard channel
+            if message.author.bot or message.channel.id == starboard_channel.id:
+                return
+
             # Count star reactions
             star_count = 0
             for reaction in message.reactions:
@@ -399,36 +404,134 @@ class Events(commands.Cog):
                 # Check if already in starboard
                 existing = db.get_starboard_message(message.id)
                 if not existing:
-                    # Create starboard entry
-                    embed = discord.Embed(
-                        description=message.content or "*No text content*",
-                        color=0xffd700,
-                        timestamp=message.created_at
+                    # Forward the complete message with all content
+                    await self.forward_complete_message_to_starboard(
+                        message, starboard_channel, star_count
                     )
-                    embed.set_author(
-                        name=message.author.display_name,
-                        icon_url=message.author.display_avatar.url
-                    )
-                    embed.add_field(
-                        name="Source",
-                        value=f"[Jump to Message]({message.jump_url})",
-                        inline=False
-                    )
-
-                    # Add attachments
-                    if message.attachments:
-                        embed.set_image(url=message.attachments[0].url)
-
-                    starboard_msg = await starboard_channel.send(
-                        content=f"⭐ **{star_count}** {channel.mention}",
-                        embed=embed
-                    )
-
-                    # Save to database
-                    db.add_starboard_message(message.id, starboard_msg.id, star_count)
 
         except Exception as e:
             print(f"Error handling starboard: {e}")
+
+    async def forward_complete_message_to_starboard(self, original_message, starboard_channel, star_count):
+        """Forward complete message with all attachments, embeds, and content to starboard"""
+        try:
+            # Create elegant starboard header
+            header_embed = discord.Embed(
+                color=0xffd700,
+                timestamp=original_message.created_at
+            )
+            header_embed.set_author(
+                name=f"{original_message.author.display_name}",
+                icon_url=original_message.author.display_avatar.url
+            )
+            header_embed.add_field(
+                name="✨ Starred Message",
+                value=f"⭐ **{star_count}** stars in {original_message.channel.mention}\n[Jump to Message]({original_message.jump_url})",
+                inline=False
+            )
+            
+            # Send header first
+            starboard_msg = await starboard_channel.send(embed=header_embed)
+
+            # Forward the original message content if it exists
+            if original_message.content:
+                content_embed = discord.Embed(
+                    description=original_message.content,
+                    color=0x2f3136
+                )
+                await starboard_channel.send(embed=content_embed)
+
+            # Forward all attachments (images, gifs, videos, files)
+            if original_message.attachments:
+                files_to_send = []
+                for attachment in original_message.attachments:
+                    try:
+                        # Download and re-upload the file to preserve it
+                        file_data = await attachment.read()
+                        discord_file = discord.File(
+                            io.BytesIO(file_data), 
+                            filename=attachment.filename
+                        )
+                        files_to_send.append(discord_file)
+                        
+                        # Send files in batches of 10 (Discord limit)
+                        if len(files_to_send) >= 10:
+                            await starboard_channel.send(files=files_to_send)
+                            files_to_send = []
+                    except Exception as e:
+                        print(f"Error processing attachment {attachment.filename}: {e}")
+                
+                # Send remaining files
+                if files_to_send:
+                    await starboard_channel.send(files=files_to_send)
+
+            # Forward all embeds from the original message
+            if original_message.embeds:
+                for embed in original_message.embeds:
+                    # Recreate embed to avoid reference issues
+                    new_embed = discord.Embed.from_dict(embed.to_dict())
+                    await starboard_channel.send(embed=new_embed)
+
+            # Forward stickers if any
+            if original_message.stickers:
+                sticker_info = []
+                for sticker in original_message.stickers:
+                    sticker_info.append(f"**{sticker.name}** - {sticker.format}")
+                
+                sticker_embed = discord.Embed(
+                    title="🎮 Stickers",
+                    description="\n".join(sticker_info),
+                    color=0x5865f2
+                )
+                await starboard_channel.send(embed=sticker_embed)
+
+            # Add elegant footer
+            footer_embed = discord.Embed(color=0xffd700)
+            footer_embed.set_footer(
+                text=f"⭐ Starred with {star_count} reactions • {original_message.created_at.strftime('%B %d, %Y at %I:%M %p')}"
+            )
+            await starboard_channel.send(embed=footer_embed)
+
+            # Save to database
+            db.add_starboard_message(original_message.id, starboard_msg.id, star_count)
+
+        except Exception as e:
+            print(f"Error forwarding complete message to starboard: {e}")
+            # Fallback to old method if complete forwarding fails
+            await self.fallback_starboard_embed(original_message, starboard_channel, star_count)
+
+    async def fallback_starboard_embed(self, original_message, starboard_channel, star_count):
+        """Fallback method for starboard if complete message forwarding fails"""
+        try:
+            embed = discord.Embed(
+                description=original_message.content or "*No text content*",
+                color=0xffd700,
+                timestamp=original_message.created_at
+            )
+            embed.set_author(
+                name=original_message.author.display_name,
+                icon_url=original_message.author.display_avatar.url
+            )
+            embed.add_field(
+                name="📍 Source",
+                value=f"[Jump to Message]({original_message.jump_url}) • {original_message.channel.mention}",
+                inline=False
+            )
+
+            # Add first attachment if available
+            if original_message.attachments:
+                embed.set_image(url=original_message.attachments[0].url)
+
+            starboard_msg = await starboard_channel.send(
+                content=f"⭐ **{star_count}** stars",
+                embed=embed
+            )
+
+            # Save to database
+            db.add_starboard_message(original_message.id, starboard_msg.id, star_count)
+
+        except Exception as e:
+            print(f"Error in fallback starboard embed: {e}")
 
     def calculate_level_from_xp(self, xp: int) -> int:
         """Calculate level from XP using binary search for efficiency"""

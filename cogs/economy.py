@@ -128,62 +128,106 @@ class Economy(commands.Cog):
         
         return embed
 
-    @app_commands.command(name="balance", description="Check your or another user's coin balance")
+    @app_commands.command(name="balance", description="💰 Check your shiny coin balance")
     @app_commands.describe(user="User to check balance for")
     async def balance(self, interaction: discord.Interaction, user: discord.Member = None):
         target = user or interaction.user
         
         try:
             user_data = db.get_user_data(target.id)
-            balance = user_data.get('coins', 0)
+            coins = user_data.get('coins', 0)
             
-            # Get rank
+            # Get user's rank in coin leaderboard
             leaderboard = db.get_leaderboard('coins')
             rank = next((i + 1 for i, u in enumerate(leaderboard) if u['user_id'] == target.id), 'N/A')
             
             embed = discord.Embed(
-                title="💰 Balance",
-                description=f"**{target.display_name}** has **{balance:,}** coins",
-                color=0xffd700
+                title="💰 Coin Wallet",
+                color=0xffd700,
+                timestamp=datetime.now()
             )
             embed.set_thumbnail(url=target.display_avatar.url)
-            embed.add_field(name="📈 Rank", value=f"#{rank}", inline=True)
+            
+            # Main balance
+            embed.add_field(
+                name="🪙 Current Balance",
+                value=f"**{coins:,}** coins",
+                inline=True
+            )
+            
+            # Rank
+            if rank != 'N/A':
+                embed.add_field(
+                    name="📊 Server Rank",
+                    value=f"**#{rank}** of {len(leaderboard)}",
+                    inline=True
+                )
+            else:
+                embed.add_field(
+                    name="📊 Server Rank",
+                    value="Not ranked",
+                    inline=True
+                )
+            
+            # Last work info
+            last_work = user_data.get('last_work', 0)
+            if last_work > 0:
+                embed.add_field(
+                    name="💼 Last Work",
+                    value=f"<t:{int(last_work)}:R>",
+                    inline=True
+                )
+            else:
+                embed.add_field(
+                    name="💼 Work Status",
+                    value="Never worked - use `/work`!",
+                    inline=True
+                )
+            
+            # Quick tips
+            embed.add_field(
+                name="💡 Earning Tips",
+                value="• Use `/work` every 30 minutes\n• Higher levels = better pay\n• Visit `/shop` to spend coins",
+                inline=False
+            )
+            
+            pronoun = "Your" if target == interaction.user else f"{target.display_name}'s"
+            embed.set_author(
+                name=f"{pronoun} Economy Stats",
+                icon_url=target.display_avatar.url
+            )
+            embed.set_footer(text="💫 Economy System • Work hard, earn more!")
             
             await interaction.response.send_message(embed=embed)
-
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting balance: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="coinleaderboard", description="Shows paginated coin leaderboard")
-    @app_commands.describe(page="Page number (default: 1)")
-    async def coinleaderboard(self, interaction: discord.Interaction, page: int = 1):
-        try:
-            if page < 1:
-                page = 1
-                
-            all_users = db.get_leaderboard('coins')
-            total_users = len(all_users)
-            total_pages = (total_users + 10 - 1) // 10
             
-            if page > total_pages:
-                await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
-                return
-
-            if not all_users:
-                await interaction.response.send_message("❌ No coin data available!", ephemeral=True)
-                return
-
-            from cogs.leveling import PaginationView
-            embed = await self.create_coin_leaderboard_embed(page)
-            view = PaginationView("coins", total_pages, page, self.bot)
-
-            await interaction.response.send_message(embed=embed, view=view)
-
         except Exception as e:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+            error_embed = discord.Embed(
+                title="❌ Error",
+                description="Couldn't retrieve balance data. Please try again later.",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
+    # REMOVED: coinleaderboard command - now use /leaderboard coins
+    @app_commands.command(name="coinleaderboard", description="🪙 View coin leaderboard (use /leaderboard instead)")
+    async def coinleaderboard_redirect(self, interaction: discord.Interaction, page: int = 1):
+        embed = discord.Embed(
+            title="🔄 Command Updated",
+            description="The coin leaderboard has been moved to our unified system!",
+            color=0x7c3aed
+        )
+        embed.add_field(
+            name="✨ New Command",
+            value="Use `/leaderboard type:🪙 Coins` for the coin leaderboard",
+            inline=False
+        )
+        embed.add_field(
+            name="🎉 What's New",
+            value="• Smooth pagination\n• Modern design\n• All leaderboards unified",
+            inline=False
+        )
+        embed.set_footer(text="💫 This command will be removed soon")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="work", description="Work various jobs to earn coins")
     async def work(self, interaction: discord.Interaction):
@@ -236,8 +280,8 @@ class Economy(commands.Cog):
                 )
                 embed.add_field(name="💰 Earnings", value=f"**{total_earnings}** coins earned!", inline=True)
                 embed.add_field(name="💰 New Balance", value=f"{new_balance:,} coins", inline=True)
-                embed.add_field(name="� Breakdown", value=f"Base: {base_earnings}\nLevel Bonus: {level_bonus}", inline=True)
-                embed.add_field(name="� Requirements", value=job["requirements"], inline=False)
+                embed.add_field(name="💡 Breakdown", value=f"Base: {base_earnings}\nLevel Bonus: {level_bonus}", inline=True)
+                embed.add_field(name="💡 Requirements", value=job["requirements"], inline=False)
                 embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
                 embed.set_footer(text=f"Great job! Come back in 30 minutes for more work.")
             else:

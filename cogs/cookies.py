@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import os, sys
 from discord.ui import Button, View
+from datetime import datetime
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -92,7 +93,7 @@ class Cookies(commands.Cog):
         
         return embed
 
-    @app_commands.command(name="cookies", description="View your or another user's cookie balance")
+    @app_commands.command(name="cookies", description="💰 Check your delicious cookie balance")
     @app_commands.describe(user="User to check cookies for")
     async def cookies(self, interaction: discord.Interaction, user: discord.Member = None):
         target = user or interaction.user
@@ -101,64 +102,102 @@ class Cookies(commands.Cog):
             user_data = db.get_user_data(target.id)
             cookies = user_data.get('cookies', 0)
             
-            # Get next milestone
-            next_milestone = None
-            for threshold in sorted(COOKIE_ROLES.keys()):
-                if cookies < threshold:
-                    next_milestone = threshold
-                    break
+            # Get user's rank
+            leaderboard = db.get_leaderboard('cookies')
+            rank = next((i + 1 for i, u in enumerate(leaderboard) if u['user_id'] == target.id), None)
+            
             embed = discord.Embed(
                 title="🍪 Cookie Balance",
-                description=f"**{target.display_name}** has **{cookies:,}** cookies!",
-                color=0xdaa520
+                color=0xdaa520,
+                timestamp=datetime.now()
             )
             embed.set_thumbnail(url=target.display_avatar.url)
             
-            if next_milestone:
-                needed = next_milestone - cookies
+            # Main balance display
+            embed.add_field(
+                name="💰 Current Balance",
+                value=f"**{cookies:,}** cookies",
+                inline=True
+            )
+            
+            # Rank display
+            if rank:
                 embed.add_field(
-                    name="🎯 Next Milestone", 
-                    value=f"{next_milestone:,} cookies ({needed:,} needed)", 
-                    inline=False
+                    name="📊 Server Rank",
+                    value=f"**#{rank}** of {len(leaderboard)}",
+                    inline=True
                 )
             else:
-                embed.add_field(name="🏆 Status", value="All milestones achieved!", inline=False)
+                embed.add_field(
+                    name="📊 Server Rank",
+                    value="Not ranked yet",
+                    inline=True
+                )
+            
+            # Cookie roles progress
+            achieved_roles = []
+            next_role = None
+            
+            for role_threshold, role_id in COOKIE_ROLES.items():
+                if cookies >= role_threshold:
+                    achieved_roles.append(f"✅ {role_threshold:,} cookies")
+                else:
+                    if not next_role:
+                        next_role = f"🎯 Next: {role_threshold:,} cookies ({role_threshold - cookies:,} needed)"
+                    break
+            
+            if achieved_roles:
+                embed.add_field(
+                    name="🏆 Achieved Milestones",
+                    value="\n".join(achieved_roles[-3:]),  # Show last 3
+                    inline=False
+                )
+            
+            if next_role:
+                embed.add_field(
+                    name="🎯 Next Milestone",
+                    value=next_role,
+                    inline=False
+                )
+            
+            embed.set_footer(text="💫 Cookie System • Collect cookies by staying active!")
+            
+            pronoun = "Your" if target == interaction.user else f"{target.display_name}'s"
+            embed.set_author(
+                name=f"{pronoun} Cookie Stats",
+                icon_url=target.display_avatar.url
+            )
             
             await interaction.response.send_message(embed=embed)
-
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting cookie data: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="cookietop", description="Shows paginated cookie leaderboard")
-    @app_commands.describe(page="Page number (default: 1)")
-    async def cookietop(self, interaction: discord.Interaction, page: int = 1):
-        try:
-            if page < 1:
-                page = 1
-                
-            all_users = db.get_leaderboard('cookies')
-            total_users = len(all_users)
-            total_pages = (total_users + 10 - 1) // 10
             
-            if page > total_pages:
-                await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
-                return
-
-            if not all_users:
-                await interaction.response.send_message("❌ No cookie data available!", ephemeral=True)
-                return
-
-            from cogs.leveling import PaginationView
-            embed = await self.create_cookie_leaderboard_embed(page)
-            view = PaginationView("cookies", total_pages, page, self.bot)
-
-            await interaction.response.send_message(embed=embed, view=view)
-
         except Exception as e:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+            error_embed = discord.Embed(
+                title="❌ Error",
+                description="Couldn't retrieve cookie data. Please try again later.",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
+    # REMOVED: cookietop command - now use /leaderboard cookies
+    @app_commands.command(name="cookietop", description="🍪 View cookie leaderboard (use /leaderboard instead)")
+    async def cookietop_redirect(self, interaction: discord.Interaction, page: int = 1):
+        embed = discord.Embed(
+            title="🔄 Command Updated",
+            description="The cookie leaderboard has been moved to our new unified system!",
+            color=0x7c3aed
+        )
+        embed.add_field(
+            name="✨ New Command",
+            value="Use `/leaderboard type:🍪 Cookies` for the cookie leaderboard",
+            inline=False
+        )
+        embed.add_field(
+            name="🎉 What's New",
+            value="• Better pagination\n• Elegant design\n• All leaderboards in one place",
+            inline=False
+        )
+        embed.set_footer(text="💫 This command will be removed in a future update")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="cookiesrank", description="Displays your current rank in the cookie leaderboard")
     async def cookiesrank(self, interaction: discord.Interaction):

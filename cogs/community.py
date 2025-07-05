@@ -1,4 +1,4 @@
-THIS SHOULD BE A LINTER ERRORimport discord
+import discord
 from discord.ext import commands
 from discord import app_commands
 import random
@@ -245,8 +245,8 @@ class Community(commands.Cog):
             print(f"Error creating enhanced pie wheel image: {e}")
             return None
 
-    @app_commands.command(name="suggest", description="Submit a suggestion to the designated suggestions channel")
-    @app_commands.describe(suggestion="Your suggestion")
+    @app_commands.command(name="suggest", description="💡 Submit suggestions to help improve the server")
+    @app_commands.describe(suggestion="Your suggestion to improve the server")
     async def suggest(self, interaction: discord.Interaction, suggestion: str):
         try:
             # Get the suggestion channel from settings
@@ -255,31 +255,178 @@ class Community(commands.Cog):
             if suggest_channel_id:
                 suggest_channel = self.bot.get_channel(suggest_channel_id)
                 if not suggest_channel:
-                    await interaction.response.send_message("❌ Suggestion channel not found! Contact an admin.", ephemeral=True)
+                    embed = discord.Embed(
+                        title="❌ Configuration Error",
+                        description="Suggestion channel not found! Please contact an administrator.",
+                        color=0xff6b6b
+                    )
+                    embed.set_footer(text="💫 Admin: Use /setup to configure the suggestion channel")
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
                     return
             else:
-                await interaction.response.send_message("❌ No suggestion channel set! Use `/setup suggest_channel` to set one.", ephemeral=True)
+                embed = discord.Embed(
+                    title="❌ Setup Required",
+                    description="No suggestion channel configured! Ask an admin to set up the suggestion system.",
+                    color=0xff9966
+                )
+                embed.add_field(
+                    name="🔧 For Admins",
+                    value="Use `/setup` to configure the suggestions channel",
+                    inline=False
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
 
+            # Create enhanced suggestion embed
             embed = discord.Embed(
-                title="💡 New Suggestion",
+                title="💡 Community Suggestion",
                 description=suggestion,
-                color=0x00ff00,
+                color=0x7c3aed,
                 timestamp=datetime.now()
             )
-            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-            embed.add_field(name="Submitted by", value=f"{interaction.user.mention} ({interaction.user.id})", inline=False)
-            embed.set_footer(text="React with 👍 or 👎 to vote!")
-
-            message = await suggest_channel.send(embed=embed)
-            await message.add_reaction("👍")
-            await message.add_reaction("👎")
+            embed.set_author(
+                name=f"Suggested by {interaction.user.display_name}",
+                icon_url=interaction.user.display_avatar.url
+            )
+            embed.add_field(
+                name="📊 Community Voting",
+                value="React with ✅ to support or ❌ if you disagree",
+                inline=False
+            )
+            embed.set_footer(text=f"User ID: {interaction.user.id} • Suggestion System")
             
-            # Confirm to user
-            await interaction.response.send_message(f"✅ Your suggestion has been forwarded to {suggest_channel.mention}!", ephemeral=True)
+            # Send to suggestion channel
+            message = await suggest_channel.send(embed=embed)
+            
+            # Add voting reactions
+            await message.add_reaction("✅")
+            await message.add_reaction("❌")
+            
+            # Success response with modern design
+            success_embed = discord.Embed(
+                title="✨ Suggestion Submitted Successfully",
+                description=f"Your suggestion has been forwarded to {suggest_channel.mention} for community review.",
+                color=0x00d4aa
+            )
+            success_embed.add_field(
+                name="💫 What Happens Next?",
+                value="The community will vote on your suggestion using reactions. Popular suggestions may be implemented!",
+                inline=False
+            )
+            success_embed.set_footer(text="💡 Thank you for helping improve our community!")
+            await interaction.response.send_message(embed=success_embed, ephemeral=True)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error submitting suggestion: {str(e)}", ephemeral=True)
+            error_embed = discord.Embed(
+                title="❌ Submission Failed",
+                description="Failed to submit your suggestion. Please try again later.",
+                color=0xff6b6b
+            )
+            error_embed.set_footer(text="💫 If this persists, contact an administrator")
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
+    @app_commands.command(name="suggestmsg", description="Forward a complete message as suggestion (attachments included)")
+    @app_commands.describe(
+        content="Your suggestion text",
+        image="Image/GIF attachment (optional)",
+        additional_notes="Additional notes (optional)"
+    )
+    async def suggest_message(self, interaction: discord.Interaction, content: str, 
+                            image: discord.Attachment = None, additional_notes: str = None):
+        try:
+            # Get the suggestion channel from settings
+            suggest_channel_id = db.get_guild_setting(interaction.guild.id, "suggest_channel", None)
+            
+            if not suggest_channel_id:
+                embed = discord.Embed(
+                    title="❌ Setup Required",
+                    description="No suggestion channel configured! Use `/setup` to configure the suggestions system.",
+                    color=0xff9966
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+
+            suggest_channel = self.bot.get_channel(suggest_channel_id)
+            if not suggest_channel:
+                embed = discord.Embed(
+                    title="❌ Configuration Error",
+                    description="Suggestion channel not found! Please contact an administrator.",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+
+            # Create enhanced suggestion embed
+            embed = discord.Embed(
+                title="💡 New Media Suggestion",
+                description=content,
+                color=0x7c3aed,
+                timestamp=datetime.now()
+            )
+            embed.set_author(
+                name=f"{interaction.user.display_name}",
+                icon_url=interaction.user.display_avatar.url
+            )
+            
+            # Add additional notes if provided
+            if additional_notes:
+                embed.add_field(
+                    name="📝 Additional Notes",
+                    value=additional_notes,
+                    inline=False
+                )
+            
+            embed.add_field(
+                name="📊 Voting",
+                value="React with ✅ to approve or ❌ to deny",
+                inline=False
+            )
+            embed.set_footer(text=f"User ID: {interaction.user.id} • Enhanced Suggestion System")
+            
+            # Handle image attachment
+            files = []
+            if image:
+                # Validate image
+                if any(image.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                    embed.set_image(url=f"attachment://{image.filename}")
+                    files.append(await image.to_file())
+                else:
+                    embed.add_field(
+                        name="⚠️ Attachment",
+                        value="Unsupported file type (use .jpg, .png, .gif, .webp)",
+                        inline=False
+                    )
+            
+            # Send complete message with attachments
+            if files:
+                message = await suggest_channel.send(embed=embed, files=files)
+            else:
+                message = await suggest_channel.send(embed=embed)
+            
+            # Add voting reactions
+            await message.add_reaction("✅")
+            await message.add_reaction("❌")
+            
+            # Success response
+            success_embed = discord.Embed(
+                title="✨ Media Suggestion Submitted",
+                description=f"Your complete suggestion with attachments has been forwarded to {suggest_channel.mention}",
+                color=0x00d4aa
+            )
+            success_embed.add_field(
+                name="📎 Included",
+                value=f"{'🖼️ Image attachment' if image else '📝 Text only'}\n{'📋 Additional notes' if additional_notes else ''}",
+                inline=False
+            )
+            await interaction.response.send_message(embed=success_embed, ephemeral=True)
+
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Error",
+                description="Failed to submit media suggestion. Please try again later.",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="shout", description="Create a detailed event announcement with live participant tracking")
     @app_commands.describe(

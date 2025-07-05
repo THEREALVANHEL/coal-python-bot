@@ -318,35 +318,106 @@ class Leveling(commands.Cog):
             else:
                 await interaction.followup.send(f"❌ Error getting rank data: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="leveltop", description="Displays paginated level leaderboard")
-    @app_commands.describe(page="Page number (default: 1)")
-    async def leveltop(self, interaction: discord.Interaction, page: int = 1):
+    @app_commands.command(name="leaderboard", description="🏆 View all server leaderboards with elegant pagination")
+    @app_commands.describe(
+        type="Choose leaderboard type",
+        page="Page number (default: 1)"
+    )
+    @app_commands.choices(type=[
+        app_commands.Choice(name="🥇 XP & Levels", value="xp"),
+        app_commands.Choice(name="🍪 Cookies", value="cookies"),
+        app_commands.Choice(name="🪙 Coins", value="coins"),
+        app_commands.Choice(name="🔥 Daily Streaks", value="streak")
+    ])
+    async def unified_leaderboard(self, interaction: discord.Interaction, 
+                                type: str = "xp", page: int = 1):
         try:
             if page < 1:
                 page = 1
-                
-            all_users = db.get_leaderboard('xp')
-            total_users = len(all_users)
-            total_pages = (total_users + 10 - 1) // 10
-            
-            if page > total_pages:
-                await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
+
+            # Get leaderboard data based on type
+            if type == "xp":
+                all_users = db.get_leaderboard('xp')
+                total_pages = (len(all_users) + 10 - 1) // 10
+                embed_func = self.create_level_leaderboard_embed
+                no_data_msg = "❌ No XP data available! Start chatting to appear on the leaderboard."
+            elif type == "cookies":
+                all_users = db.get_leaderboard('cookies')
+                total_pages = (len(all_users) + 10 - 1) // 10
+                from cogs.cookies import Cookies
+                cookies_cog = self.bot.get_cog('Cookies')
+                embed_func = cookies_cog.create_cookie_leaderboard_embed if cookies_cog else None
+                no_data_msg = "❌ No cookie data available! Start collecting cookies to appear here."
+            elif type == "coins":
+                all_users = db.get_leaderboard('coins')
+                total_pages = (len(all_users) + 10 - 1) // 10
+                from cogs.economy import Economy
+                economy_cog = self.bot.get_cog('Economy')
+                embed_func = economy_cog.create_coin_leaderboard_embed if economy_cog else None
+                no_data_msg = "❌ No coin data available! Use `/work` to start earning coins."
+            elif type == "streak":
+                streak_data = db.get_streak_leaderboard(page, 10)
+                total_pages = streak_data['total_pages']
+                embed_func = self.create_streak_leaderboard_embed
+                no_data_msg = "❌ No streak data available! Use `/daily` to start your streak."
+                all_users = streak_data['users']
+
+            # Validate page number
+            if page > total_pages and total_pages > 0:
+                error_embed = discord.Embed(
+                    title="❌ Page Not Found",
+                    description=f"Page **{page}** doesn't exist! Maximum page: **{total_pages}**",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
                 return
 
+            # Check if data exists
             if not all_users:
-                await interaction.response.send_message("❌ No leaderboard data available!", ephemeral=True)
+                error_embed = discord.Embed(
+                    title="📊 No Data Available",
+                    description=no_data_msg,
+                    color=0xff9966
+                )
+                error_embed.add_field(
+                    name="💡 Get Started",
+                    value="Be the first to appear on this leaderboard!",
+                    inline=False
+                )
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
                 return
 
-            embed = await self.create_level_leaderboard_embed(page)
-            view = PaginationView("xp", total_pages, page, self.bot)
+            # Create embed
+            if embed_func:
+                embed = await embed_func(page)
+            else:
+                error_embed = discord.Embed(
+                    title="❌ System Error",
+                    description="Leaderboard system temporarily unavailable.",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
+                return
 
+            # Add elegant branding
+            embed.set_footer(text="💫 Unified Leaderboard System • Use the buttons to navigate")
+            
+            # Create pagination view
+            view = PaginationView(type, total_pages, page, self.bot)
             await interaction.response.send_message(embed=embed, view=view)
 
         except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Oops!",
+                description="Something went wrong while loading the leaderboard. Please try again.",
+                color=0xff6b6b
+            )
+            error_embed.set_footer(text="If this persists, contact an administrator")
+            
             if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
             else:
-                await interaction.followup.send(f"❌ Error getting leaderboard: {str(e)}", ephemeral=True)
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="profile", description="Shows comprehensive profile with level, cookies, job, and daily streak")
     @app_commands.describe(user="User to check profile for")
@@ -468,7 +539,7 @@ class Leveling(commands.Cog):
             else:
                 await interaction.followup.send(f"❌ Error announcing level: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="daily", description="Claim your daily XP and coin bonus")
+    @app_commands.command(name="daily", description="🎁 Claim your daily XP and coin bonus with streak rewards")
     async def daily(self, interaction: discord.Interaction):
         try:
             result = db.claim_daily_bonus(interaction.user.id)
@@ -476,58 +547,78 @@ class Leveling(commands.Cog):
             if result['success']:
                 embed = discord.Embed(
                     title="🎁 Daily Bonus Claimed!",
-                    description=f"**XP Gained:** {result['xp_gained']}\n**Coins Gained:** {result['coins_gained']}\n**Streak:** {result['streak']} day(s)",
-                    color=0x00ff00
+                    description=f"**XP Gained:** +{result['xp_gained']}\n**Coins Gained:** +{result['coins_gained']}\n**Streak:** {result['streak']} day(s) 🔥",
+                    color=0x00d4aa,
+                    timestamp=datetime.now()
                 )
                 
+                # Add streak milestone rewards
                 if result['streak'] % 7 == 0:
-                    embed.add_field(name="🎉 Streak Bonus!", value="You got extra rewards for your 7-day streak!", inline=False)
+                    embed.add_field(
+                        name="🎉 Weekly Streak Bonus!", 
+                        value="You got extra rewards for your 7-day streak commitment!", 
+                        inline=False
+                    )
                 
-                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+                if result['streak'] >= 30:
+                    embed.add_field(
+                        name="💎 Dedication Master",
+                        value="30+ day streak! You're truly dedicated.",
+                        inline=False
+                    )
+                
+                embed.set_author(
+                    name=f"{interaction.user.display_name}'s Daily Reward",
+                    icon_url=interaction.user.display_avatar.url
+                )
+                embed.set_footer(text="💫 Daily System • Come back tomorrow for more!")
                 await interaction.response.send_message(embed=embed)
             else:
                 time_left = result.get('time_left', 'some time')
                 embed = discord.Embed(
                     title="⏰ Daily Already Claimed",
-                    description=f"You can claim your next daily bonus in {time_left}",
-                    color=0xff9900
+                    description=f"You can claim your next daily bonus in **{time_left}**",
+                    color=0xff9966
                 )
+                embed.add_field(
+                    name="💡 Pro Tip",
+                    value="Set a daily reminder to maximize your streak rewards!",
+                    inline=False
+                )
+                embed.set_footer(text="💫 Patience is a virtue!")
                 await interaction.response.send_message(embed=embed, ephemeral=True)
 
         except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Oops!",
+                description="Something went wrong claiming your daily bonus. Please try again.",
+                color=0xff6b6b
+            )
             if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error claiming daily: {str(e)}", ephemeral=True)
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
             else:
-                await interaction.followup.send(f"❌ Error claiming daily: {str(e)}", ephemeral=True)
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
 
-    @app_commands.command(name="streaktop", description="Shows paginated daily streak leaderboard")
-    @app_commands.describe(page="Page number (default: 1)")
-    async def streaktop(self, interaction: discord.Interaction, page: int = 1):
-        try:
-            if page < 1:
-                page = 1
-                
-            streak_data = db.get_streak_leaderboard(page, 10)
-            total_pages = streak_data['total_pages']
-            
-            if page > total_pages and total_pages > 0:
-                await interaction.response.send_message(f"❌ Page {page} doesn't exist! Max page: {total_pages}", ephemeral=True)
-                return
-
-            if not streak_data['users']:
-                await interaction.response.send_message("❌ No streak data available!", ephemeral=True)
-                return
-
-            embed = await self.create_streak_leaderboard_embed(page)
-            view = PaginationView("streak", total_pages, page, self.bot)
-
-            await interaction.response.send_message(embed=embed, view=view)
-
-        except Exception as e:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error getting streak leaderboard: {str(e)}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"❌ Error getting streak leaderboard: {str(e)}", ephemeral=True)
+    # REMOVED: streaktop command - now use /leaderboard streak
+    @app_commands.command(name="streaktop", description="🔥 View streak leaderboard (use /leaderboard instead)")
+    async def streaktop_redirect(self, interaction: discord.Interaction, page: int = 1):
+        embed = discord.Embed(
+            title="🔄 Command Upgraded",
+            description="The streak leaderboard is now part of our unified leaderboard system!",
+            color=0x7c3aed
+        )
+        embed.add_field(
+            name="✨ New Command",
+            value="Use `/leaderboard type:🔥 Daily Streaks` for the streak leaderboard",
+            inline=False
+        )
+        embed.add_field(
+            name="🎉 Enhanced Features",
+            value="• Beautiful pagination\n• Special streak badges\n• Elegant design\n• All leaderboards in one place",
+            inline=False
+        )
+        embed.set_footer(text="💫 This old command will be removed soon")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Leveling(bot))
