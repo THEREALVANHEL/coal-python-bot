@@ -585,7 +585,7 @@ class Community(commands.Cog):
         embed.set_thumbnail(url=target.display_avatar.url)
         
         # Basic info
-        embed.add_field(name="👤 Username", value=f"{target.name}#{target.discriminator}", inline=True)
+        embed.add_field(name="👤 Username", value=f"{target.name}", inline=True)
         embed.add_field(name="🆔 ID", value=target.id, inline=True)
         embed.add_field(name="🏆 Level", value=level, inline=True)
         

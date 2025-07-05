@@ -104,7 +104,7 @@ bot = commands.Bot(
 
 @bot.event
 async def on_ready():
-    print(f"✅ BOT ONLINE: {bot.user.name}#{bot.user.discriminator}")
+    print(f"✅ BOT ONLINE: {bot.user.name}")
     print(f"📊 Bot ID: {bot.user.id}")
     print(f"🔗 Invite: https://discord.com/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
     
