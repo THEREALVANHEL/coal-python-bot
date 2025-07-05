@@ -6,6 +6,7 @@ import os, sys
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
+from assets.media_links import WELCOME_GIF, LEAVE_GIF
 
 class Events(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -69,6 +70,7 @@ class Events(commands.Cog):
                     )
                     embed.set_thumbnail(url=member.display_avatar.url)
                     embed.add_field(name="Member Count", value=f"You're member #{member.guild.member_count}!", inline=False)
+                    embed.set_image(url=WELCOME_GIF)
                     await channel.send(embed=embed)
 
         except Exception as e:
@@ -88,6 +90,7 @@ class Events(commands.Cog):
                         color=0xff6b6b
                     )
                     embed.set_thumbnail(url=member.display_avatar.url)
+                    embed.set_image(url=LEAVE_GIF)
                     
                     await channel.send(embed=embed)
 

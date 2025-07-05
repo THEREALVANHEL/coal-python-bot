@@ -191,6 +191,10 @@ class Economy(commands.Cog):
             result = random.choice(["heads", "tails"])
             won = choice == result
             
+            # Get the appropriate coin image
+            image_name = "heads.jpeg" if result == "heads" else "tails.jpeg"
+            image_path = os.path.join(os.path.dirname(__file__), '..', 'assets', image_name)
+            
             embed = discord.Embed(
                 title="🪙 Coin Flip Results",
                 color=0x00ff00 if won else 0xff0000
@@ -210,7 +214,13 @@ class Economy(commands.Cog):
             embed.add_field(name="💰 New Balance", value=f"{new_balance:,} coins", inline=True)
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
             
-            await interaction.response.send_message(embed=embed)
+            # Add the coin image
+            if os.path.exists(image_path):
+                file = discord.File(image_path, filename=image_name)
+                embed.set_image(url=f"attachment://{image_name}")
+                await interaction.response.send_message(embed=embed, file=file)
+            else:
+                await interaction.response.send_message(embed=embed)
 
         except Exception as e:
             await interaction.response.send_message(f"❌ Error with coinflip: {str(e)}", ephemeral=True)
