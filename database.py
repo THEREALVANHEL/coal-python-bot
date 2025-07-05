@@ -479,3 +479,109 @@ def cleanup_expired_items():
     except Exception as e:
         print(f"Error cleaning up expired items: {e}")
         return False
+
+def get_all_user_data():
+    """Get all user data from database for migration/sync purposes"""
+    if users_collection is None:
+        return []
+    
+    try:
+        return list(users_collection.find({}))
+    except Exception as e:
+        print(f"Error getting all user data: {e}")
+        return []
+
+def sync_user_data(user_id):
+    """Sync specific user's data to ensure it's properly formatted"""
+    if users_collection is None:
+        return False
+    
+    try:
+        user_data = users_collection.find_one({"user_id": user_id})
+        if user_data:
+            # Ensure all required fields exist with defaults
+            update_data = {}
+            
+            if "xp" not in user_data:
+                update_data["xp"] = 0
+            if "cookies" not in user_data:
+                update_data["cookies"] = 0
+            if "coins" not in user_data:
+                update_data["coins"] = 0
+            if "daily_streak" not in user_data:
+                update_data["daily_streak"] = 0
+            if "last_daily" not in user_data:
+                update_data["last_daily"] = 0
+            if "last_xp_time" not in user_data:
+                update_data["last_xp_time"] = 0
+            if "last_work" not in user_data:
+                update_data["last_work"] = 0
+            
+            if update_data:
+                users_collection.update_one(
+                    {"user_id": user_id},
+                    {"$set": update_data}
+                )
+        
+        return True
+    except Exception as e:
+        print(f"Error syncing user data: {e}")
+        return False
+
+def restore_all_data():
+    """Restore and sync all user data in the database"""
+    if users_collection is None:
+        return {"success": False, "message": "Database unavailable"}
+    
+    try:
+        all_users = users_collection.find({})
+        restored_count = 0
+        
+        for user_data in all_users:
+            user_id = user_data.get("user_id")
+            if user_id:
+                sync_user_data(user_id)
+                restored_count += 1
+        
+        return {
+            "success": True,
+            "restored_count": restored_count,
+            "message": f"Successfully restored data for {restored_count} users"
+        }
+    except Exception as e:
+        print(f"Error restoring all data: {e}")
+        return {"success": False, "message": str(e)}
+
+def get_database_stats():
+    """Get statistics about the database"""
+    if users_collection is None:
+        return {"success": False, "message": "Database unavailable"}
+    
+    try:
+        total_users = users_collection.count_documents({})
+        users_with_xp = users_collection.count_documents({"xp": {"$gt": 0}})
+        users_with_cookies = users_collection.count_documents({"cookies": {"$gt": 0}})
+        users_with_coins = users_collection.count_documents({"coins": {"$gt": 0}})
+        
+        # Get total XP and cookies in database
+        pipeline_xp = [{"$group": {"_id": None, "total": {"$sum": "$xp"}}}]
+        pipeline_cookies = [{"$group": {"_id": None, "total": {"$sum": "$cookies"}}}]
+        
+        total_xp_result = list(users_collection.aggregate(pipeline_xp))
+        total_cookies_result = list(users_collection.aggregate(pipeline_cookies))
+        
+        total_xp = total_xp_result[0]["total"] if total_xp_result else 0
+        total_cookies = total_cookies_result[0]["total"] if total_cookies_result else 0
+        
+        return {
+            "success": True,
+            "total_users": total_users,
+            "users_with_xp": users_with_xp,
+            "users_with_cookies": users_with_cookies,
+            "users_with_coins": users_with_coins,
+            "total_xp": total_xp,
+            "total_cookies": total_cookies
+        }
+    except Exception as e:
+        print(f"Error getting database stats: {e}")
+        return {"success": False, "message": str(e)}

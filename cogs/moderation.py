@@ -208,5 +208,183 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Error updating roles: {str(e)}", ephemeral=True)
 
+    @app_commands.command(name="dbstats", description="View database statistics and data overview")
+    async def dbstats(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ You need 'Administrator' permission to use this command!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        try:
+            stats = db.get_database_stats()
+            
+            if not stats["success"]:
+                await interaction.followup.send(f"❌ Error getting database stats: {stats['message']}", ephemeral=True)
+                return
+
+            embed = discord.Embed(
+                title="📊 Database Statistics",
+                color=0x7289da,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👥 Users",
+                value=f"**Total Users:** {stats['total_users']}\n**With XP:** {stats['users_with_xp']}\n**With Cookies:** {stats['users_with_cookies']}\n**With Coins:** {stats['users_with_coins']}",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📊 Totals",
+                value=f"**Total XP:** {stats['total_xp']:,}\n**Total Cookies:** {stats['total_cookies']:,}",
+                inline=True
+            )
+            
+            embed.set_footer(text=f"{FOOTER_TXT} • Database Health Check")
+            await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error checking database: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="restoredata", description="Restore all user data from MongoDB (Administrator only)")
+    async def restoredata(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ You need 'Administrator' permission to use this command!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        try:
+            result = db.restore_all_data()
+            
+            if result["success"]:
+                embed = discord.Embed(
+                    title="✅ Data Restoration Complete",
+                    description=f"Successfully restored data for **{result['restored_count']}** users!",
+                    color=0x00ff00,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="📋 Details", value=result['message'], inline=False)
+                embed.add_field(name="🔄 Next Steps", value="All previous XP, cookies, and other data should now be accessible through bot commands.", inline=False)
+            else:
+                embed = discord.Embed(
+                    title="❌ Data Restoration Failed",
+                    description=f"Error: {result['message']}",
+                    color=0xff0000
+                )
+            
+            embed.set_footer(text=f"{FOOTER_TXT} • Data Restoration")
+            await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error restoring data: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="syncuser", description="Sync specific user's data from MongoDB")
+    @app_commands.describe(user="User to sync data for")
+    async def syncuser(self, interaction: discord.Interaction, user: discord.Member):
+        if not has_moderator_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        try:
+            # Sync user data
+            success = db.sync_user_data(user.id)
+            
+            if success:
+                # Get updated user data
+                user_data = db.get_user_data(user.id)
+                
+                embed = discord.Embed(
+                    title="🔄 User Data Synced",
+                    description=f"Successfully synced data for {user.mention}",
+                    color=0x00ff00,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(
+                    name="📊 Current Data",
+                    value=f"**XP:** {user_data.get('xp', 0):,}\n**Cookies:** {user_data.get('cookies', 0):,}\n**Coins:** {user_data.get('coins', 0):,}\n**Daily Streak:** {user_data.get('daily_streak', 0)}",
+                    inline=False
+                )
+            else:
+                embed = discord.Embed(
+                    title="❌ Sync Failed",
+                    description=f"Failed to sync data for {user.mention}",
+                    color=0xff0000
+                )
+            
+            embed.set_footer(text=f"{FOOTER_TXT} • User Data Sync")
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error syncing user: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="userdata", description="View raw user data from MongoDB")
+    @app_commands.describe(user="User to check data for")
+    async def userdata(self, interaction: discord.Interaction, user: discord.Member):
+        if not has_moderator_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        try:
+            user_data = db.get_user_data(user.id)
+            
+            if not user_data:
+                await interaction.response.send_message(f"❌ No data found for {user.mention} in MongoDB!", ephemeral=True)
+                return
+
+            embed = discord.Embed(
+                title="🗄️ Raw User Data",
+                description=f"MongoDB data for {user.mention}",
+                color=0x7289da,
+                timestamp=datetime.now()
+            )
+            
+            # Main stats
+            embed.add_field(
+                name="📊 Core Stats",
+                value=f"**XP:** {user_data.get('xp', 0):,}\n**Level:** {user_data.get('level', 'Not calculated')}\n**Cookies:** {user_data.get('cookies', 0):,}\n**Coins:** {user_data.get('coins', 0):,}",
+                inline=True
+            )
+            
+            # Time data
+            embed.add_field(
+                name="⏰ Timestamps",
+                value=f"**Last XP:** <t:{int(user_data.get('last_xp_time', 0))}:R>\n**Last Work:** <t:{int(user_data.get('last_work', 0))}:R>\n**Last Daily:** <t:{int(user_data.get('last_daily', 0))}:R>",
+                inline=True
+            )
+            
+            # Daily streak
+            embed.add_field(
+                name="🔥 Daily System",
+                value=f"**Streak:** {user_data.get('daily_streak', 0)} days",
+                inline=True
+            )
+            
+            # Temporary items
+            temp_roles = user_data.get('temporary_roles', [])
+            temp_purchases = user_data.get('temporary_purchases', [])
+            
+            if temp_roles or temp_purchases:
+                temp_info = []
+                if temp_roles:
+                    temp_info.append(f"**Roles:** {len(temp_roles)} active")
+                if temp_purchases:
+                    temp_info.append(f"**Purchases:** {len(temp_purchases)} active")
+                
+                embed.add_field(
+                    name="⚡ Temporary Items",
+                    value="\n".join(temp_info),
+                    inline=True
+                )
+            
+            embed.set_footer(text=f"{FOOTER_TXT} • MongoDB Raw Data")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error getting user data: {str(e)}", ephemeral=True)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Moderation(bot))

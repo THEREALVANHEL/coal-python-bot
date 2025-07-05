@@ -56,6 +56,17 @@ async def on_ready():
         print(f"⚡ Synced {len(synced)} slash commands")
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
+    
+    # Check database connectivity and stats
+    try:
+        import database as db
+        stats = db.get_database_stats()
+        if stats["success"]:
+            print(f"💾 Database connected - {stats['total_users']} users, {stats['total_xp']:,} total XP, {stats['total_cookies']:,} total cookies")
+        else:
+            print(f"❌ Database issue: {stats['message']}")
+    except Exception as e:
+        print(f"❌ Database check failed: {e}")
 
 # Load cogs
 async def load_cogs():
