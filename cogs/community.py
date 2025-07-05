@@ -133,7 +133,7 @@ class Community(commands.Cog):
             color=0x00ff00
         )
         await interaction.response.send_message(embed=embed)
-        @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
+            @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
     @app_commands.describe(question="Your question for the AI")
     async def askblecknephew(self, interaction: discord.Interaction, question: str):
         if not self.genai_api_key:
@@ -195,8 +195,8 @@ class Community(commands.Cog):
             description=message,
             color=0xff6b6b,
             timestamp=datetime.now()
-            )
-                embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        )
+        embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
         embed.set_footer(text=f"Announced by {interaction.user.display_name}")
 
         try:
@@ -207,3 +207,4 @@ class Community(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Community(bot))
+        
