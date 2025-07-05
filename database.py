@@ -1,325 +1,340 @@
-"""
-database.py – MongoDB helper layer for the Discord bot
-"""
-
+import pymongo
 import os
-import logging
-from datetime import datetime
-from typing import List, Dict, Any, Optional
-
-from pymongo import MongoClient, UpdateOne
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-# ─────────────────────────────────────────────────────────────
-# Logger setup
-# ─────────────────────────────────────────────────────────────
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# ─────────────────────────────────────────────────────────────
-# Environment & Mongo Client
-# ─────────────────────────────────────────────────────────────
 load_dotenv()
 MONGODB_URI = os.getenv("MONGODB_URI")
 
-try:
-    mongo_client = MongoClient(MONGODB_URI)
-    db = mongo_client["coal"]
+if not MONGODB_URI:
+    print("❌ MongoDB URI not found!")
+    client = None
+    db = None
+    users_collection = None
+    guild_settings_collection = None
+    warnings_collection = None
+    starboard_collection = None
+else:
+    try:
+        client = pymongo.MongoClient(MONGODB_URI)
+        db = client.discord_bot
+        users_collection = db.users
+        guild_settings_collection = db.guild_settings
+        warnings_collection = db.warnings
+        starboard_collection = db.starboard
+        print("✅ Connected to MongoDB")
+    except Exception as e:
+        print(f"❌ MongoDB connection error: {e}")
+        client = None
+        db = None
+        users_collection = None
+        guild_settings_collection = None
+        warnings_collection = None
+        starboard_collection = None
 
-    cookies_collection            = db["cookies"]
-    warnings_collection           = db["warnings"]
-    settings_collection           = db["settings"]
-    leveling_collection           = db["leveling"]
-    dailies_collection            = db["dailies"]
-    starboard_messages_collection = db["starboard_messages"]
+def get_user_data(user_id):
+    """Get user data from database"""
+    if not users_collection:
+        return {}
+    
+    try:
+        user_data = users_collection.find_one({"user_id": user_id})
+        return user_data if user_data else {}
+    except Exception as e:
+        print(f"Error getting user data: {e}")
+        return {}
 
-    logger.info("✅ Successfully connected to MongoDB.")
-except Exception as e:
-    logger.error("❌ Failed to connect to MongoDB", exc_info=True)
-    mongo_client = None
-    cookies_collection = warnings_collection = settings_collection = None
-    leveling_collection = dailies_collection = starboard_messages_collection = None
-
-# ─────────────────────────────────────────────────────────────
-# Daily-Streak Functions
-# ─────────────────────────────────────────────────────────────
-def get_daily_data(user_id: int) -> Optional[Dict[str, Any]]:
-    if dailies_collection is None:
-        return None
-    return dailies_collection.find_one({"user_id": user_id})
-
-def update_daily_checkin(user_id: int, new_streak: int) -> None:
-    if dailies_collection is None:
-        return
-    dailies_collection.update_one(
-        {"user_id": user_id},
-        {
-            "$set": {
-                "last_checkin": datetime.utcnow(),
-                "streak": new_streak,
-            }
-        },
-        upsert=True,
-    )
-
-def get_top_daily_streaks(skip: int = 0, limit: int = 10) -> List[Dict[str, Any]]:
-    if dailies_collection is None:
-        return []
-    return (
-        dailies_collection.find({"streak": {"$gt": 0}})
-        .sort("streak", -1)
-        .skip(skip)
-        .limit(limit)
-    )
-    def get_total_users_in_dailies() -> int:
-    if dailies_collection is None:
-        return 0
-    return dailies_collection.count_documents({"streak": {"$gt": 0}})
-
-# ─────────────────────────────────────────────────────────────
-# Cookie Functions
-# ─────────────────────────────────────────────────────────────
-def get_cookies(user_id: int) -> int:
-    if cookies_collection is None:
-        return 0
-    doc = cookies_collection.find_one({"user_id": user_id})
-    return doc.get("cookies", 0) if doc else 0
-
-def set_cookies(user_id: int, amount: int) -> None:
-    if cookies_collection is None:
-        return
-    cookies_collection.update_one(
-        {"user_id": user_id}, {"$set": {"cookies": amount}}, upsert=True
-    )
-
-def add_cookies(user_id: int, amount: int) -> None:
-    if cookies_collection is None:
-        return
-    cookies_collection.update_one(
-        {"user_id": user_id}, {"$inc": {"cookies": amount}}, upsert=True
-    )
-
-def remove_cookies(user_id: int, amount: int) -> None:
-    if cookies_collection is None:
-        return
-    current = get_cookies(user_id)
-    set_cookies(user_id, max(0, current - amount))
-
-def get_leaderboard(skip: int = 0, limit: int = 10) -> List[Dict[str, Any]]:
-    if cookies_collection is None:
-        return []
-    return list(
-        cookies_collection.find().sort("cookies", -1).skip(skip).limit(limit)
-    )
-
-def get_total_users_in_leaderboard() -> int:
-    if cookies_collection is None:
-        return 0
-    return cookies_collection.count_documents({})
-
-def get_user_rank(user_id: int) -> int:
-    if cookies_collection is None:
-        return 0
-    ahead = cookies_collection.count_documents(
-        {"cookies": {"$gt": get_cookies(user_id)}}
-    )
-    return ahead + 1
-
-def reset_all_cookies(member_ids: List[int]) -> None:
-    if cookies_collection is None:
-        return
-    ops = [
-        UpdateOne({"user_id": uid}, {"$set": {"cookies": 0}}, upsert=True)
-        for uid in member_ids
-    ]
-    if ops:
-        cookies_collection.bulk_write(ops)
-
-def give_cookies_to_all(amount: int, member_ids: List[int]) -> None:
-    if cookies_collection is None:
-        return
-    cookies_collection.update_many(
-        {"user_id": {"$in": member_ids}},
-        {"$setOnInsert": {"cookies": 0}},
-        upsert=True,
-    )
-    cookies_collection.update_many(
-        {"user_id": {"$in": member_ids}}, {"$inc": {"cookies": amount}}
-    )
-    def synchronize_cookies(all_member_ids: List[int]) -> int:
-    if cookies_collection is None:
-        return 0
-    db_ids = {doc["user_id"] for doc in cookies_collection.find({}, {"user_id": 1})}
-    to_remove = list(db_ids - set(all_member_ids))
-    if not to_remove:
-        return 0
-    result = cookies_collection.delete_many({"user_id": {"$in": to_remove}})
-    return result.deleted_count
-
-def get_all_users_data() -> List[Dict[str, Any]]:
-    if cookies_collection is None:
-        return []
-    return list(cookies_collection.find({}, {"user_id": 1}))
-
-def remove_user(user_id: int) -> None:
-    if cookies_collection is None:
-        return
-    cookies_collection.delete_one({"user_id": user_id})
-
-def add_user(user_id: int) -> None:
-    if cookies_collection is None:
-        return
-    cookies_collection.update_one(
-        {"user_id": user_id}, {"$setOnInsert": {"cookies": 0}}, upsert=True
-    )
-
-# ─────────────────────────────────────────────────────────────
-# Warning Functions
-# ─────────────────────────────────────────────────────────────
-def add_warning(user_id: int, moderator_id: int, reason: str) -> None:
-    if warnings_collection is None:
-        return
-    warnings_collection.insert_one(
-        {
-            "user_id": user_id,
-            "moderator_id": moderator_id,
-            "reason": reason,
-            "timestamp": datetime.utcnow(),
-        }
-    )
-
-def get_warnings(user_id: int) -> List[Dict[str, Any]]:
-    if warnings_collection is None:
-        return []
-    return list(warnings_collection.find({"user_id": user_id}))
-
-def clear_warnings(user_id: int) -> None:
-    if warnings_collection is None:
-        return
-    warnings_collection.delete_many({"user_id": user_id})
-
-# ─────────────────────────────────────────────────────────────
-# Settings Functions
-# ─────────────────────────────────────────────────────────────
-def set_channel(guild_id: int, channel_type: str, channel_id: int) -> None:
-    if settings_collection is None:
-        return
-    settings_collection.update_one(
-        {"guild_id": guild_id},
-        {"$set": {f"{channel_type}_channel": channel_id}},
-        upsert=True,
-    )
-
-def get_channel(guild_id: int, channel_type: str) -> Optional[int]:
-    if settings_collection is None:
-        return None
-    doc = settings_collection.find_one({"guild_id": guild_id})
-    return doc.get(f"{channel_type}_channel") if doc else None
-
-def set_starboard(guild_id: int, channel_id: int, star_count: int) -> None:
-    if settings_collection is None:
-        return
-    settings_collection.update_one(
-        {"guild_id": guild_id},
-        {
-            "$set": {
-                "starboard_channel": channel_id,
-                "starboard_star_count": star_count,
-            }
-        },
-        upsert=True,
-    )
-
-def get_starboard_settings(guild_id: int) -> Optional[Dict[str, Any]]:
-    if settings_collection is None:
-        return None
-    return settings_collection.find_one({"guild_id": guild_id})
-
-# ─────────────────────────────────────────────────────────────
-# Starboard Message Tracking
-# ─────────────────────────────────────────────────────────────
-def has_been_starred(guild_id: int, message_id: int) -> bool:
-    if starboard_messages_collection is None:
+def add_xp(user_id, xp_amount):
+    """Add XP to user"""
+    if not users_collection:
         return False
-    return (
-        starboard_messages_collection.find_one(
-            {"guild_id": guild_id, "message_id": message_id}
+    
+    try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$inc": {"xp": xp_amount}},
+            upsert=True
         )
-        is not None
-    )
+        return True
+    except Exception as e:
+        print(f"Error adding XP: {e}")
+        return False
 
-def mark_as_starred(guild_id: int, message_id: int) -> None:
-    if starboard_messages_collection is None:
-        return
-    starboard_messages_collection.insert_one(
-        {
-            "guild_id": guild_id,
-            "message_id": message_id,
-            "timestamp": datetime.utcnow(),
+def add_cookies(user_id, cookie_amount):
+    """Add cookies to user"""
+    if not users_collection:
+        return False
+    
+    try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$inc": {"cookies": cookie_amount}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error adding cookies: {e}")
+        return False
+
+def remove_cookies(user_id, cookie_amount):
+    """Remove cookies from user"""
+    if not users_collection:
+        return False
+    
+    try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$inc": {"cookies": -cookie_amount}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error removing cookies: {e}")
+        return False
+
+def add_coins(user_id, coin_amount):
+    """Add coins to user"""
+    if not users_collection:
+        return False
+    
+    try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$inc": {"coins": coin_amount}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error adding coins: {e}")
+        return False
+
+def remove_coins(user_id, coin_amount):
+    """Remove coins from user"""
+    if not users_collection:
+        return False
+    
+    try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$inc": {"coins": -coin_amount}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error removing coins: {e}")
+        return False
+
+def update_last_xp_time(user_id, timestamp):
+    """Update last XP time"""
+    if not users_collection:
+        return False
+    
+    try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$set": {"last_xp_time": timestamp}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error updating last XP time: {e}")
+        return False
+
+def update_last_work(user_id, timestamp):
+    """Update last work time"""
+    if not users_collection:
+        return False
+        try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$set": {"last_work": timestamp}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error updating last work time: {e}")
+        return False
+
+def claim_daily_xp(user_id):
+    """Claim daily XP bonus"""
+    if not users_collection:
+        return {"success": False, "message": "Database unavailable"}
+    
+    try:
+        user_data = get_user_data(user_id)
+        last_daily = user_data.get('last_daily', 0)
+        current_time = datetime.now().timestamp()
+        
+        # Check if 24 hours have passed
+        if current_time - last_daily < 86400:  # 24 hours in seconds
+            time_left = 86400 - (current_time - last_daily)
+            hours = int(time_left // 3600)
+            minutes = int((time_left % 3600) // 60)
+            return {
+                "success": False, 
+                "time_left": f"{hours}h {minutes}m"
+            }
+        
+        # Calculate streak
+        streak = user_data.get('daily_streak', 0)
+        if current_time - last_daily <= 172800:  # Within 48 hours
+            streak += 1
+        else:
+            streak = 1
+        
+        # Calculate XP (bonus every 7 days)
+        base_xp = 100
+        bonus_xp = 200 if streak % 7 == 0 else 0
+        total_xp = base_xp + bonus_xp
+        
+        # Update database
+        users_collection.update_one(
+            {"user_id": user_id},
+            {
+                "$inc": {"xp": total_xp},
+                "$set": {
+                    "last_daily": current_time,
+                    "daily_streak": streak
+                }
+            },
+            upsert=True
+        )
+        
+        return {
+            "success": True,
+            "xp_gained": total_xp,
+            "streak": streak
         }
-    )
-    def get_starboard_message(message_id: int) -> Optional[int]:
-    if starboard_messages_collection is None:
-        return None
-    doc = starboard_messages_collection.find_one({"message_id": message_id})
-    return doc["starboard_post_id"] if doc else None
+        
+    except Exception as e:
+        print(f"Error claiming daily: {e}")
+        return {"success": False, "message": str(e)}
 
-def add_starboard_message(original_id: int, post_id: int) -> None:
-    if starboard_messages_collection is None:
-        return
-    starboard_messages_collection.update_one(
-        {"message_id": original_id},
-        {"$set": {"starboard_post_id": post_id, "timestamp": datetime.utcnow()}},
-        upsert=True,
-    )
-
-# ─────────────────────────────────────────────────────────────
-# Leveling Functions
-# ─────────────────────────────────────────────────────────────
-def get_user_level_data(user_id: int) -> Optional[Dict[str, Any]]:
-    if leveling_collection is None:
-        return None
-    return leveling_collection.find_one({"user_id": user_id})
-
-def update_user_xp(user_id: int, xp_to_add: int) -> None:
-    if leveling_collection is None:
-        return
-    leveling_collection.update_one(
-        {"user_id": user_id},
-        {"$inc": {"xp": xp_to_add}, "$setOnInsert": {"level": 0}},
-        upsert=True,
-    )
-
-def set_user_level(user_id: int, new_level: int) -> None:
-    if leveling_collection is None:
-        return
-    leveling_collection.update_one(
-        {"user_id": user_id}, {"$set": {"level": new_level, "xp": 0}}
-    )
-
-def get_leveling_leaderboard(skip: int = 0, limit: int = 10) -> List[Dict[str, Any]]:
-    if leveling_collection is None:
+def get_leaderboard(field, limit=10):
+    """Get leaderboard for a specific field"""
+    if not users_collection:
         return []
-    return list(
-        leveling_collection.find()
-        .sort([("level", -1), ("xp", -1)])
-        .skip(skip)
-        .limit(limit)
-    )
+    try:
+        pipeline = [
+            {"$match": {field: {"$gt": 0}}},
+            {"$sort": {field: -1}},
+            {"$limit": limit}
+        ]
+        return list(users_collection.aggregate(pipeline))
+    except Exception as e:
+        print(f"Error getting leaderboard: {e}")
+        return []
 
-def get_total_users_in_leveling() -> int:
-    if leveling_collection is None:
-        return 0
-    return leveling_collection.count_documents({})
+def add_warning(user_id, reason, moderator_id):
+    """Add warning to user"""
+    if not warnings_collection:
+        return False
+    
+    try:
+        warning = {
+            "user_id": user_id,
+            "reason": reason,
+            "moderator_id": moderator_id,
+            "timestamp": datetime.now().timestamp()
+        }
+        warnings_collection.insert_one(warning)
+        return True
+    except Exception as e:
+        print(f"Error adding warning: {e}")
+        return False
 
-def get_user_leveling_rank(user_id: int) -> int:
-    if leveling_collection is None:
-        return 0
-    data = get_user_level_data(user_id)
-    if data is None:
-        return get_total_users_in_leveling() + 1
-    level, xp = data.get("level", 0), data.get("xp", 0)
-    higher = leveling_collection.count_documents(
-        {"$or": [{"level": {"$gt": level}}, {"level": level, "xp": {"$gt": xp}}]}
-    )
-    return higher + 1
+def get_user_warnings(user_id):
+    """Get all warnings for a user"""
+    if not warnings_collection:
+        return []
+    
+    try:
+        return list(warnings_collection.find({"user_id": user_id}).sort("timestamp", -1))
+    except Exception as e:
+        print(f"Error getting warnings: {e}")
+        return []
+
+def set_guild_setting(guild_id, setting, value):
+    """Set a guild setting"""
+    if not guild_settings_collection:
+        return False
+    
+    try:
+        guild_settings_collection.update_one(
+            {"guild_id": guild_id},
+            {"$set": {setting: value}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error setting guild setting: {e}")
+        return False
+
+def get_guild_setting(guild_id, setting, default=None):
+    """Get a guild setting"""
+    if not guild_settings_collection:
+        return default
+    
+    try:
+        guild_data = guild_settings_collection.find_one({"guild_id": guild_id})
+        if guild_data and setting in guild_data:
+            return guild_data[setting]
+        return default
+    except Exception as e:
+        print(f"Error getting guild setting: {e}")
+        return default
+        def reset_guild_settings(guild_id):
+    """Reset all guild settings"""
+    if not guild_settings_collection:
+        return False
+    
+    try:
+        guild_settings_collection.delete_one({"guild_id": guild_id})
+        return True
+    except Exception as e:
+        print(f"Error resetting guild settings: {e}")
+        return False
+
+def add_starboard_message(message_id, starboard_message_id, star_count):
+    """Add message to starboard"""
+    if not starboard_collection:
+        return False
+    
+    try:
+        starboard_entry = {
+            "message_id": message_id,
+            "starboard_message_id": starboard_message_id,
+            "star_count": star_count,
+            "timestamp": datetime.now().timestamp()
+        }
+        starboard_collection.insert_one(starboard_entry)
+        return True
+    except Exception as e:
+        print(f"Error adding starboard message: {e}")
+        return False
+
+def get_starboard_message(message_id):
+    """Get starboard entry for a message"""
+    if not starboard_collection:
+        return None
+    
+    try:
+        return starboard_collection.find_one({"message_id": message_id})
+    except Exception as e:
+        print(f"Error getting starboard message: {e}")
+        return None
+
+def update_starboard_count(message_id, new_count):
+    """Update star count for starboard message"""
+    if not starboard_collection:
+        return False
+    
+    try:
+        starboard_collection.update_one(
+            {"message_id": message_id},
+            {"$set": {"star_count": new_count}}
+        )
+        return True
+    except Exception as e:
+        print(f"Error updating starboard count: {e}")
+        return False
