@@ -67,7 +67,8 @@ class Community(commands.Cog):
         if len(option_list) > 10:
             await interaction.response.send_message("❌ Maximum 10 options allowed!", ephemeral=True)
             return
-            winner = random.choice(option_list)
+            
+        winner = random.choice(option_list)
         
         embed = discord.Embed(
             title="🎡 Wheel Spin Results",
@@ -133,7 +134,8 @@ class Community(commands.Cog):
             color=0x00ff00
         )
         await interaction.response.send_message(embed=embed)
-            @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
+
+    @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
     @app_commands.describe(question="Your question for the AI")
     async def askblecknephew(self, interaction: discord.Interaction, question: str):
         if not self.genai_api_key:
@@ -207,4 +209,3 @@ class Community(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Community(bot))
-        

@@ -64,7 +64,8 @@ class Settings(commands.Cog):
         if not interaction.user.guild_permissions.manage_guild:
             await interaction.response.send_message("❌ You need 'Manage Server' permission to use this command!", ephemeral=True)
             return
-try:
+        
+        try:
             if action == "threshold":
                 if not value or not value.isdigit():
                     await interaction.response.send_message("❌ Please provide a valid number for the threshold!", ephemeral=True)
@@ -195,7 +196,8 @@ try:
                     color=0xff0000
                 )
                 await interaction.response.edit_message(embed=embed, view=None)
-                view = ConfirmView()
+        
+        view = ConfirmView()
         embed = discord.Embed(
             title="⚠️ Confirm Settings Reset",
             description="This will reset ALL server settings to default values. This action cannot be undone!",
