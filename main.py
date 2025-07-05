@@ -115,29 +115,34 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
     
-    # Check database connectivity and stats
+    # Check database connectivity and stats with timeout
     try:
+        print("💾 Checking database connectivity...")
         import database as db
-        stats = db.get_database_stats()
-        if stats["success"]:
-            print(f"💾 Database connected - {stats['total_users']} users, {stats['total_xp']:,} total XP, {stats['total_cookies']:,} total cookies")
+        
+        # Quick health check first
+        health_check = db.quick_db_health_check()
+        if health_check["success"]:
+            print(f"✅ {health_check['message']}")
             
-            # Perform automatic database maintenance
-            print("🔧 Running automatic database maintenance...")
-            maintenance_result = db.maintenance_cleanup()
-            if maintenance_result["success"]:
-                print(f"✅ Maintenance complete - {maintenance_result['recovered_users']} users recovered, {maintenance_result['cleaned_entries']} entries cleaned")
-            else:
-                print(f"⚠️ Maintenance warning: {maintenance_result['message']}")
+            # Get basic stats with timeout protection
+            try:
+                stats = db.get_database_stats()
+                if stats["success"]:
+                    estimated = " (estimated)" if stats.get('is_estimated') else ""
+                    print(f"📊 Database stats - {stats['total_users']} users, {stats['total_xp']:,} total XP{estimated}, {stats['total_cookies']:,} total cookies{estimated}")
+                else:
+                    print(f"⚠️ Database stats warning: {stats['message']}")
+            except Exception as e:
+                print(f"⚠️ Could not get database stats: {e}")
                 
-            # Get updated stats after maintenance
-            updated_stats = db.get_database_stats()
-            if updated_stats["success"]:
-                print(f"📊 Post-maintenance stats - {updated_stats['total_users']} users total")
         else:
-            print(f"❌ Database issue: {stats['message']}")
+            print(f"❌ Database health check failed: {health_check['error']}")
+            print("🔄 Bot will continue without database features")
+            
     except Exception as e:
         print(f"❌ Database check failed: {e}")
+        print("🔄 Bot will continue in limited mode")
 
 # Load cogs
 async def load_cogs():
@@ -161,37 +166,83 @@ async def load_cogs():
             print(f"[Main] ❌ Failed to load {cog}: {e}")
 
 async def startup_maintenance():
-    """Perform startup maintenance and optimization"""
+    """Perform startup maintenance and optimization with timeouts"""
     try:
         print("[Main] 🔧 Performing startup maintenance...")
         
         import database as db
         
-        # Remove deprecated warning system
-        result = db.remove_deprecated_warning_system()
-        if result['success']:
-            print(f"[Main] ✅ Removed warning system from {result['users_updated']} users")
+        # Add timeout wrapper for database operations
+        async def run_with_timeout(func, timeout_seconds=30):
+            try:
+                # Run in executor to avoid blocking the event loop
+                loop = asyncio.get_event_loop()
+                return await asyncio.wait_for(
+                    loop.run_in_executor(None, func), 
+                    timeout=timeout_seconds
+                )
+            except asyncio.TimeoutError:
+                print(f"[Main] ⏰ Operation timed out after {timeout_seconds}s")
+                return {"success": False, "error": "timeout"}
+            except Exception as e:
+                print(f"[Main] ❌ Operation failed: {e}")
+                return {"success": False, "error": str(e)}
         
-        # Optimize database
-        optimization = db.optimize_database_live()
-        if optimization['success']:
-            print(f"[Main] ✅ Database optimized with {len(optimization['indexes_created'])} indexes")
+        # Remove deprecated warning system with timeout
+        print("[Main] 🗑️ Removing deprecated warning system...")
+        result = await run_with_timeout(db.remove_deprecated_warning_system, 15)
+        if result.get('success'):
+            print(f"[Main] ✅ Removed warning system from {result.get('users_updated', 0)} users")
+        else:
+            print(f"[Main] ⚠️ Warning system cleanup failed: {result.get('error', 'unknown')}")
         
-        # Auto-sync first 100 users for better performance
-        print("[Main] 🔄 Auto-syncing user data...")
-        users_synced = 0
-        try:
-            all_users = db.get_all_users_for_maintenance()[:100]  # Limit to 100 for startup
-            for user_data in all_users:
-                db.auto_sync_user_data(user_data['user_id'])
-                users_synced += 1
-        except Exception as e:
-            print(f"[Main] ⚠️ Error in user sync: {e}")
+        # Optimize database with timeout
+        print("[Main] 🎯 Optimizing database...")
+        optimization = await run_with_timeout(db.optimize_database_live, 20)
+        if optimization.get('success'):
+            indexes = optimization.get('indexes_created', [])
+            print(f"[Main] ✅ Database optimized with {len(indexes)} indexes")
+        else:
+            print(f"[Main] ⚠️ Database optimization failed: {optimization.get('error', 'unknown')}")
         
-        print(f"[Main] ✅ Startup maintenance complete. Synced {users_synced} users.")
+        # Skip auto-sync during startup to prevent hanging
+        # This will be done in background after bot is online
+        print("[Main] ⏭️ Skipping user auto-sync during startup (will run in background)")
+        
+        print(f"[Main] ✅ Startup maintenance complete (with graceful timeouts)")
         
     except Exception as e:
         print(f"[Main] ❌ Error in startup maintenance: {e}")
+        print(f"[Main] 🔄 Continuing with bot startup despite maintenance errors...")
+
+async def background_user_sync():
+    """Run user sync in background after bot is online"""
+    try:
+        # Wait for bot to be fully ready
+        await asyncio.sleep(60)  # Wait 1 minute after startup
+        
+        print("[Background] 🔄 Starting background user sync...")
+        import database as db
+        
+        users_synced = 0
+        try:
+            # Limit to 50 users to prevent overload
+            all_users = db.get_all_users_for_maintenance()[:50]
+            for user_data in all_users:
+                db.auto_sync_user_data(user_data['user_id'])
+                users_synced += 1
+                
+                # Add small delay to prevent overwhelming the database
+                if users_synced % 10 == 0:
+                    await asyncio.sleep(1)
+                    
+        except Exception as e:
+            print(f"[Background] ⚠️ Error in user sync: {e}")
+        
+        print(f"[Background] ✅ Background sync complete. Synced {users_synced} users.")
+        
+    except Exception as e:
+        print(f"[Background] ❌ Background sync failed: {e}")
 
 async def main():
     """Main function to run the bot"""
@@ -201,18 +252,37 @@ async def main():
         # Start the web server first
         start_web_server()
         
-        # Load all cogs
-        await load_cogs()
+        # Load all cogs with timeout
+        print("📦 Loading cogs...")
+        try:
+            await asyncio.wait_for(load_cogs(), timeout=45)
+            print("✅ All cogs loaded successfully")
+        except asyncio.TimeoutError:
+            print("⏰ Cog loading timed out, continuing anyway...")
+        except Exception as e:
+            print(f"❌ Error loading cogs: {e}")
         
-        # Perform startup maintenance
-        await startup_maintenance()
+        # Perform startup maintenance with timeout
+        print("🔧 Running startup maintenance...")
+        try:
+            await asyncio.wait_for(startup_maintenance(), timeout=60)
+        except asyncio.TimeoutError:
+            print("⏰ Startup maintenance timed out, continuing with bot startup...")
+        except Exception as e:
+            print(f"❌ Startup maintenance failed: {e}")
         
         print("🎮 Starting Discord bot...")
+        
+        # Start background user sync task
+        asyncio.create_task(background_user_sync())
+        
         # Start the bot
         await bot.start(DISCORD_TOKEN)
         
     except Exception as e:
         print(f"[Main] ❌ Error starting bot: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     try:

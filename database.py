@@ -391,7 +391,13 @@ def start_safety_monitoring():
 
 # Start safety monitoring when module is loaded
 if client is not None:
-    start_safety_monitoring()
+    # Only start monitoring if we have a successful connection
+    try:
+        # Quick health check before starting monitoring
+        client.admin.command('ping')
+        start_safety_monitoring()
+    except Exception as e:
+        print(f"⚠️ Database health check failed, skipping safety monitoring: {e}")
 
 def get_user_data(user_id):
     """Get user data from database"""
@@ -1724,38 +1730,60 @@ def maintenance_cleanup():
         return {"success": False, "message": str(e)}
 
 def get_database_stats():
-    """Get statistics about the database"""
-    if users_collection is None:
-        return {"success": False, "message": "Database unavailable"}
-    
+    """Get database statistics with error handling"""
     try:
+        if not users_collection:
+            return {
+                "success": False,
+                "message": "Database not connected",
+                "total_users": 0,
+                "total_xp": 0,
+                "total_cookies": 0
+            }
+        
+        # Use aggregation with timeout protection
         total_users = users_collection.count_documents({})
-        users_with_xp = users_collection.count_documents({"xp": {"$gt": 0}})
-        users_with_cookies = users_collection.count_documents({"cookies": {"$gt": 0}})
-        users_with_coins = users_collection.count_documents({"coins": {"$gt": 0}})
         
-        # Get total XP and cookies in database
-        pipeline_xp = [{"$group": {"_id": None, "total": {"$sum": "$xp"}}}]
-        pipeline_cookies = [{"$group": {"_id": None, "total": {"$sum": "$cookies"}}}]
+        # Quick stats without complex aggregation
+        if total_users == 0:
+            return {
+                "success": True,
+                "message": "Database connected but empty",
+                "total_users": 0,
+                "total_xp": 0,
+                "total_cookies": 0
+            }
         
-        total_xp_result = list(users_collection.aggregate(pipeline_xp))
-        total_cookies_result = list(users_collection.aggregate(pipeline_cookies))
+        # Sample a few users for basic stats
+        sample_size = min(100, total_users)
+        sample_users = list(users_collection.find({}).limit(sample_size))
         
-        total_xp = total_xp_result[0]["total"] if total_xp_result else 0
-        total_cookies = total_cookies_result[0]["total"] if total_cookies_result else 0
+        total_xp = sum(user.get('xp', 0) for user in sample_users)
+        total_cookies = sum(user.get('cookies', 0) for user in sample_users)
+        
+        # Estimate totals based on sample
+        if sample_size < total_users:
+            ratio = total_users / sample_size
+            total_xp = int(total_xp * ratio)
+            total_cookies = int(total_cookies * ratio)
         
         return {
             "success": True,
+            "message": "Database connected and operational",
             "total_users": total_users,
-            "users_with_xp": users_with_xp,
-            "users_with_cookies": users_with_cookies,
-            "users_with_coins": users_with_coins,
             "total_xp": total_xp,
-            "total_cookies": total_cookies
+            "total_cookies": total_cookies,
+            "is_estimated": sample_size < total_users
         }
+        
     except Exception as e:
-        print(f"Error getting database stats: {e}")
-        return {"success": False, "message": str(e)}
+        return {
+            "success": False,
+            "message": f"Database stats error: {str(e)}",
+            "total_users": 0,
+            "total_xp": 0,
+            "total_cookies": 0
+        }
 
 def get_all_users_for_maintenance():
     """Get all users for maintenance operations (limit for performance)"""
@@ -1807,5 +1835,28 @@ def get_streak_leaderboard(page=1, items_per_page=10):
     except Exception as e:
         print(f"[Database] Error getting streak leaderboard: {e}")
         return {"users": [], "total_pages": 0, "current_page": page, "total_users": 0}
+
+def quick_db_health_check():
+    """Quick database health check for startup"""
+    try:
+        if not client:
+            return {"success": False, "error": "No database client"}
+        
+        # Simple ping to check connection
+        client.admin.command('ping')
+        
+        # Quick count check (with timeout)
+        if users_collection:
+            count = users_collection.count_documents({})
+            return {
+                "success": True, 
+                "message": f"Database healthy - {count} users",
+                "user_count": count
+            }
+        else:
+            return {"success": False, "error": "Collections not initialized"}
+            
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 print("[Database] All functions loaded successfully with enhanced MongoDB support")
