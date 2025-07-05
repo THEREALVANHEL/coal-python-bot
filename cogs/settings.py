@@ -8,79 +8,12 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
-GUILD_ID = 1370009417726169250
-
 class Settings(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     async def cog_load(self):
-        print("[Settings] Loaded successfully.")
-
-    @app_commands.command(name="setup", description="Comprehensive server setup for all bot functions")
-    @app_commands.describe(
-        function="The function to set the channel for",
-        channel="The channel to set"
-    )
-    @app_commands.choices(function=[
-        app_commands.Choice(name="Level Up Announcements", value="levelup"),
-        app_commands.Choice(name="Welcome Messages", value="welcome"),
-        app_commands.Choice(name="Goodbye Messages", value="goodbye"),
-        app_commands.Choice(name="Starboard", value="starboard"),
-        app_commands.Choice(name="Mod Logs", value="modlog"),
-        app_commands.Choice(name="Suggestion Channel", value="suggest")
-    ])
-    async def setup(self, interaction: discord.Interaction, function: str, channel: discord.TextChannel):
-        if not interaction.user.guild_permissions.manage_guild:
-            await interaction.response.send_message("❌ You need 'Manage Server' permission to use this command!", ephemeral=True)
-            return
-
-        try:
-            db.set_guild_setting(interaction.guild.id, f"{function}_channel", channel.id)
-            
-            # Function descriptions
-            descriptions = {
-                "levelup": "Level up announcements will be sent here when users reach new levels",
-                "welcome": "Welcome messages will be sent here when new members join",
-                "goodbye": "Goodbye messages will be sent here when members leave",
-                "starboard": "Starred messages will be posted here when they reach the threshold",
-                "modlog": "All moderation actions and server events will be logged here",
-                "suggest": "User suggestions will be automatically forwarded to this channel"
-            }
-            
-            embed = discord.Embed(
-                title="⚙️ Setup Complete!",
-                description=f"**{function.title()} Channel** configured successfully!",
-                color=0x00ff00,
-                timestamp=datetime.now()
-            )
-            embed.add_field(name="📍 Channel", value=channel.mention, inline=True)
-            embed.add_field(name="🔧 Function", value=function.title(), inline=True)
-            embed.add_field(name="📝 Description", value=descriptions.get(function, "Channel configured"), inline=False)
-            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="Use /viewsettings to see all current configurations")
-            
-            await interaction.response.send_message(embed=embed)
-
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error setting up channel: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="setchannel", description="Set a channel for specific bot functions (legacy command)")
-    @app_commands.describe(
-        function="The function to set the channel for",
-        channel="The channel to set"
-    )
-    @app_commands.choices(function=[
-        app_commands.Choice(name="Level Up Announcements", value="levelup"),
-        app_commands.Choice(name="Welcome Messages", value="welcome"),
-        app_commands.Choice(name="Goodbye Messages", value="goodbye"),
-        app_commands.Choice(name="Starboard", value="starboard"),
-        app_commands.Choice(name="Mod Logs", value="modlog"),
-        app_commands.Choice(name="Suggestion Channel", value="suggest")
-    ])
-    async def setchannel(self, interaction: discord.Interaction, function: str, channel: discord.TextChannel):
-        # Redirect to setup command
-        await self.setup(interaction, function, channel)
+        print("[Settings] ⚙️ Loaded successfully.")
 
     @app_commands.command(name="starboard", description="Configure the starboard settings")
     @app_commands.describe(
@@ -132,13 +65,13 @@ class Settings(commands.Cog):
                 if new_state:
                     embed.add_field(
                         name="📝 Next Steps", 
-                        value="Don't forget to set a starboard channel using `/setup starboard #channel`",
+                        value="Don't forget to set a starboard channel using `/quicksetup`",
                         inline=False
                     )
                 
             elif action == "channel":
                 await interaction.response.send_message(
-                    "ℹ️ Use `/setup starboard #your-channel` to set the starboard channel.",
+                    "ℹ️ Use `/quicksetup` to set the starboard channel through our enhanced setup system.",
                     ephemeral=True
                 )
                 return
@@ -149,15 +82,15 @@ class Settings(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error configuring starboard: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="viewsettings", description="View current server settings and configuration")
+    @app_commands.command(name="viewsettings", description="🔍 View current server settings and configuration")
     async def viewsettings(self, interaction: discord.Interaction):
         try:
             guild_id = interaction.guild.id
             
             embed = discord.Embed(
-                title="⚙️ Server Configuration",
+                title="⚙️ **Server Configuration**",
                 description="Current bot settings for this server",
-                color=0x7289da,
+                color=0x7c3aed,
                 timestamp=datetime.now()
             )
             embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
@@ -169,11 +102,16 @@ class Settings(commands.Cog):
                 "goodbye": "👋 Goodbye",
                 "starboard": "⭐ Starboard",
                 "modlog": "📋 Mod Log",
-                "suggest": "💡 Suggestions"
+                "suggest": "💡 Suggestions",
+                "ticket_category": "🎫 Tickets"
             }
             channel_settings = []
             for key, name in channels.items():
-                channel_id = db.get_guild_setting(guild_id, f"{key}_channel", None)
+                if key == "ticket_category":
+                    channel_id = db.get_server_settings(guild_id).get('ticket_category', None)
+                else:
+                    channel_id = db.get_guild_setting(guild_id, f"{key}_channel", None)
+                
                 if channel_id:
                     channel = self.bot.get_channel(channel_id)
                     channel_text = channel.mention if channel else f"<#{channel_id}> (deleted)"
@@ -181,7 +119,7 @@ class Settings(commands.Cog):
                     channel_text = "Not set"
                 channel_settings.append(f"**{name}:** {channel_text}")
             
-            embed.add_field(name="📁 Channel Configuration", value="\n".join(channel_settings), inline=False)
+            embed.add_field(name="📁 **Channel Configuration**", value="\n".join(channel_settings), inline=False)
             
             # Starboard settings
             starboard_enabled = db.get_guild_setting(guild_id, "starboard_enabled", False)
@@ -192,27 +130,44 @@ class Settings(commands.Cog):
                 f"**Threshold:** {starboard_threshold} ⭐"
             ]
             
-            embed.add_field(name="⭐ Starboard Settings", value="\n".join(starboard_info), inline=False)
+            embed.add_field(name="⭐ **Starboard Settings**", value="\n".join(starboard_info), inline=False)
+            
+            # Ticket settings
+            ticket_settings = db.get_server_settings(guild_id)
+            support_roles = ticket_settings.get('ticket_support_roles', [])
+            
+            ticket_info = [
+                f"**Category:** {'✅ Configured' if ticket_settings.get('ticket_category') else '❌ Not set'}",
+                f"**Support Roles:** {len(support_roles)} configured"
+            ]
+            
+            embed.add_field(name="🎫 **Ticket System**", value="\n".join(ticket_info), inline=False)
             
             # Setup tips
-            not_configured = [name for key, name in channels.items() 
-                            if not db.get_guild_setting(guild_id, f"{key}_channel", None)]
+            not_configured = []
+            for key, name in channels.items():
+                if key == "ticket_category":
+                    if not ticket_settings.get('ticket_category'):
+                        not_configured.append(name)
+                else:
+                    if not db.get_guild_setting(guild_id, f"{key}_channel", None):
+                        not_configured.append(name)
             
             if not_configured:
                 embed.add_field(
-                    name="💡 Setup Tips",
-                    value=f"Consider configuring: {', '.join(not_configured)}\nUse `/setup <function> #channel` to configure them!",
+                    name="💡 **Setup Suggestions**",
+                    value=f"Consider configuring: {', '.join(not_configured)}\nUse `/quicksetup` to configure them quickly!",
                     inline=False
                 )
             
-            embed.set_footer(text="Use /setup to configure channels • Use /starboard to configure starboard")
+            embed.set_footer(text="✨ Use /quicksetup for easy configuration • /starboard for starboard settings")
             
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
             await interaction.response.send_message(f"❌ Error getting settings: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="quicksetup", description="Quick setup wizard for essential bot functions")
+    @app_commands.command(name="quicksetup", description="🚀 Enhanced setup wizard for all bot functions")
     async def quicksetup(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.manage_guild:
             await interaction.response.send_message("❌ You need 'Manage Server' permission to use this command!", ephemeral=True)
@@ -222,36 +177,39 @@ class Settings(commands.Cog):
             def __init__(self, bot):
                 super().__init__(timeout=300)
                 self.bot = bot
-                self.configured = []
 
-            @discord.ui.button(label="📋 Mod Logs", style=discord.ButtonStyle.primary)
+            @discord.ui.button(label="📋 Mod Logs", style=discord.ButtonStyle.primary, emoji="📋")
             async def setup_modlog(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.send_modal(ChannelModal("modlog", "Mod Log"))
 
-            @discord.ui.button(label="💡 Suggestions", style=discord.ButtonStyle.primary)
+            @discord.ui.button(label="💡 Suggestions", style=discord.ButtonStyle.primary, emoji="💡")
             async def setup_suggest(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.send_modal(ChannelModal("suggest", "Suggestions"))
 
-            @discord.ui.button(label="🎉 Level Up", style=discord.ButtonStyle.secondary)
+            @discord.ui.button(label="🎫 Ticket Category", style=discord.ButtonStyle.primary, emoji="🎫")
+            async def setup_tickets(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await interaction.response.send_modal(TicketCategoryModal())
+
+            @discord.ui.button(label="🎉 Level Up", style=discord.ButtonStyle.secondary, emoji="🎉")
             async def setup_levelup(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.send_modal(ChannelModal("levelup", "Level Up"))
 
-            @discord.ui.button(label="👋 Welcome", style=discord.ButtonStyle.secondary)
+            @discord.ui.button(label="👋 Welcome", style=discord.ButtonStyle.secondary, emoji="👋")
             async def setup_welcome(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.send_modal(ChannelModal("welcome", "Welcome"))
 
-            @discord.ui.button(label="⭐ Starboard", style=discord.ButtonStyle.secondary)
+            @discord.ui.button(label="⭐ Starboard", style=discord.ButtonStyle.secondary, emoji="⭐")
             async def setup_starboard(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.send_modal(ChannelModal("starboard", "Starboard"))
 
         class ChannelModal(discord.ui.Modal):
             def __init__(self, function, display_name):
-                super().__init__(title=f"Setup {display_name} Channel")
+                super().__init__(title=f"🔧 Setup {display_name} Channel")
                 self.function = function
                 self.display_name = display_name
 
             channel_input = discord.ui.TextInput(
-                label="Channel ID or Name",
+                label="📍 Channel ID or Name",
                 placeholder="Enter channel ID (e.g., 123456789) or #channel-name",
                 min_length=1,
                 max_length=100
@@ -272,7 +230,17 @@ class Settings(commands.Cog):
                         channel = discord.utils.get(interaction.guild.channels, name=channel_text)
                     
                     if not channel:
-                        await interaction.response.send_message(f"❌ Channel '{channel_text}' not found!", ephemeral=True)
+                        embed = discord.Embed(
+                            title="❌ Channel Not Found",
+                            description=f"Channel '{channel_text}' not found!",
+                            color=0xff6b6b
+                        )
+                        embed.add_field(
+                            name="💡 Tip",
+                            value="Use channel ID or #channel-name format",
+                            inline=False
+                        )
+                        await interaction.response.send_message(embed=embed, ephemeral=True)
                         return
                     
                     if not isinstance(channel, discord.TextChannel):
@@ -283,10 +251,88 @@ class Settings(commands.Cog):
                     db.set_guild_setting(interaction.guild.id, f"{self.function}_channel", channel.id)
                     
                     embed = discord.Embed(
-                        title=f"✅ {self.display_name} Configured!",
+                        title=f"✅ **{self.display_name} Configured!**",
                         description=f"{self.display_name} channel set to {channel.mention}",
-                        color=0x00ff00
+                        color=0x00d4aa,
+                        timestamp=datetime.now()
                     )
+                    embed.set_footer(text="✨ Configuration saved successfully!")
+                    
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+                    
+                except Exception as e:
+                    await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+
+        class TicketCategoryModal(discord.ui.Modal):
+            def __init__(self):
+                super().__init__(title="🎫 Setup Ticket System")
+
+            category_input = discord.ui.TextInput(
+                label="📂 Category ID or Name",
+                placeholder="Enter category ID or name where ticket channels will be created",
+                min_length=1,
+                max_length=100
+            )
+
+            support_roles_input = discord.ui.TextInput(
+                label="👥 Support Role IDs (Optional)",
+                placeholder="Enter role IDs separated by commas (e.g., 123456789, 987654321)",
+                required=False,
+                max_length=500
+            )
+
+            async def on_submit(self, interaction: discord.Interaction):
+                try:
+                    category_text = self.category_input.value.strip()
+                    
+                    # Find category
+                    category = None
+                    if category_text.isdigit():
+                        category = interaction.guild.get_channel(int(category_text))
+                    else:
+                        category = discord.utils.get(interaction.guild.categories, name=category_text)
+                    
+                    if not category or not isinstance(category, discord.CategoryChannel):
+                        await interaction.response.send_message("❌ Category not found! Please provide a valid category channel.", ephemeral=True)
+                        return
+                    
+                    # Parse support roles
+                    support_role_ids = []
+                    if self.support_roles_input.value:
+                        for role_id_str in self.support_roles_input.value.split(','):
+                            role_id_str = role_id_str.strip()
+                            if role_id_str.isdigit():
+                                role_id = int(role_id_str)
+                                role = interaction.guild.get_role(role_id)
+                                if role:
+                                    support_role_ids.append(role_id)
+                    
+                    # Save settings
+                    db.update_server_setting(interaction.guild.id, 'ticket_category', category.id)
+                    db.update_server_setting(interaction.guild.id, 'ticket_support_roles', support_role_ids)
+                    
+                    embed = discord.Embed(
+                        title="✅ **Ticket System Configured!**",
+                        description=f"Ticket system has been set up successfully!",
+                        color=0x00d4aa,
+                        timestamp=datetime.now()
+                    )
+                    embed.add_field(
+                        name="� Ticket Category",
+                        value=f"{category.mention} ({category.name})",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="👥 Support Roles",
+                        value=f"{len(support_role_ids)} role(s) configured" if support_role_ids else "None configured",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="🚀 Next Step",
+                        value="Use `/setuptickets` to create the ticket interface!",
+                        inline=False
+                    )
+                    embed.set_footer(text="🎫 Ticket system ready to use!")
                     
                     await interaction.response.send_message(embed=embed, ephemeral=True)
                     
@@ -294,70 +340,26 @@ class Settings(commands.Cog):
                     await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
 
         embed = discord.Embed(
-            title="🚀 Quick Setup Wizard",
-            description="Click the buttons below to quickly configure essential bot functions!\n\n**Primary Functions (Recommended):**\n📋 **Mod Logs** - Track all server activity\n💡 **Suggestions** - User suggestion system\n\n**Optional Functions:**\n🎉 Level Up, 👋 Welcome, ⭐ Starboard",
-            color=0x7289da
+            title="🚀 **Enhanced Quick Setup Wizard**",
+            description="Configure all essential bot functions with just a few clicks!\n\n" +
+                       "**🎯 Essential Functions:**\n" +
+                       "📋 **Mod Logs** - Complete server activity tracking\n" +
+                       "💡 **Suggestions** - Community feedback system\n" +
+                       "🎫 **Ticket System** - Professional support center\n\n" +
+                       "**⭐ Optional Functions:**\n" +
+                       "🎉 Level Up • 👋 Welcome • ⭐ Starboard",
+            color=0x7c3aed,
+            timestamp=datetime.now()
         )
-        embed.set_footer(text="Each button will open a form to configure that function")
+        embed.add_field(
+            name="💡 **Pro Tip**",
+            value="Configure essential functions first, then add optional ones based on your community needs!",
+            inline=False
+        )
+        embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed.set_footer(text="🔧 Click any button below to configure that function")
         
         view = QuickSetupView(self.bot)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-    @app_commands.command(name="resetsettings", description="Reset all server settings to default")
-    async def resetsettings(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ You need 'Administrator' permission to use this command!", ephemeral=True)
-            return
-
-        # Confirmation view
-        class ConfirmView(discord.ui.View):
-            def __init__(self):
-                super().__init__(timeout=30)
-                self.confirmed = False
-
-            @discord.ui.button(label="⚠️ CONFIRM RESET", style=discord.ButtonStyle.danger)
-            async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-                try:
-                    db.reset_guild_settings(interaction.guild.id)
-                    
-                    embed = discord.Embed(
-                        title="🔄 Settings Reset Complete",
-                        description="All server settings have been reset to default values",
-                        color=0x00ff00,
-                        timestamp=datetime.now()
-                    )
-                    embed.add_field(
-                        name="📝 Next Steps",
-                        value="Use `/setup` or `/quicksetup` to reconfigure your bot settings",
-                        inline=False
-                    )
-                    
-                    await interaction.response.edit_message(embed=embed, view=None)
-                    self.confirmed = True
-                    
-                except Exception as e:
-                    await interaction.response.edit_message(
-                        content=f"❌ Error resetting settings: {str(e)}", 
-                        embed=None, 
-                        view=None
-                    )
-
-            @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
-            async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-                embed = discord.Embed(
-                    title="❌ Reset Cancelled",
-                    description="Server settings were not changed",
-                    color=0xff0000
-                )
-                await interaction.response.edit_message(embed=embed, view=None)
-
-        view = ConfirmView()
-        embed = discord.Embed(
-            title="⚠️ Confirm Settings Reset",
-            description="This will reset ALL server settings to default values!\n\n**This will affect:**\n• All channel configurations\n• Starboard settings\n• All other bot preferences\n\n**This action cannot be undone!**",
-            color=0xff9900
-        )
-        
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 async def setup(bot: commands.Bot):

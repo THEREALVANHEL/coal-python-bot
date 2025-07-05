@@ -413,40 +413,51 @@ class Events(commands.Cog):
             print(f"Error handling starboard: {e}")
 
     async def forward_complete_message_to_starboard(self, original_message, starboard_channel, star_count):
-        """Forward complete message with all attachments, embeds, and content to starboard"""
+        """Enhanced starboard forwarding with clean design and perfect attachment preservation"""
         try:
-            # Create elegant starboard header
-            header_embed = discord.Embed(
+            # Main starboard embed with star count prominently displayed
+            main_embed = discord.Embed(
                 color=0xffd700,
                 timestamp=original_message.created_at
             )
-            header_embed.set_author(
+            
+            # Prominent star count header
+            star_header = f"⭐ **{star_count}** {'star' if star_count == 1 else 'stars'}"
+            
+            main_embed.set_author(
                 name=f"{original_message.author.display_name}",
                 icon_url=original_message.author.display_avatar.url
             )
-            header_embed.add_field(
-                name="✨ Starred Message",
-                value=f"⭐ **{star_count}** stars in {original_message.channel.mention}\n[Jump to Message]({original_message.jump_url})",
+            
+            # Clean message content
+            if original_message.content:
+                # Limit content to prevent overly long embeds
+                content = original_message.content[:2000]
+                if len(original_message.content) > 2000:
+                    content += "... (message truncated)"
+                main_embed.description = content
+            else:
+                main_embed.description = "*This message contains media or embeds*"
+            
+            main_embed.add_field(
+                name=star_header,
+                value=f"📍 {original_message.channel.mention} • [Jump to Message]({original_message.jump_url})",
                 inline=False
             )
             
-            # Send header first
-            starboard_msg = await starboard_channel.send(embed=header_embed)
+            main_embed.set_footer(text=f"✨ Starred Message • {original_message.created_at.strftime('%B %d, %Y')}")
+            
+            # Send main embed first
+            starboard_msg = await starboard_channel.send(embed=main_embed)
 
-            # Forward the original message content if it exists
-            if original_message.content:
-                content_embed = discord.Embed(
-                    description=original_message.content,
-                    color=0x2f3136
-                )
-                await starboard_channel.send(embed=content_embed)
-
-            # Forward all attachments (images, gifs, videos, files)
+            # Forward all attachments with perfect preservation
             if original_message.attachments:
                 files_to_send = []
+                attachment_info = []
+                
                 for attachment in original_message.attachments:
                     try:
-                        # Download and re-upload the file to preserve it
+                        # Download and re-upload to preserve permanently
                         file_data = await attachment.read()
                         discord_file = discord.File(
                             io.BytesIO(file_data), 
@@ -454,57 +465,86 @@ class Events(commands.Cog):
                         )
                         files_to_send.append(discord_file)
                         
+                        # Track attachment info
+                        file_type = "📹 Video" if attachment.filename.lower().endswith(('.mp4', '.mov', '.webm', '.avi')) else \
+                                   "🎵 Audio" if attachment.filename.lower().endswith(('.mp3', '.wav', '.ogg')) else \
+                                   "🖼️ Image" if attachment.filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')) else \
+                                   "📄 File"
+                        
+                        attachment_info.append(f"{file_type} `{attachment.filename}`")
+                        
                         # Send files in batches of 10 (Discord limit)
                         if len(files_to_send) >= 10:
                             await starboard_channel.send(files=files_to_send)
                             files_to_send = []
                     except Exception as e:
                         print(f"Error processing attachment {attachment.filename}: {e}")
+                        attachment_info.append(f"❌ Failed to preserve: `{attachment.filename}`")
                 
                 # Send remaining files
                 if files_to_send:
                     await starboard_channel.send(files=files_to_send)
-
-            # Forward all embeds from the original message
-            if original_message.embeds:
-                for embed in original_message.embeds:
-                    # Recreate embed to avoid reference issues
-                    new_embed = discord.Embed.from_dict(embed.to_dict())
-                    await starboard_channel.send(embed=new_embed)
-
-            # Forward stickers if any
-            if original_message.stickers:
-                sticker_info = []
-                for sticker in original_message.stickers:
-                    sticker_info.append(f"**{sticker.name}** - {sticker.format}")
                 
+                # Send attachment summary if multiple files
+                if len(original_message.attachments) > 1:
+                    attach_embed = discord.Embed(
+                        title="📎 **Preserved Attachments**",
+                        description="\n".join(attachment_info),
+                        color=0x5865f2
+                    )
+                    attach_embed.set_footer(text="All original attachments have been preserved")
+                    await starboard_channel.send(embed=attach_embed)
+
+            # Forward original embeds (like from bots or rich content)
+            if original_message.embeds:
+                embed_count = 0
+                for embed in original_message.embeds:
+                    if embed_count >= 3:  # Limit to prevent spam
+                        remaining_embeds = len(original_message.embeds) - embed_count
+                        summary_embed = discord.Embed(
+                            title="📋 Additional Content",
+                            description=f"*{remaining_embeds} more embed(s) from original message*",
+                            color=0x7289da
+                        )
+                        await starboard_channel.send(embed=summary_embed)
+                        break
+                    
+                    try:
+                        # Recreate embed to avoid reference issues
+                        new_embed = discord.Embed.from_dict(embed.to_dict())
+                        # Add subtle indicator it's from starred message
+                        if new_embed.footer.text:
+                            new_embed.set_footer(text=f"{new_embed.footer.text} • From starred message")
+                        else:
+                            new_embed.set_footer(text="From starred message")
+                        await starboard_channel.send(embed=new_embed)
+                        embed_count += 1
+                    except Exception as e:
+                        print(f"Error forwarding embed: {e}")
+
+            # Handle stickers with clean display
+            if original_message.stickers:
+                sticker_names = [f"🎮 **{sticker.name}**" for sticker in original_message.stickers]
                 sticker_embed = discord.Embed(
-                    title="🎮 Stickers",
-                    description="\n".join(sticker_info),
+                    title="🎭 **Stickers Used**",
+                    description=" • ".join(sticker_names),
                     color=0x5865f2
                 )
                 await starboard_channel.send(embed=sticker_embed)
-
-            # Add elegant footer
-            footer_embed = discord.Embed(color=0xffd700)
-            footer_embed.set_footer(
-                text=f"⭐ Starred with {star_count} reactions • {original_message.created_at.strftime('%B %d, %Y at %I:%M %p')}"
-            )
-            await starboard_channel.send(embed=footer_embed)
 
             # Save to database
             db.add_starboard_message(original_message.id, starboard_msg.id, star_count)
 
         except Exception as e:
-            print(f"Error forwarding complete message to starboard: {e}")
-            # Fallback to old method if complete forwarding fails
+            print(f"Error in enhanced starboard forwarding: {e}")
+            # Fallback to simplified version
             await self.fallback_starboard_embed(original_message, starboard_channel, star_count)
 
     async def fallback_starboard_embed(self, original_message, starboard_channel, star_count):
-        """Fallback method for starboard if complete message forwarding fails"""
+        """Clean fallback method for starboard if complete forwarding fails"""
         try:
             embed = discord.Embed(
-                description=original_message.content or "*No text content*",
+                description=original_message.content[:2000] if original_message.content else "*Media or embed content*",
                 color=0xffd700,
                 timestamp=original_message.created_at
             )
@@ -512,20 +552,31 @@ class Events(commands.Cog):
                 name=original_message.author.display_name,
                 icon_url=original_message.author.display_avatar.url
             )
+            
+            # Prominent star count display
+            star_text = f"⭐ **{star_count}** {'star' if star_count == 1 else 'stars'}"
             embed.add_field(
-                name="📍 Source",
-                value=f"[Jump to Message]({original_message.jump_url}) • {original_message.channel.mention}",
+                name=star_text,
+                value=f"📍 {original_message.channel.mention} • [Jump to Message]({original_message.jump_url})",
                 inline=False
             )
 
-            # Add first attachment if available
+            # Add first attachment preview if available
             if original_message.attachments:
-                embed.set_image(url=original_message.attachments[0].url)
+                first_attachment = original_message.attachments[0]
+                if any(first_attachment.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                    embed.set_image(url=first_attachment.url)
+                    
+                if len(original_message.attachments) > 1:
+                    embed.add_field(
+                        name="📎 Additional Files",
+                        value=f"{len(original_message.attachments) - 1} more attachment(s)",
+                        inline=True
+                    )
 
-            starboard_msg = await starboard_channel.send(
-                content=f"⭐ **{star_count}** stars",
-                embed=embed
-            )
+            embed.set_footer(text=f"✨ Starred Message • {original_message.created_at.strftime('%B %d, %Y')}")
+
+            starboard_msg = await starboard_channel.send(embed=embed)
 
             # Save to database
             db.add_starboard_message(original_message.id, starboard_msg.id, star_count)

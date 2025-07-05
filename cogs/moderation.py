@@ -101,38 +101,26 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error adding warning: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="warnings", description="View warnings for a user")
-    @app_commands.describe(user="User to check warnings for")
-    async def warnings(self, interaction: discord.Interaction, user: discord.Member):
-        if not has_moderator_role(interaction):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
-        try:
-            warnings = db.get_user_warnings(user.id)
-            
-            if not warnings:
-                embed = discord.Embed(
-                    title="⚠️ User Warnings",
-                    description=f"{user.mention} has no warnings!",
-                    color=0x00ff00
-                )
-            else:
-                warning_list = []
-                for i, warning in enumerate(warnings[-10:], 1):  # Show last 10 warnings
-                    warning_list.append(f"**{i}.** {warning.get('reason', 'No reason')} - <t:{warning.get('timestamp', 0)}:R>")
-                
-                embed = discord.Embed(
-                    title="⚠️ User Warnings",
-                    description=f"**User:** {user.mention}\n**Total Warnings:** {len(warnings)}\n\n" + "\n".join(warning_list),
-                    color=0xff9900
-                )
-
-            embed.set_footer(text=FOOTER_TXT)
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error retrieving warnings: {str(e)}", ephemeral=True)
+    # REMOVED: warnings command - deprecated warning system removed
+    @app_commands.command(name="warnings", description="⚠️ Command removed (warning system deprecated)")
+    async def warnings_removed(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🔄 **Command Deprecated**",
+            description="The warning system has been removed from this bot.",
+            color=0xff9966
+        )
+        embed.add_field(
+            name="🛡️ **Alternative Moderation**",
+            value="Use Discord's built-in moderation features or third-party bots for warnings.",
+            inline=False
+        )
+        embed.add_field(
+            name="💡 **Available Commands**",
+            value="• `/modclear` - Clear messages\n• `/updateroles` - Sync user roles\n• `/roleplay` - AI roleplay scenarios",
+            inline=False
+        )
+        embed.set_footer(text="💫 This command will be removed completely soon")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="updateroles", description="Updates roles based on a user's current level and cookies")
     @app_commands.describe(user="User to update roles for")

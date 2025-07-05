@@ -16,6 +16,7 @@ GUILD_ID = 1370009417726169250
 JOB_OPPORTUNITIES = [
     {
         "name": "Pizza Delivery", 
+        "emoji": "🍕",
         "min_pay": 25, 
         "max_pay": 50, 
         "cooldown": 1800, 
@@ -25,6 +26,7 @@ JOB_OPPORTUNITIES = [
     },
     {
         "name": "Code Review", 
+        "emoji": "👨‍💻",
         "min_pay": 40, 
         "max_pay": 80, 
         "cooldown": 2700, 
@@ -34,6 +36,7 @@ JOB_OPPORTUNITIES = [
     },
     {
         "name": "Bug Hunting", 
+        "emoji": "🐛",
         "min_pay": 60, 
         "max_pay": 120, 
         "cooldown": 3600, 
@@ -43,6 +46,7 @@ JOB_OPPORTUNITIES = [
     },
     {
         "name": "Teaching Session", 
+        "emoji": "📚",
         "min_pay": 80, 
         "max_pay": 150, 
         "cooldown": 4500, 
@@ -52,6 +56,7 @@ JOB_OPPORTUNITIES = [
     },
     {
         "name": "Freelance Project", 
+        "emoji": "💼",
         "min_pay": 100, 
         "max_pay": 200, 
         "cooldown": 5400, 
@@ -61,6 +66,7 @@ JOB_OPPORTUNITIES = [
     },
     {
         "name": "Consulting", 
+        "emoji": "🤝",
         "min_pay": 150, 
         "max_pay": 300, 
         "cooldown": 7200, 
@@ -70,6 +76,7 @@ JOB_OPPORTUNITIES = [
     },
     {
         "name": "System Architecture", 
+        "emoji": "🏗️",
         "min_pay": 200, 
         "max_pay": 400, 
         "cooldown": 9000, 
@@ -79,6 +86,7 @@ JOB_OPPORTUNITIES = [
     },
     {
         "name": "Product Launch", 
+        "emoji": "🚀",
         "min_pay": 300, 
         "max_pay": 600, 
         "cooldown": 10800, 
@@ -131,7 +139,7 @@ class Economy(commands.Cog):
                 rank_style = f"🥈 **#{i} WEALTH MASTER {username}** 🥈"
                 style_suffix = " 💰💰"
             elif i == 3:
-                rank_style = f"🥉 **#{i} MONEY MOGUL {username}** �"
+                rank_style = f"🥉 **#{i} MONEY MOGUL {username}** 💰"
                 style_suffix = " 💰"
             elif i <= 5:
                 rank_style = f"🔸 **#{i} BUSINESS TYCOON {username}**"
@@ -308,10 +316,10 @@ class Economy(commands.Cog):
         embed.set_footer(text="💫 This command will be removed soon")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="work", description="Work various jobs to earn coins")
+    @app_commands.command(name="work", description="💼 Work various jobs to earn coins - choose your preferred job!")
     async def work(self, interaction: discord.Interaction):
         try:
-            # Check cooldown (varies by job)
+            # Check cooldown 
             user_data = db.get_user_data(interaction.user.id)
             last_work = user_data.get('last_work', 0)
             current_time = datetime.now().timestamp()
@@ -323,61 +331,138 @@ class Economy(commands.Cog):
                 time_left = base_cooldown - (current_time - last_work)
                 minutes = int(time_left // 60)
                 seconds = int(time_left % 60)
-                await interaction.response.send_message(
-                    f"⏰ You're tired! Rest for {minutes}m {seconds}s before working again.", 
-                    ephemeral=True
+                
+                embed = discord.Embed(
+                    title="⏰ **Work Cooldown**",
+                    description=f"You're tired! Rest for **{minutes}m {seconds}s** before working again.",
+                    color=0xff9966,
+                    timestamp=datetime.now()
                 )
+                embed.add_field(name="💡 Tip", value="Higher level jobs pay more but have lower success rates!", inline=False)
+                embed.set_footer(text="💼 Come back when you're refreshed!")
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
 
-            # Select random job based on user level
+            # Get available jobs based on user level
             xp = user_data.get('xp', 0)
             level = self.calculate_level_from_xp(xp)
             
             # Higher level users get access to better jobs
             available_jobs = JOB_OPPORTUNITIES[:min(len(JOB_OPPORTUNITIES), max(1, level // 10 + 1))]
-            job = random.choice(available_jobs)
             
-            # Calculate earnings based on job and level
-            base_earnings = random.randint(job["min_pay"], job["max_pay"])
-            level_bonus = level * 2  # 2 coins per level bonus
-            total_earnings = base_earnings + level_bonus
-            
-            # Random success/failure for higher paying jobs
-            success_chance = max(0.7, 1.0 - (len(available_jobs) - 1) * 0.1)
-            
-            if random.random() < success_chance:
-                # Success
-                db.add_coins(interaction.user.id, total_earnings)
-                db.update_last_work(interaction.user.id, current_time)
+            # Create job selection view
+            class JobSelectionView(discord.ui.View):
+                def __init__(self, user_level, current_time):
+                    super().__init__(timeout=60)
+                    self.user_level = user_level
+                    self.current_time = current_time
                 
-                new_balance = db.get_user_data(interaction.user.id).get('coins', 0)
-                
-                embed = discord.Embed(
-                    title="💼 Work Complete!",
-                    description=f"**{job['name']}** - {job['full_description']}",
-                    color=0x00ff00
+                @discord.ui.select(
+                    placeholder="🎯 Choose your job for today...",
+                    min_values=1,
+                    max_values=1,
+                    options=[
+                        discord.SelectOption(
+                            label=job["name"],
+                            description=f"💰 {job['min_pay']}-{job['max_pay']} coins • {job['requirements']}",
+                            emoji=job.get("emoji", "💼"),
+                            value=str(i)
+                        ) for i, job in enumerate(available_jobs)
+                    ]
                 )
-                embed.add_field(name="💰 Earnings", value=f"**{total_earnings}** coins earned!", inline=True)
-                embed.add_field(name="💰 New Balance", value=f"{new_balance:,} coins", inline=True)
-                embed.add_field(name="💡 Breakdown", value=f"Base: {base_earnings}\nLevel Bonus: {level_bonus}", inline=True)
-                embed.add_field(name="💡 Requirements", value=job["requirements"], inline=False)
-                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-                embed.set_footer(text=f"Great job! Come back in 30 minutes for more work.")
-            else:
-                # Failure
-                db.update_last_work(interaction.user.id, current_time)
-                
-                embed = discord.Embed(
-                    title="💼 Work Failed!",
-                    description=f"**{job['name']}** - You attempted this job but it didn't go as planned.",
-                    color=0xff9900
-                )
-                embed.add_field(name="😔 What happened", value=f"The {job['name'].lower()} was more challenging than expected. Sometimes these things happen!", inline=False)
-                embed.add_field(name="💡 Tip", value="Higher level jobs have lower success rates but better pay!", inline=False)
-                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-                embed.set_footer(text="Don't give up! Try again in 30 minutes.")
+                async def job_select(self, select_interaction: discord.Interaction, select: discord.ui.Select):
+                    if select_interaction.user.id != interaction.user.id:
+                        await select_interaction.response.send_message("❌ This is not your work selection!", ephemeral=True)
+                        return
+                    
+                    job_index = int(select.values[0])
+                    selected_job = available_jobs[job_index]
+                    
+                    # Calculate earnings based on job and level
+                    base_earnings = random.randint(selected_job["min_pay"], selected_job["max_pay"])
+                    level_bonus = level * 2  # 2 coins per level bonus
+                    total_earnings = base_earnings + level_bonus
+                    
+                    # Random success/failure for higher paying jobs (easier success for chosen jobs)
+                    success_chance = max(0.8, 1.0 - (job_index * 0.05))  # Better chance when choosing
+                    
+                    if random.random() < success_chance:
+                        # Success
+                        db.add_coins(interaction.user.id, total_earnings)
+                        db.update_last_work(interaction.user.id, self.current_time)
+                        
+                        new_balance = db.get_user_data(interaction.user.id).get('coins', 0)
+                        
+                        embed = discord.Embed(
+                            title="✅ **Work Complete!**",
+                            description=f"**{selected_job['name']}** - {selected_job['full_description']}",
+                            color=0x00d4aa,
+                            timestamp=datetime.now()
+                        )
+                        embed.add_field(name="💰 Earnings", value=f"**+{total_earnings}** coins", inline=True)
+                        embed.add_field(name="🪙 New Balance", value=f"{new_balance:,} coins", inline=True)
+                        embed.add_field(name="� Level Bonus", value=f"+{level_bonus} coins", inline=True)
+                        embed.add_field(name="💡 Job Details", value=selected_job["requirements"], inline=False)
+                        embed.set_author(name=select_interaction.user.display_name, icon_url=select_interaction.user.display_avatar.url)
+                        embed.set_footer(text="💼 Great job! Come back in 30 minutes for more work.")
+                        
+                        # Add achievement-style message for high earnings
+                        if total_earnings >= 100:
+                            embed.add_field(name="🏆 Achievement", value="High Earner! You made over 100 coins!", inline=False)
+                    else:
+                        # Failure
+                        db.update_last_work(interaction.user.id, self.current_time)
+                        
+                        embed = discord.Embed(
+                            title="� **Work Failed**",
+                            description=f"**{selected_job['name']}** - You attempted this job but it didn't go as planned.",
+                            color=0xff9966,
+                            timestamp=datetime.now()
+                        )
+                        embed.add_field(name="� What happened", value=f"The {selected_job['name'].lower()} was more challenging than expected. Sometimes these things happen!", inline=False)
+                        embed.add_field(name="💡 Silver Lining", value="You gained experience! Higher level jobs have better success rates when you level up.", inline=False)
+                        embed.set_author(name=select_interaction.user.display_name, icon_url=select_interaction.user.display_avatar.url)
+                        embed.set_footer(text="💪 Don't give up! Try again in 30 minutes.")
+                    
+                    await select_interaction.response.edit_message(embed=embed, view=None)
             
-            await interaction.response.send_message(embed=embed)
+            # Create initial embed
+            embed = discord.Embed(
+                title="💼 **Work Opportunities**",
+                description=f"Choose your job wisely! You have **{len(available_jobs)}** available jobs based on your level.\n\n" +
+                           "**💡 Pro Tips:**\n" +
+                           "• Higher level jobs pay more but have lower success rates\n" +
+                           "• Choosing your job gives better success chance than random\n" +
+                           "• Level bonuses apply to all jobs (+2 coins per level)",
+                color=0x7c3aed,
+                timestamp=datetime.now()
+            )
+            
+            # Add available jobs info
+            jobs_info = []
+            for i, job in enumerate(available_jobs):
+                emoji = job.get("emoji", "💼")
+                pay_range = f"{job['min_pay']}-{job['max_pay']} coins"
+                level_req = job["requirements"]
+                jobs_info.append(f"{emoji} **{job['name']}** - {pay_range}\n   _{level_req}_")
+            
+            embed.add_field(
+                name="🎯 **Available Jobs**",
+                value="\n\n".join(jobs_info),
+                inline=False
+            )
+            
+            embed.add_field(
+                name="📊 **Your Stats**",
+                value=f"**Level:** {level}\n**Level Bonus:** +{level * 2} coins\n**Jobs Unlocked:** {len(available_jobs)}/{len(JOB_OPPORTUNITIES)}",
+                inline=True
+            )
+            
+            embed.set_author(name=f"{interaction.user.display_name}'s Work Dashboard", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="💼 Select a job from the dropdown below")
+            
+            view = JobSelectionView(level, current_time)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
         except Exception as e:
             await interaction.response.send_message(f"❌ Error working: {str(e)}", ephemeral=True)

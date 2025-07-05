@@ -375,56 +375,26 @@ class Leveling(commands.Cog):
         except Exception as e:
             print(f"Error updating cookie roles for {member}: {e}")
 
-    @app_commands.command(name="rank", description="Shows your current level, XP, and server rank")
-    @app_commands.describe(user="User to check rank for")
-    async def rank(self, interaction: discord.Interaction, user: discord.Member = None):
-        target = user or interaction.user
-        
-        try:
-            user_data = db.get_user_data(target.id)
-            xp = user_data.get('xp', 0)
-            level = self.calculate_level_from_xp(xp)
-            
-            # Calculate XP for current and next level
-            current_level_xp = self.calculate_xp_for_level(level)
-            next_level_xp = self.calculate_xp_for_level(level + 1)
-            xp_needed = next_level_xp - xp
-            xp_progress = xp - current_level_xp
-
-            # Get rank
-            all_users = db.get_leaderboard('xp')
-            rank = next((i + 1 for i, u in enumerate(all_users) if u['user_id'] == target.id), 'N/A')
-
-            # Get job title
-            job = self.get_job_title(level)
-
-            embed = discord.Embed(
-                title=f"📊 Rank Card - {target.display_name}",
-                color=target.accent_color or 0x7289da
-            )
-            embed.set_thumbnail(url=target.display_avatar.url)
-            
-            embed.add_field(name="🏆 Level", value=level, inline=True)
-            embed.add_field(name="⭐ Total XP", value=f"{xp:,}", inline=True)
-            embed.add_field(name="📈 Rank", value=f"#{rank}", inline=True)
-            embed.add_field(name="💼 Job Title", value=job["name"], inline=True)
-            embed.add_field(name="🎯 Progress", value=f"{xp_progress:,}/{next_level_xp - current_level_xp:,} XP", inline=True)
-            embed.add_field(name="🚀 XP Needed", value=f"{xp_needed:,} XP", inline=True)
-
-            # Progress bar
-            progress_percentage = (xp_progress / (next_level_xp - current_level_xp)) * 100
-            progress_bar_length = 20
-            progress_filled = int((progress_percentage / 100) * progress_bar_length)
-            progress_bar = "█" * progress_filled + "░" * (progress_bar_length - progress_filled)
-            embed.add_field(name="📊 Progress Bar", value=f"`{progress_bar}` {progress_percentage:.1f}%", inline=False)
-
-            await interaction.response.send_message(embed=embed)
-
-        except Exception as e:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error getting rank data: {str(e)}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"❌ Error getting rank data: {str(e)}", ephemeral=True)
+    # REMOVED: rank command - now use /profile
+    @app_commands.command(name="rank", description="📊 View your rank (use /profile instead)")
+    async def rank_redirect(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🔄 **Command Updated**",
+            description="The rank command has been integrated into our profile system!",
+            color=0x7c3aed
+        )
+        embed.add_field(
+            name="✨ **New Command**",
+            value="Use `/profile` to see your complete stats including rank!",
+            inline=False
+        )
+        embed.add_field(
+            name="🎉 **What's Better**",
+            value="• Complete overview of your progress\n• XP, level, and rank all in one place\n• Job information and streak data\n• Much more detailed information",
+            inline=False
+        )
+        embed.set_footer(text="💫 This command will be removed soon")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="leaderboard", description="🏆 View all server leaderboards with elegant pagination")
     @app_commands.describe(

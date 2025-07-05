@@ -272,49 +272,26 @@ class Cookies(commands.Cog):
         embed.set_footer(text="💫 This command will be removed in a future update")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="cookiesrank", description="Displays your current rank in the cookie leaderboard")
-    async def cookiesrank(self, interaction: discord.Interaction):
-        try:
-            leaderboard = db.get_leaderboard('cookies')
-            user_data = db.get_user_data(interaction.user.id)
-            cookies = user_data.get('cookies', 0)
-            
-            rank = next((i + 1 for i, u in enumerate(leaderboard) if u['user_id'] == interaction.user.id), None)
-            if rank is None:
-                await interaction.response.send_message("❌ You're not on the leaderboard yet! Start collecting cookies!", ephemeral=True)
-                return
-
-            embed = discord.Embed(
-                title="🏅 Your Cookie Rank",
-                description=f"**Rank:** #{rank}\n**Cookies:** {cookies:,}",
-                color=0xdaa520
-            )
-            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-            
-            # Show users around their rank
-            start_idx = max(0, rank - 3)
-            end_idx = min(len(leaderboard), rank + 2)
-            context_users = []
-            
-            for i in range(start_idx, end_idx):
-                user_data = leaderboard[i]
-                user_cookies = user_data.get('cookies', 0)
-                try:
-                    user = self.bot.get_user(user_data['user_id'])
-                    username = user.display_name if user else f"User {user_data['user_id']}"
-                except:
-                    username = f"User {user_data['user_id']}"
-                
-                prefix = "**" if i + 1 == rank else ""
-                suffix = "** ⬅️" if i + 1 == rank else ""
-                context_users.append(f"{prefix}#{i + 1} {username} - {user_cookies:,}{suffix}")
-            
-            embed.add_field(name="📊 Around Your Rank", value="\n".join(context_users), inline=False)
-            
-            await interaction.response.send_message(embed=embed)
-
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting rank: {str(e)}", ephemeral=True)
+    # REMOVED: cookiesrank command - now use unified leaderboard
+    @app_commands.command(name="cookiesrank", description="🍪 View your cookie rank (use /leaderboard instead)")
+    async def cookiesrank_redirect(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🔄 **Command Updated**",
+            description="Cookie ranking has been moved to our unified leaderboard system!",
+            color=0x7c3aed
+        )
+        embed.add_field(
+            name="✨ **New Command**",
+            value="Use `/leaderboard type:🍪 Cookies` for the cookie leaderboard with your rank!",
+            inline=False
+        )
+        embed.add_field(
+            name="🎉 **What's New**",
+            value="• Beautiful cookie empire design\n• Progress bars and milestones\n• Smooth pagination\n• Cookie tier system with achievements",
+            inline=False
+        )
+        embed.set_footer(text="� This command will be removed soon")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="addcookies", description="Adds cookies to a user (Manager only)")
     @app_commands.describe(user="User to give cookies to", amount="Amount of cookies to add")

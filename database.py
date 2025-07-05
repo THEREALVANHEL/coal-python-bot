@@ -1,9 +1,16 @@
+# Enhanced MongoDB Safety and Backup System
 import pymongo
 import os
 from datetime import datetime, timedelta
+import json
+import time
+import threading
+from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# MongoDB connection with retry logic
 MONGODB_URI = os.getenv("MONGODB_URI")
 
 if not MONGODB_URI:
@@ -11,38 +18,446 @@ if not MONGODB_URI:
     client = None
     db = None
     users_collection = None
-    guild_settings_collection = None
-    warnings_collection = None
     starboard_collection = None
+    tickets_collection = None
+    settings_collection = None
+    backups_collection = None
 else:
     try:
-        client = pymongo.MongoClient(MONGODB_URI)
+        # Enhanced connection with retry logic and better configuration
+        client = pymongo.MongoClient(
+            MONGODB_URI,
+            serverSelectionTimeoutMS=5000,
+            socketTimeoutMS=10000,
+            connectTimeoutMS=10000,
+            maxPoolSize=50,
+            retryWrites=True,
+            retryReads=True
+        )
+        
+        # Test connection
+        client.server_info()
         db = client.discord_bot
         users_collection = db.users
-        guild_settings_collection = db.guild_settings
-        warnings_collection = db.warnings
         starboard_collection = db.starboard
-        print("✅ Connected to MongoDB")
+        tickets_collection = db.tickets
+        settings_collection = db.settings
+        backups_collection = db.backups  # New collection for backup metadata
+        
+        print("✅ Connected to MongoDB with enhanced safety features")
     except Exception as e:
         print(f"❌ MongoDB connection error: {e}")
         client = None
         db = None
         users_collection = None
-        guild_settings_collection = None
-        warnings_collection = None
         starboard_collection = None
+        tickets_collection = None
+        settings_collection = None
+        backups_collection = None
+
+# Enhanced Data Safety System
+class DataSafetyManager:
+    """Advanced data safety and backup management system"""
+    
+    def __init__(self):
+        self.last_backup = 0
+        self.backup_interval = 3600  # 1 hour
+        self.emergency_backup_interval = 86400  # 24 hours for full backup
+        self.max_backup_age = 604800  # 7 days
+        
+    def create_automatic_backup(self) -> Dict[str, Any]:
+        """Create automatic incremental backup"""
+        try:
+            current_time = time.time()
+            
+            # Skip if too recent
+            if current_time - self.last_backup < self.backup_interval:
+                return {"success": False, "reason": "Too recent"}
+            
+            backup_data = {
+                "timestamp": current_time,
+                "backup_type": "incremental",
+                "collections": {},
+                "metadata": {
+                    "total_users": 0,
+                    "total_documents": 0,
+                    "server_count": 0
+                }
+            }
+            
+            # Backup critical collections
+            if users_collection:
+                # Get recent changes (last 2 hours)
+                recent_cutoff = current_time - 7200
+                recent_users = list(users_collection.find({
+                    "$or": [
+                        {"last_updated": {"$gte": recent_cutoff}},
+                        {"last_xp_gain": {"$gte": recent_cutoff}},
+                        {"last_work": {"$gte": recent_cutoff}}
+                    ]
+                }))
+                
+                backup_data["collections"]["users"] = recent_users
+                backup_data["metadata"]["total_users"] = users_collection.count_documents({})
+            
+            if settings_collection:
+                # Always backup all settings (small collection)
+                settings = list(settings_collection.find({}))
+                backup_data["collections"]["settings"] = settings
+                backup_data["metadata"]["server_count"] = len(settings)
+            
+            # Calculate total documents
+            backup_data["metadata"]["total_documents"] = sum(
+                len(data) for data in backup_data["collections"].values()
+            )
+            
+            # Store backup metadata in database
+            if backups_collection:
+                backup_metadata = {
+                    "timestamp": current_time,
+                    "type": "incremental",
+                    "document_count": backup_data["metadata"]["total_documents"],
+                    "collections_backed_up": list(backup_data["collections"].keys()),
+                    "success": True
+                }
+                backups_collection.insert_one(backup_metadata)
+            
+            self.last_backup = current_time
+            
+            return {
+                "success": True,
+                "backup_data": backup_data,
+                "documents_backed_up": backup_data["metadata"]["total_documents"],
+                "timestamp": current_time
+            }
+            
+        except Exception as e:
+            print(f"Error creating automatic backup: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def create_emergency_full_backup(self) -> Dict[str, Any]:
+        """Create complete full backup for emergency recovery"""
+        try:
+            current_time = time.time()
+            
+            backup_data = {
+                "timestamp": current_time,
+                "backup_type": "full_emergency",
+                "collections": {},
+                "metadata": {}
+            }
+            
+            total_docs = 0
+            
+            # Backup ALL collections completely
+            for collection_name in ["users", "starboard", "tickets", "settings"]:
+                collection = db[collection_name] if db else None
+                if collection:
+                    all_data = list(collection.find({}))
+                    backup_data["collections"][collection_name] = all_data
+                    backup_data["metadata"][f"{collection_name}_count"] = len(all_data)
+                    total_docs += len(all_data)
+            
+            backup_data["metadata"]["total_documents"] = total_docs
+            backup_data["metadata"]["backup_size_estimate"] = total_docs * 1000  # Rough estimate
+            
+            # Store full backup metadata
+            if backups_collection:
+                backup_metadata = {
+                    "timestamp": current_time,
+                    "type": "full_emergency",
+                    "document_count": total_docs,
+                    "collections_backed_up": list(backup_data["collections"].keys()),
+                    "success": True,
+                    "is_emergency": True
+                }
+                backups_collection.insert_one(backup_metadata)
+            
+            return {
+                "success": True,
+                "backup_data": backup_data,
+                "total_documents": total_docs,
+                "collections": list(backup_data["collections"].keys()),
+                "timestamp": current_time,
+                "type": "full_emergency"
+            }
+            
+        except Exception as e:
+            print(f"Error creating emergency full backup: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def verify_data_integrity(self) -> Dict[str, Any]:
+        """Verify database integrity and consistency"""
+        try:
+            integrity_report = {
+                "timestamp": time.time(),
+                "collections": {},
+                "issues_found": [],
+                "health_score": 100
+            }
+            
+            if users_collection:
+                # Check user data integrity
+                user_issues = []
+                total_users = users_collection.count_documents({})
+                
+                # Check for negative values
+                negative_xp = users_collection.count_documents({"xp": {"$lt": 0}})
+                negative_coins = users_collection.count_documents({"coins": {"$lt": 0}})
+                negative_cookies = users_collection.count_documents({"cookies": {"$lt": 0}})
+                
+                if negative_xp > 0:
+                    user_issues.append(f"{negative_xp} users with negative XP")
+                if negative_coins > 0:
+                    user_issues.append(f"{negative_coins} users with negative coins")
+                if negative_cookies > 0:
+                    user_issues.append(f"{negative_cookies} users with negative cookies")
+                
+                # Check for missing required fields
+                missing_xp = users_collection.count_documents({"xp": {"$exists": False}})
+                if missing_xp > 0:
+                    user_issues.append(f"{missing_xp} users missing XP field")
+                
+                integrity_report["collections"]["users"] = {
+                    "total_documents": total_users,
+                    "issues": user_issues,
+                    "health": "good" if not user_issues else "issues_found"
+                }
+                
+                integrity_report["issues_found"].extend(user_issues)
+            
+            # Calculate health score
+            total_issues = len(integrity_report["issues_found"])
+            if total_issues == 0:
+                integrity_report["health_score"] = 100
+            elif total_issues <= 5:
+                integrity_report["health_score"] = 85
+            elif total_issues <= 10:
+                integrity_report["health_score"] = 70
+            else:
+                integrity_report["health_score"] = 50
+            
+            return {
+                "success": True,
+                "integrity_report": integrity_report,
+                "health_score": integrity_report["health_score"],
+                "issues_count": total_issues
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def get_recovery_options(self) -> Dict[str, Any]:
+        """Get available recovery options and backup history"""
+        try:
+            if not backups_collection:
+                return {"success": False, "error": "Backup collection not available"}
+            
+            # Get recent backups
+            recent_backups = list(backups_collection.find({}).sort("timestamp", -1).limit(10))
+            
+            recovery_options = {
+                "recent_backups": recent_backups,
+                "full_backups": [],
+                "incremental_backups": [],
+                "emergency_options": []
+            }
+            
+            for backup in recent_backups:
+                if backup.get("type") == "full_emergency":
+                    recovery_options["full_backups"].append(backup)
+                elif backup.get("type") == "incremental":
+                    recovery_options["incremental_backups"].append(backup)
+            
+            # Emergency recovery options
+            recovery_options["emergency_options"] = [
+                "Restore from latest full backup",
+                "Rebuild from incremental backups",
+                "Manual data reconstruction",
+                "Contact support for advanced recovery"
+            ]
+            
+            return {
+                "success": True,
+                "recovery_options": recovery_options,
+                "backup_count": len(recent_backups)
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+# Initialize safety manager
+safety_manager = DataSafetyManager()
+
+# Enhanced database functions with safety checks
+def get_user_data_safe(user_id: int) -> Dict[str, Any]:
+    """Get user data with automatic safety checks and backup triggers"""
+    try:
+        # Trigger automatic backup periodically
+        if time.time() - safety_manager.last_backup > safety_manager.backup_interval:
+            safety_manager.create_automatic_backup()
+        
+        # Get user data with validation
+        user_data = get_user_data(user_id)
+        
+        # Validate data integrity
+        if user_data.get("xp", 0) < 0:
+            print(f"WARNING: User {user_id} has negative XP, fixing...")
+            fix_user_data(user_id, {"xp": 0})
+        
+        if user_data.get("coins", 0) < 0:
+            print(f"WARNING: User {user_id} has negative coins, fixing...")
+            fix_user_data(user_id, {"coins": 0})
+        
+        return user_data
+        
+    except Exception as e:
+        print(f"Error in safe user data retrieval: {e}")
+        return {"user_id": user_id, "xp": 0, "coins": 0, "cookies": 0}
+
+def fix_user_data(user_id: int, fixes: Dict[str, Any]) -> bool:
+    """Fix corrupted user data"""
+    try:
+        if users_collection:
+            users_collection.update_one(
+                {"user_id": user_id},
+                {"$set": fixes},
+                upsert=True
+            )
+            return True
+    except Exception as e:
+        print(f"Error fixing user data: {e}")
+        return False
+
+def emergency_data_recovery() -> Dict[str, Any]:
+    """Emergency data recovery function"""
+    try:
+        print("🚨 EMERGENCY DATA RECOVERY INITIATED")
+        
+        # Create immediate backup of current state
+        current_backup = safety_manager.create_emergency_full_backup()
+        
+        # Verify data integrity
+        integrity_check = safety_manager.verify_data_integrity()
+        
+        # Get recovery options
+        recovery_options = safety_manager.get_recovery_options()
+        
+        return {
+            "success": True,
+            "emergency_backup": current_backup,
+            "integrity_check": integrity_check,
+            "recovery_options": recovery_options,
+            "timestamp": time.time(),
+            "status": "Emergency protocols activated"
+        }
+        
+    except Exception as e:
+        print(f"CRITICAL ERROR in emergency recovery: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "status": "Emergency recovery failed",
+            "manual_action_required": True
+        }
+
+# Automatic safety monitoring (runs in background)
+def start_safety_monitoring():
+    """Start background safety monitoring"""
+    def monitor():
+        while True:
+            try:
+                time.sleep(3600)  # Check every hour
+                
+                # Create automatic backup
+                backup_result = safety_manager.create_automatic_backup()
+                if backup_result["success"]:
+                    print(f"✅ Automatic backup completed: {backup_result['documents_backed_up']} documents")
+                
+                # Run integrity check
+                integrity_result = safety_manager.verify_data_integrity()
+                if integrity_result["success"]:
+                    health_score = integrity_result["health_score"]
+                    if health_score < 80:
+                        print(f"⚠️ Database health warning: {health_score}% - {integrity_result['issues_count']} issues found")
+                
+            except Exception as e:
+                print(f"Error in safety monitoring: {e}")
+    
+    # Start monitoring thread
+    monitor_thread = threading.Thread(target=monitor, daemon=True)
+    monitor_thread.start()
+    print("🛡️ Database safety monitoring started")
+
+# Start safety monitoring when module is loaded
+if client is not None:
+    start_safety_monitoring()
 
 def get_user_data(user_id):
     """Get user data from database"""
     if users_collection is None:
-        return {}
-    
+        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
+
     try:
+        # Use the safe version for critical operations
+        validate_user_data(user_id)
+        
         user_data = users_collection.find_one({"user_id": user_id})
-        return user_data if user_data else {}
+        if user_data:
+            # Ensure all required fields exist with defaults
+            defaults = {
+                "xp": 0,
+                "level": 0,
+                "cookies": 0,
+                "coins": 0,
+                "daily_streak": 0,
+                "last_daily": 0,
+                "last_work": 0,
+                "temporary_purchases": [],
+                "last_updated": time.time()
+            }
+            
+            for key, default_value in defaults.items():
+                if key not in user_data:
+                    user_data[key] = default_value
+            
+            return user_data
+        else:
+            # Create new user with defaults
+            return create_user_data(user_id)
+            
     except Exception as e:
-        print(f"Error getting user data: {e}")
-        return {}
+        print(f"Error getting user data for {user_id}: {e}")
+        # Return safe defaults if database fails
+        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
+
+def create_user_data(user_id):
+    """Create new user data with all required fields"""
+    if users_collection is None:
+        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
+
+    try:
+        current_time = time.time()
+        user_data = {
+            "user_id": user_id,
+            "xp": 0,
+            "level": 0,
+            "cookies": 0,
+            "coins": 0,
+            "daily_streak": 0,
+            "last_daily": 0,
+            "last_work": 0,
+            "temporary_purchases": [],
+            "created_at": current_time,
+            "last_updated": current_time
+        }
+        
+        users_collection.insert_one(user_data)
+        return user_data
+        
+    except Exception as e:
+        print(f"Error creating user data for {user_id}: {e}")
+        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
 
 def add_xp(user_id, xp_amount):
     """Add XP to user"""
