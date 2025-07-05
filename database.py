@@ -1830,4 +1830,70 @@ def quick_db_health_check():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+# Warning system functions (re-added for moderation cog)
+def add_warning(user_id, reason, moderator_id):
+    """Add a warning to a user"""
+    try:
+        user_data = get_user_data(user_id)
+        if 'warnings' not in user_data:
+            user_data['warnings'] = []
+        
+        warning = {
+            'reason': reason,
+            'moderator_id': moderator_id,
+            'timestamp': datetime.now().timestamp()
+        }
+        user_data['warnings'].append(warning)
+        
+        users_collection.update_one(
+            {'user_id': user_id},
+            {'$set': {'warnings': user_data['warnings']}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error adding warning: {e}")
+        return False
+
+def get_user_warnings(user_id):
+    """Get all warnings for a user"""
+    try:
+        user_data = get_user_data(user_id)
+        return user_data.get('warnings', [])
+    except Exception as e:
+        print(f"Error getting warnings: {e}")
+        return []
+
+def clear_user_warnings(user_id):
+    """Clear all warnings for a user"""
+    try:
+        users_collection.update_one(
+            {'user_id': user_id},
+            {'$set': {'warnings': []}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error clearing warnings: {e}")
+        return False
+
+def remove_specific_warning(user_id, warning_index):
+    """Remove a specific warning by index"""
+    try:
+        user_data = get_user_data(user_id)
+        warnings = user_data.get('warnings', [])
+        
+        if 0 <= warning_index < len(warnings):
+            warnings.pop(warning_index)
+            users_collection.update_one(
+                {'user_id': user_id},
+                {'$set': {'warnings': warnings}},
+                upsert=True
+            )
+            return True
+        return False
+    except Exception as e:
+        print(f"Error removing specific warning: {e}")
+        return False
+
 print("[Database] All functions loaded successfully with enhanced MongoDB support")

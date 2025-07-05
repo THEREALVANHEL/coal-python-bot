@@ -87,21 +87,29 @@ class PaginationView(View):
         self.next_page.disabled = page == self.total_pages
         self.last_page.disabled = page == self.total_pages
 
-        # Get the appropriate cog and call the leaderboard function
-        if self.leaderboard_type == "xp":
-            leveling_cog = self.bot.get_cog('Leveling')
-            embed = await leveling_cog.create_level_leaderboard_embed(page)
-        elif self.leaderboard_type == "cookies":
-            cookies_cog = self.bot.get_cog('Cookies')
-            embed = await cookies_cog.create_cookie_leaderboard_embed(page)
-        elif self.leaderboard_type == "coins":
-            economy_cog = self.bot.get_cog('Economy')
-            embed = await economy_cog.create_coin_leaderboard_embed(page)
-        elif self.leaderboard_type == "streak":
-            leveling_cog = self.bot.get_cog('Leveling')
-            embed = await leveling_cog.create_streak_leaderboard_embed(page)
+        # Get the appropriate cog and call the leaderboard function with 10 members per page
+        try:
+            if self.leaderboard_type == "xp":
+                leveling_cog = self.bot.get_cog('Leveling')
+                embed = await leveling_cog.create_level_leaderboard_embed(page, 10)
+            elif self.leaderboard_type == "cookies":
+                cookies_cog = self.bot.get_cog('Cookies')
+                embed = await cookies_cog.create_cookie_leaderboard_embed(page, 10)
+            elif self.leaderboard_type == "coins":
+                economy_cog = self.bot.get_cog('Economy')
+                embed = await economy_cog.create_coin_leaderboard_embed(page, 10)
+            elif self.leaderboard_type == "streak":
+                leveling_cog = self.bot.get_cog('Leveling')
+                embed = await leveling_cog.create_streak_leaderboard_embed(page, 10)
 
-        await interaction.response.edit_message(embed=embed, view=self)
+            await interaction.response.edit_message(embed=embed, view=self)
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Error",
+                description="Failed to update leaderboard page.",
+                color=0xff6b6b
+            )
+            await interaction.response.edit_message(embed=error_embed, view=self)
 
     async def create_level_leaderboard_embed(self, page: int, members: int = 10):
         items_per_page = members
@@ -247,13 +255,10 @@ class Leveling(commands.Cog):
         except Exception as e:
             print(f"Error updating cookie roles for {member}: {e}")
 
-
-
     @app_commands.command(name="leaderboard", description="🏆 View all server leaderboards with elegant pagination")
     @app_commands.describe(
         type="Choose leaderboard type",
-        page="Page number (default: 1)",
-        members="Number of members to show per page (default: 10, max: 50)"
+        page="Page number (default: 1)"
     )
     @app_commands.choices(type=[
         app_commands.Choice(name="🥇 XP & Levels", value="xp"),
@@ -262,15 +267,12 @@ class Leveling(commands.Cog):
         app_commands.Choice(name="🔥 Daily Streaks", value="streak")
     ])
     async def unified_leaderboard(self, interaction: discord.Interaction, 
-                                type: str = "xp", page: int = 1, members: int = 10):
+                                type: str = "xp", page: int = 1):
         try:
             if page < 1:
                 page = 1
                 
-            if members < 1:
-                members = 10
-            elif members > 50:
-                members = 50
+            members = 10  # Fixed to 10 members per page
 
             # Get leaderboard data based on type
             if type == "xp":
@@ -337,7 +339,7 @@ class Leveling(commands.Cog):
                 return
 
             # Add elegant branding
-            embed.set_footer(text=f"💫 Unified Leaderboard System • Showing {members} per page")
+            embed.set_footer(text="💫 Unified Leaderboard System • Use buttons to navigate pages")
             
             # Create pagination view
             view = PaginationView(type, total_pages, page, self.bot)
@@ -449,8 +451,6 @@ class Leveling(commands.Cog):
             else:
                 await interaction.followup.send(f"❌ Error getting profile data: {str(e)}", ephemeral=True)
 
-
-
     @app_commands.command(name="daily", description="🎁 Claim your daily XP and coin bonus with streak rewards")
     async def daily(self, interaction: discord.Interaction):
         try:
@@ -510,8 +510,6 @@ class Leveling(commands.Cog):
                 await interaction.response.send_message(embed=error_embed, ephemeral=True)
             else:
                 await interaction.followup.send(embed=error_embed, ephemeral=True)
-
-
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Leveling(bot))

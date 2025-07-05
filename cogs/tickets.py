@@ -93,9 +93,8 @@ class TicketModal(Modal):
     async def on_submit(self, interaction: discord.Interaction):
         try:
             # Get ticket settings
-            settings = db.get_server_settings(interaction.guild.id)
-            ticket_category_id = settings.get('ticket_category', None)
-            support_role_ids = settings.get('ticket_support_roles', [])
+            ticket_category_id = db.get_guild_setting(interaction.guild.id, 'ticket_category', None)
+            support_role_ids = db.get_guild_setting(interaction.guild.id, 'ticket_support_roles', [])
             
             if not ticket_category_id:
                 embed = discord.Embed(
@@ -301,8 +300,7 @@ class TicketControlView(View):
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Check permissions
         user_roles = [role.id for role in interaction.user.roles]
-        settings = db.get_server_settings(interaction.guild.id)
-        support_role_ids = settings.get('ticket_support_roles', [])
+        support_role_ids = db.get_guild_setting(interaction.guild.id, 'ticket_support_roles', [])
         
         can_close = (
             interaction.user.id == self.ticket_creator_id or
@@ -348,8 +346,7 @@ class TicketControlView(View):
     async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Check permissions
         user_roles = [role.id for role in interaction.user.roles]
-        settings = db.get_server_settings(interaction.guild.id)
-        support_role_ids = settings.get('ticket_support_roles', [])
+        support_role_ids = db.get_guild_setting(interaction.guild.id, 'ticket_support_roles', [])
         
         can_add = (
             any(role_id in support_role_ids for role_id in user_roles) or
@@ -516,8 +513,8 @@ class Tickets(commands.Cog):
                             support_role_ids.append(role_id)
             
             # Save settings
-            db.update_server_setting(interaction.guild.id, 'ticket_category', category.id)
-            db.update_server_setting(interaction.guild.id, 'ticket_support_roles', support_role_ids)
+            db.set_guild_setting(interaction.guild.id, 'ticket_category', category.id)
+            db.set_guild_setting(interaction.guild.id, 'ticket_support_roles', support_role_ids)
             
             # Create the ultimate ticket creation embed
             embed = discord.Embed(
@@ -658,8 +655,7 @@ class Tickets(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def close_all_tickets(self, interaction: discord.Interaction):
         try:
-            settings = db.get_server_settings(interaction.guild.id)
-            ticket_category_id = settings.get('ticket_category', None)
+            ticket_category_id = db.get_guild_setting(interaction.guild.id, 'ticket_category', None)
             
             if not ticket_category_id:
                 embed = discord.Embed(
