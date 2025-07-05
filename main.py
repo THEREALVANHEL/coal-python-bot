@@ -137,7 +137,7 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Unexpected error during command sync: {e}")
         print(f"� Error type: {type(e).__name__}")
-        print("�🔄 Bot will continue without command sync")
+        print("� Bot will continue without command sync")
         
         # Try emergency sync without clearing
         try:
@@ -337,8 +337,8 @@ async def main():
         
         print("🎮 Starting Discord bot...")
         
-        # Start background user sync task
-        asyncio.create_task(background_user_sync())
+        # Disabled background user sync to prevent recursion issues
+        # asyncio.create_task(background_user_sync())
         
         # Start the bot
         await bot.start(DISCORD_TOKEN)

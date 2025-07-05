@@ -405,9 +405,7 @@ def get_user_data(user_id):
         return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
 
     try:
-        # Use the safe version for critical operations
-        validate_user_data(user_id)
-        
+        # Get user data directly without validation to prevent recursion
         user_data = users_collection.find_one({"user_id": user_id})
         if user_data:
             # Ensure all required fields exist with defaults
@@ -1318,7 +1316,19 @@ def validate_user_data(user_id):
         return False
     
     try:
-        user_data = get_user_data(user_id)
+        # Get user data directly from database to prevent recursion
+        user_data = users_collection.find_one({"user_id": user_id})
+        if not user_data:
+            # Create default user data if none exists
+            user_data = {
+                "user_id": user_id,
+                "xp": 0,
+                "cookies": 0,
+                "coins": 0,
+                "daily_streak": 0,
+                "last_daily": 0,
+                "last_work": 0
+            }
         
         # Validate and fix data types
         updates = {}
@@ -1356,7 +1366,10 @@ def validate_user_data(user_id):
 def get_live_user_stats(user_id):
     """Get real-time validated user statistics"""
     try:
-        user_data = get_user_data(user_id)
+        # Get data directly from database to prevent recursion
+        user_data = users_collection.find_one({"user_id": user_id}) if users_collection else None
+        if not user_data:
+            user_data = {"user_id": user_id, "xp": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
         
         # Validate and clean data
         validated_data = {
@@ -1380,12 +1393,15 @@ def get_live_user_stats(user_id):
         return validated_data
     except Exception as e:
         print(f"[Database] Error getting live user stats: {e}")
-        return get_user_data(user_id)
+        return {"user_id": user_id, "xp": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
 
 def auto_sync_user_data(user_id):
     """Automatically sync and validate user data in real-time"""
     try:
-        current_data = get_user_data(user_id)
+        # Get data directly from database to prevent recursion
+        current_data = users_collection.find_one({"user_id": user_id}) if users_collection else None
+        if not current_data:
+            return {"user_id": user_id, "xp": 0, "cookies": 0, "coins": 0}
         
         # Auto-fix common issues
         fixes_applied = []
@@ -1435,7 +1451,7 @@ def auto_sync_user_data(user_id):
         return current_data
     except Exception as e:
         print(f"[Database] Error auto-syncing user data: {e}")
-        return get_user_data(user_id)
+        return {"user_id": user_id, "xp": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
 
 def get_advanced_server_analytics(guild_id):
     """Get comprehensive server analytics with live data"""
