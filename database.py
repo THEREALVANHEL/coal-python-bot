@@ -34,7 +34,7 @@ else:
 
 def get_user_data(user_id):
     """Get user data from database"""
-    if not users_collection:
+    if users_collection is None:
         return {}
     
     try:
@@ -46,7 +46,7 @@ def get_user_data(user_id):
 
 def add_xp(user_id, xp_amount):
     """Add XP to user"""
-    if not users_collection:
+    if users_collection is None:
         return False
     
     try:
@@ -62,7 +62,7 @@ def add_xp(user_id, xp_amount):
 
 def add_cookies(user_id, cookie_amount):
     """Add cookies to user"""
-    if not users_collection:
+    if users_collection is None:
         return False
     
     try:
@@ -78,9 +78,9 @@ def add_cookies(user_id, cookie_amount):
 
 def remove_cookies(user_id, cookie_amount):
     """Remove cookies from user"""
-    if not users_collection:
+    if users_collection is None:
         return False
-    
+
     try:
         users_collection.update_one(
             {"user_id": user_id},
@@ -94,9 +94,9 @@ def remove_cookies(user_id, cookie_amount):
 
 def add_coins(user_id, coin_amount):
     """Add coins to user"""
-    if not users_collection:
+    if users_collection is None:
         return False
-    
+
     try:
         users_collection.update_one(
             {"user_id": user_id},
@@ -110,9 +110,9 @@ def add_coins(user_id, coin_amount):
 
 def remove_coins(user_id, coin_amount):
     """Remove coins from user"""
-    if not users_collection:
+    if users_collection is None:
         return False
-    
+
     try:
         users_collection.update_one(
             {"user_id": user_id},
@@ -126,9 +126,9 @@ def remove_coins(user_id, coin_amount):
 
 def update_last_xp_time(user_id, timestamp):
     """Update last XP time"""
-    if not users_collection:
+    if users_collection is None:
         return False
-    
+
     try:
         users_collection.update_one(
             {"user_id": user_id},
@@ -142,9 +142,9 @@ def update_last_xp_time(user_id, timestamp):
 
 def update_last_work(user_id, timestamp):
     """Update last work time"""
-    if not users_collection:
+    if users_collection is None:
         return False
-    
+
     try:
         users_collection.update_one(
             {"user_id": user_id},
@@ -158,7 +158,7 @@ def update_last_work(user_id, timestamp):
 
 def claim_daily_xp(user_id):
     """Claim daily XP bonus"""
-    if not users_collection:
+    if users_collection is None:
         return {"success": False, "message": "Database unavailable"}
     
     try:
@@ -213,7 +213,7 @@ def claim_daily_xp(user_id):
 
 def get_leaderboard(field, limit=10):
     """Get leaderboard for a specific field"""
-    if not users_collection:
+    if users_collection is None:
         return []
     try:
         pipeline = [
@@ -228,9 +228,9 @@ def get_leaderboard(field, limit=10):
 
 def add_warning(user_id, reason, moderator_id):
     """Add warning to user"""
-    if not warnings_collection:
+    if warnings_collection is None:
         return False
-    
+
     try:
         warning = {
             "user_id": user_id,
@@ -246,9 +246,9 @@ def add_warning(user_id, reason, moderator_id):
 
 def get_user_warnings(user_id):
     """Get all warnings for a user"""
-    if not warnings_collection:
+    if warnings_collection is None:
         return []
-    
+
     try:
         return list(warnings_collection.find({"user_id": user_id}).sort("timestamp", -1))
     except Exception as e:
@@ -257,9 +257,9 @@ def get_user_warnings(user_id):
 
 def set_guild_setting(guild_id, setting, value):
     """Set a guild setting"""
-    if not guild_settings_collection:
+    if guild_settings_collection is None:
         return False
-    
+
     try:
         guild_settings_collection.update_one(
             {"guild_id": guild_id},
@@ -273,9 +273,9 @@ def set_guild_setting(guild_id, setting, value):
 
 def get_guild_setting(guild_id, setting, default=None):
     """Get a guild setting"""
-    if not guild_settings_collection:
+    if guild_settings_collection is None:
         return default
-    
+
     try:
         guild_data = guild_settings_collection.find_one({"guild_id": guild_id})
         if guild_data and setting in guild_data:
@@ -287,9 +287,9 @@ def get_guild_setting(guild_id, setting, default=None):
 
 def reset_guild_settings(guild_id):
     """Reset all guild settings"""
-    if not guild_settings_collection:
+    if guild_settings_collection is None:
         return False
-    
+
     try:
         guild_settings_collection.delete_one({"guild_id": guild_id})
         return True
@@ -299,9 +299,9 @@ def reset_guild_settings(guild_id):
 
 def add_starboard_message(message_id, starboard_message_id, star_count):
     """Add message to starboard"""
-    if not starboard_collection:
+    if starboard_collection is None:
         return False
-    
+
     try:
         starboard_entry = {
             "message_id": message_id,
@@ -317,9 +317,9 @@ def add_starboard_message(message_id, starboard_message_id, star_count):
 
 def get_starboard_message(message_id):
     """Get starboard entry for a message"""
-    if not starboard_collection:
+    if starboard_collection is None:
         return None
-    
+
     try:
         return starboard_collection.find_one({"message_id": message_id})
     except Exception as e:
@@ -328,9 +328,9 @@ def get_starboard_message(message_id):
 
 def update_starboard_count(message_id, new_count):
     """Update star count for starboard message"""
-    if not starboard_collection:
+    if starboard_collection is None:
         return False
-    
+
     try:
         starboard_collection.update_one(
             {"message_id": message_id},
