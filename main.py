@@ -63,6 +63,19 @@ async def on_ready():
         stats = db.get_database_stats()
         if stats["success"]:
             print(f"💾 Database connected - {stats['total_users']} users, {stats['total_xp']:,} total XP, {stats['total_cookies']:,} total cookies")
+            
+            # Perform automatic database maintenance
+            print("🔧 Running automatic database maintenance...")
+            maintenance_result = db.maintenance_cleanup()
+            if maintenance_result["success"]:
+                print(f"✅ Maintenance complete - {maintenance_result['recovered_users']} users recovered, {maintenance_result['cleaned_entries']} entries cleaned")
+            else:
+                print(f"⚠️ Maintenance warning: {maintenance_result['message']}")
+                
+            # Get updated stats after maintenance
+            updated_stats = db.get_database_stats()
+            if updated_stats["success"]:
+                print(f"📊 Post-maintenance stats - {updated_stats['total_users']} users total")
         else:
             print(f"❌ Database issue: {stats['message']}")
     except Exception as e:

@@ -8,6 +8,8 @@ import os, sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
+import google.generativeai as genai
+
 # Config
 GUILD_ID = 1370009417726169250
 
@@ -208,44 +210,253 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Error updating roles: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="dbstats", description="View database statistics and data overview")
-    async def dbstats(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ You need 'Administrator' permission to use this command!", ephemeral=True)
+    @app_commands.command(name="roleplay", description="Start an AI-powered roleplay session")
+    @app_commands.describe(
+        scenario="The roleplay scenario you want to start",
+        character="Your character in the roleplay (optional)",
+        setting="The setting/world for the roleplay (optional)"
+    )
+    async def roleplay(self, interaction: discord.Interaction, scenario: str, character: str = None, setting: str = None):
+        """AI-powered roleplay command using Gemini"""
+        genai_api_key = os.getenv("GEMINI_API_KEY")
+        if not genai_api_key:
+            await interaction.response.send_message("❌ AI service not available!", ephemeral=True)
+            return
+
+        try:
+            genai.configure(api_key=genai_api_key)
+            model = genai.GenerativeModel('gemini-pro')
+            
+            # Build the roleplay prompt
+            prompt_parts = [
+                f"You are an expert AI Game Master running a roleplay session. ",
+                f"Scenario: {scenario}",
+            ]
+            
+            if setting:
+                prompt_parts.append(f"Setting: {setting}")
+            
+            if character:
+                prompt_parts.append(f"The player's character: {character}")
+            else:
+                prompt_parts.append("The player hasn't specified their character yet, so help them create one.")
+            
+            prompt_parts.extend([
+                "Instructions:",
+                "- Create an immersive, engaging roleplay experience",
+                "- Respond in character as the game master",
+                "- Set the scene vividly with sensory details",
+                "- Present interesting choices and challenges",
+                "- Keep responses engaging but not too long (under 1500 characters)",
+                "- Always end with a question or prompt for the player to respond to",
+                "- Be creative and adaptive to player choices",
+                "- Keep content appropriate for Discord servers",
+                "",
+                "Begin the roleplay session now:"
+            ])
+            
+            full_prompt = "\n".join(prompt_parts)
+            
+            await interaction.response.defer()
+            
+            response = model.generate_content(full_prompt)
+            
+            embed = discord.Embed(
+                title="🎭 Roleplay Session",
+                description=response.text[:2000],
+                color=0x9932cc,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(name="📖 Scenario", value=scenario[:100] + ("..." if len(scenario) > 100 else ""), inline=True)
+            if character:
+                embed.add_field(name="👤 Character", value=character[:100] + ("..." if len(character) > 100 else ""), inline=True)
+            if setting:
+                embed.add_field(name="🌍 Setting", value=setting[:100] + ("..." if len(setting) > 100 else ""), inline=True)
+            
+            embed.set_author(name=f"GM: {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="🎲 AI-Powered Roleplay • Use this as inspiration for your RP!")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error generating roleplay: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="dbmaintenance", description="Perform database maintenance and recovery (Admin only)")
+    async def dbmaintenance(self, interaction: discord.Interaction):
+        """Comprehensive database maintenance for admins"""
+        # Check permissions
+        user_roles = [role.name for role in interaction.user.roles]
+        admin_roles = ["🦥 Overseer", "Forgotten one"]
+        
+        if not any(role in admin_roles for role in user_roles):
+            await interaction.response.send_message("❌ You don't have permission to use this command! Only Overseers and Forgotten ones can perform maintenance.", ephemeral=True)
             return
 
         await interaction.response.defer()
+        
+        try:
+            # Perform comprehensive maintenance
+            result = db.maintenance_cleanup()
+            
+            if result["success"]:
+                embed = discord.Embed(
+                    title="🔧 Database Maintenance Complete",
+                    description="Comprehensive database maintenance has been performed successfully!",
+                    color=0x00ff00,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="📊 Users Recovered", value=f"{result['recovered_users']}", inline=True)
+                embed.add_field(name="🧹 Entries Cleaned", value=f"{result['cleaned_entries']}", inline=True)
+                embed.add_field(name="⚡ Database Optimized", value="✅ Yes" if result['optimized'] else "❌ No", inline=True)
+                embed.add_field(name="📋 Details", value=result['message'], inline=False)
+                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+                embed.set_footer(text="Database maintenance performed successfully")
+                
+                await interaction.followup.send(embed=embed)
+            else:
+                await interaction.followup.send(f"❌ Maintenance failed: {result['message']}", ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error during maintenance: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="datarecovery", description="Recover lost user data (Admin only)")
+    async def datarecovery(self, interaction: discord.Interaction):
+        """Recover lost user data"""
+        # Check permissions
+        user_roles = [role.name for role in interaction.user.roles]
+        admin_roles = ["🦥 Overseer", "Forgotten one"]
+        
+        if not any(role in admin_roles for role in user_roles):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        
+        try:
+            result = db.recover_lost_data()
+            
+            if result["success"]:
+                embed = discord.Embed(
+                    title="� Data Recovery Complete",
+                    description=f"Successfully recovered data for **{result['recovered_count']}** users!",
+                    color=0x00ff00,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="📊 Recovery Details", value=result['message'], inline=False)
+                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+                
+                await interaction.followup.send(embed=embed)
+            else:
+                await interaction.followup.send(f"❌ Recovery failed: {result['message']}", ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error during recovery: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="dbstats", description="View comprehensive database statistics (Admin only)")
+    async def dbstats(self, interaction: discord.Interaction):
+        """View detailed database statistics"""
+        # Check permissions
+        user_roles = [role.name for role in interaction.user.roles]
+        admin_roles = ["🦥 Overseer", "Forgotten one", "🚨 Lead moderator"]
+        
+        if not any(role in admin_roles for role in user_roles):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
 
         try:
             stats = db.get_database_stats()
             
-            if not stats["success"]:
-                await interaction.followup.send(f"❌ Error getting database stats: {stats['message']}", ephemeral=True)
+            if stats["success"]:
+                embed = discord.Embed(
+                    title="📊 Database Statistics",
+                    color=0x7289da,
+                    timestamp=datetime.now()
+                )
+                
+                # User statistics
+                embed.add_field(name="👥 Total Users", value=f"{stats['total_users']:,}", inline=True)
+                embed.add_field(name="⭐ Users with XP", value=f"{stats['users_with_xp']:,}", inline=True)
+                embed.add_field(name="🍪 Users with Cookies", value=f"{stats['users_with_cookies']:,}", inline=True)
+                embed.add_field(name="🪙 Users with Coins", value=f"{stats['users_with_coins']:,}", inline=True)
+                
+                # Total statistics
+                embed.add_field(name="📈 Total XP", value=f"{stats['total_xp']:,}", inline=True)
+                embed.add_field(name="🍪 Total Cookies", value=f"{stats['total_cookies']:,}", inline=True)
+                
+                # Calculate averages
+                avg_xp = stats['total_xp'] // max(1, stats['users_with_xp'])
+                avg_cookies = stats['total_cookies'] // max(1, stats['users_with_cookies'])
+                
+                embed.add_field(name="📊 Average XP", value=f"{avg_xp:,}", inline=True)
+                embed.add_field(name="📊 Average Cookies", value=f"{avg_cookies:,}", inline=True)
+                
+                embed.set_footer(text="Database statistics • Live data")
+                
+                await interaction.response.send_message(embed=embed)
+            else:
+                await interaction.response.send_message(f"❌ Error getting stats: {stats['message']}", ephemeral=True)
+                
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error getting database stats: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="syncallroles", description="Sync all user roles based on current XP and cookies (Admin only)")
+    async def syncallroles(self, interaction: discord.Interaction):
+        """Sync all user roles in the server"""
+        # Check permissions
+        user_roles = [role.name for role in interaction.user.roles]
+        admin_roles = ["🦥 Overseer", "Forgotten one"]
+        
+        if not any(role in admin_roles for role in user_roles):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        
+        try:
+            # Get leveling cog for role update functions
+            leveling_cog = self.bot.get_cog('Leveling')
+            if not leveling_cog:
+                await interaction.followup.send("❌ Leveling system not available!", ephemeral=True)
                 return
 
+            updated_members = 0
+            errors = 0
+            
+            for member in interaction.guild.members:
+                if member.bot:
+                    continue
+                    
+                try:
+                    # Get user data
+                    user_data = db.get_live_user_stats(member.id)
+                    level = user_data.get('level', 0)
+                    cookies = user_data.get('cookies', 0)
+                    
+                    # Update both XP and cookie roles
+                    await leveling_cog.update_xp_roles(member, level)
+                    await leveling_cog.update_cookie_roles(member, cookies)
+                    
+                    updated_members += 1
+                except Exception as e:
+                    print(f"Error updating roles for {member}: {e}")
+                    errors += 1
+            
             embed = discord.Embed(
-                title="📊 Database Statistics",
-                color=0x7289da,
+                title="🔄 Role Sync Complete",
+                description=f"Successfully synchronized roles for **{updated_members}** members!",
+                color=0x00ff00,
                 timestamp=datetime.now()
             )
+            embed.add_field(name="✅ Updated", value=f"{updated_members} members", inline=True)
+            embed.add_field(name="❌ Errors", value=f"{errors} errors", inline=True)
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="All roles synchronized with current XP and cookie levels")
             
-            embed.add_field(
-                name="👥 Users",
-                value=f"**Total Users:** {stats['total_users']}\n**With XP:** {stats['users_with_xp']}\n**With Cookies:** {stats['users_with_cookies']}\n**With Coins:** {stats['users_with_coins']}",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="📊 Totals",
-                value=f"**Total XP:** {stats['total_xp']:,}\n**Total Cookies:** {stats['total_cookies']:,}",
-                inline=True
-            )
-            
-            embed.set_footer(text=f"{FOOTER_TXT} • Database Health Check")
             await interaction.followup.send(embed=embed)
-
+            
         except Exception as e:
-            await interaction.followup.send(f"❌ Error checking database: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"❌ Error syncing roles: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="restoredata", description="Restore all user data from MongoDB (Administrator only)")
     async def restoredata(self, interaction: discord.Interaction):

@@ -70,6 +70,9 @@ class Events(commands.Cog):
 
         # Give XP for messages
         try:
+            # Validate user data first (live validation)
+            db.validate_user_data(message.author.id)
+            
             # Reduced XP range from 15-25 to 5-10
             base_xp_gain = random.randint(5, 10)
             
@@ -80,15 +83,15 @@ class Events(commands.Cog):
             # Double XP if boost is active
             xp_gain = base_xp_gain * 2 if xp_boost_active else base_xp_gain
             
-            # Check for XP cooldown (prevent spam)
-            user_data = db.get_user_data(message.author.id)
-            last_xp_time = user_data.get('last_xp_time', 0)
+            # Use live user stats for accurate data
+            user_stats = db.get_live_user_stats(message.author.id)
+            last_xp_time = user_stats.get('last_xp_time', 0)
             current_time = message.created_at.timestamp()
             
             # 1 minute cooldown
             if current_time - last_xp_time >= 60:
-                old_xp = user_data.get('xp', 0)
-                old_cookies = user_data.get('cookies', 0)
+                old_xp = user_stats.get('xp', 0)
+                old_cookies = user_stats.get('cookies', 0)
                 new_xp = old_xp + xp_gain
                 
                 # Calculate level
@@ -119,6 +122,9 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member):
         try:
+            # Initialize user data when they join
+            db.validate_user_data(member.id)
+            
             # Get welcome channel
             welcome_channel_id = db.get_guild_setting(member.guild.id, "welcome_channel", None)
             if welcome_channel_id:
@@ -131,13 +137,27 @@ class Events(commands.Cog):
                     )
                     embed.set_thumbnail(url=member.display_avatar.url)
                     embed.add_field(name="Member Count", value=f"You're member #{member.guild.member_count}!", inline=False)
+                    embed.add_field(name="🎮 Get Started", value="Start chatting to earn XP and level up!\nUse `/help` to see all commands.", inline=False)
                     embed.set_image(url=WELCOME_GIF)
                     await channel.send(embed=embed)
+
+            # Sync roles on join (in case they're returning)
+            try:
+                user_stats = db.get_live_user_stats(member.id)
+                level = user_stats.get('level', 0)
+                cookies = user_stats.get('cookies', 0)
+                
+                leveling_cog = self.bot.get_cog('Leveling')
+                if leveling_cog:
+                    await leveling_cog.update_xp_roles(member, level)
+                    await leveling_cog.update_cookie_roles(member, cookies)
+            except Exception as e:
+                print(f"Error syncing roles for new member {member}: {e}")
 
             # Log to mod log
             await self.log_to_modlog(member.guild, "member_join", {
                 "user": member,
-                "description": f"{member.mention} joined the server",
+                "description": f"{member.mention} joined the server\n**Account Created:** <t:{int(member.created_at.timestamp())}:R>",
                 "color": 0x00ff00
             })
 
