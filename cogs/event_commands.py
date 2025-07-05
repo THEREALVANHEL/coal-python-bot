@@ -61,7 +61,8 @@ class EventCommands(commands.Cog):
             await interaction.response.send_message(f"❌ I don't have permission to send messages in {channel.mention}!", ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f"❌ Error sending message: {str(e)}", ephemeral=True)
-                @app_commands.command(name="gamelog", description="Log a game event or result, with image support (Host only)")
+
+    @app_commands.command(name="gamelog", description="Log a game event or result, with image support (Host only)")
     @app_commands.describe(
         title="Event title",
         description="Event description",

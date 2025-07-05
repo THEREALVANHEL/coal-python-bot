@@ -144,7 +144,8 @@ def update_last_work(user_id, timestamp):
     """Update last work time"""
     if not users_collection:
         return False
-        try:
+    
+    try:
         users_collection.update_one(
             {"user_id": user_id},
             {"$set": {"last_work": timestamp}},
@@ -283,7 +284,8 @@ def get_guild_setting(guild_id, setting, default=None):
     except Exception as e:
         print(f"Error getting guild setting: {e}")
         return default
-        def reset_guild_settings(guild_id):
+
+def reset_guild_settings(guild_id):
     """Reset all guild settings"""
     if not guild_settings_collection:
         return False

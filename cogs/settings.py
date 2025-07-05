@@ -64,7 +64,8 @@ class Settings(commands.Cog):
         if not interaction.user.guild_permissions.manage_guild:
             await interaction.response.send_message("❌ You need 'Manage Server' permission to use this command!", ephemeral=True)
             return
-try:
+
+        try:
             if action == "threshold":
                 if not value or not value.isdigit():
                     await interaction.response.send_message("❌ Please provide a valid number for the threshold!", ephemeral=True)

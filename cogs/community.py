@@ -133,7 +133,8 @@ class Community(commands.Cog):
             color=0x00ff00
         )
         await interaction.response.send_message(embed=embed)
-            @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
+
+    @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
     @app_commands.describe(question="Your question for the AI")
     async def askblecknephew(self, interaction: discord.Interaction, question: str):
         if not self.genai_api_key:
