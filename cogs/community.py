@@ -297,13 +297,13 @@ class Community(commands.Cog):
             # Add additional notes if provided
             if additional_notes:
                 embed.add_field(
-                    name="� **Additional Notes**",
+                    name="📝 **Additional Notes**",
                     value=additional_notes,
                     inline=False
                 )
             
             embed.add_field(
-                name="�📊 **Community Voting**",
+                name="📊 **Community Voting**",
                 value="React with ✅ to support or ❌ if you disagree",
                 inline=False
             )
@@ -360,13 +360,13 @@ class Community(commands.Cog):
                 included_items.append("📋 Additional notes")
             
             success_embed.add_field(
-                name="� **What's Included**",
+                name="📦 **What's Included**",
                 value="\n".join(included_items),
                 inline=True
             )
             
             success_embed.add_field(
-                name="� **What Happens Next?**",
+                name="🚀 **What Happens Next?**",
                 value="The community will vote on your suggestion using reactions. Popular suggestions may be implemented!",
                 inline=False
             )
@@ -544,7 +544,7 @@ class Community(commands.Cog):
         )
         
         # Add all options with winner highlighted
-        options_text = "\n".join([f"{'� **' + opt + '**' if opt == winner else '• ' + opt}" for opt in option_list])
+        options_text = "\n".join([f"{'🏆 **' + opt + '**' if opt == winner else '• ' + opt}" for opt in option_list])
         embed.add_field(name="🎯 All Options", value=options_text, inline=False)
         embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.set_footer(text="🎯 The arrow points to the winner!")

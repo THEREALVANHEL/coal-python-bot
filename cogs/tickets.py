@@ -344,7 +344,7 @@ class TicketControlView(View):
         except:
             pass
     
-    @discord.ui.button(label="� Add User", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="👥 Add User", style=discord.ButtonStyle.secondary)
     async def add_user(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Check permissions
         user_roles = [role.id for role in interaction.user.roles]
@@ -499,7 +499,7 @@ class Tickets(commands.Cog):
             )
             
             embed.add_field(
-                name="� **How It Works**",
+                name="📋 **How It Works**",
                 value="1️⃣ Click the category button below\n" +
                       "2️⃣ Fill out the ticket form\n" +
                       "3️⃣ Get a private channel with our team\n" +
@@ -662,7 +662,7 @@ class Tickets(commands.Cog):
                 try:
                     # Send closure message
                     embed = discord.Embed(
-                        title="� **Emergency Closure**",
+                        title="🚨 **Emergency Closure**",
                         description="This ticket has been closed by an administrator as part of a mass closure operation.",
                         color=0xff0000,
                         timestamp=datetime.now()

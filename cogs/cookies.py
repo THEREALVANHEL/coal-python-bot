@@ -96,11 +96,11 @@ class Cookies(commands.Cog):
                 rank_style = f"🥈 **#{i} SWEET MASTER {username}** 🥈"
                 style_suffix = " 🍪🍪"
             elif i == 3:
-                rank_style = f"� **#{i} DESSERT KING {username}** 🥉"
+                rank_style = f"🥉 **#{i} DESSERT KING {username}** 🥉"
                 style_suffix = " 🍪"
             elif i <= 5:
                 rank_style = f"🔸 **#{i} SUGAR LORD {username}**"
-                style_suffix = " �"
+                style_suffix = " ⭐"
             elif i <= 10:
                 rank_style = f"▫️ **#{i} TREAT COLLECTOR {username}**"
                 style_suffix = " 🍰"
@@ -290,7 +290,7 @@ class Cookies(commands.Cog):
             value="• Beautiful cookie empire design\n• Progress bars and milestones\n• Smooth pagination\n• Cookie tier system with achievements",
             inline=False
         )
-        embed.set_footer(text="� This command will be removed soon")
+        embed.set_footer(text="💫 This command will be removed soon")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="addcookies", description="Adds cookies to a user (Manager only)")

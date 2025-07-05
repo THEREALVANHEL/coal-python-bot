@@ -318,7 +318,7 @@ class Settings(commands.Cog):
                         timestamp=datetime.now()
                     )
                     embed.add_field(
-                        name="� Ticket Category",
+                        name="🎫 Ticket Category",
                         value=f"{category.mention} ({category.name})",
                         inline=False
                     )

@@ -401,7 +401,7 @@ class Economy(commands.Cog):
                         )
                         embed.add_field(name="💰 Earnings", value=f"**+{total_earnings}** coins", inline=True)
                         embed.add_field(name="🪙 New Balance", value=f"{new_balance:,} coins", inline=True)
-                        embed.add_field(name="� Level Bonus", value=f"+{level_bonus} coins", inline=True)
+                        embed.add_field(name="🎯 Level Bonus", value=f"+{level_bonus} coins", inline=True)
                         embed.add_field(name="💡 Job Details", value=selected_job["requirements"], inline=False)
                         embed.set_author(name=select_interaction.user.display_name, icon_url=select_interaction.user.display_avatar.url)
                         embed.set_footer(text="💼 Great job! Come back in 30 minutes for more work.")
@@ -414,12 +414,12 @@ class Economy(commands.Cog):
                         db.update_last_work(interaction.user.id, self.current_time)
                         
                         embed = discord.Embed(
-                            title="� **Work Failed**",
+                            title="⚠️ **Work Failed**",
                             description=f"**{selected_job['name']}** - You attempted this job but it didn't go as planned.",
                             color=0xff9966,
                             timestamp=datetime.now()
                         )
-                        embed.add_field(name="� What happened", value=f"The {selected_job['name'].lower()} was more challenging than expected. Sometimes these things happen!", inline=False)
+                        embed.add_field(name="💭 What happened", value=f"The {selected_job['name'].lower()} was more challenging than expected. Sometimes these things happen!", inline=False)
                         embed.add_field(name="💡 Silver Lining", value="You gained experience! Higher level jobs have better success rates when you level up.", inline=False)
                         embed.set_author(name=select_interaction.user.display_name, icon_url=select_interaction.user.display_avatar.url)
                         embed.set_footer(text="💪 Don't give up! Try again in 30 minutes.")
