@@ -106,7 +106,11 @@ class Events(commands.Cog):
                     leveling_cog = self.bot.get_cog('Leveling')
                     if leveling_cog and hasattr(message.author, 'guild'):
                         await leveling_cog.update_xp_roles(message.author, new_level)
-                        await leveling_cog.update_cookie_roles(message.author, old_cookies)
+                        
+                        # Update cookie roles using the cookies cog
+                        cookies_cog = self.bot.get_cog('Cookies')
+                        if cookies_cog:
+                            await cookies_cog.update_cookie_roles(message.author, old_cookies)
                 except Exception as e:
                     print(f"Error updating roles: {e}")
                 
@@ -146,7 +150,11 @@ class Events(commands.Cog):
                 leveling_cog = self.bot.get_cog('Leveling')
                 if leveling_cog:
                     await leveling_cog.update_xp_roles(member, level)
-                    await leveling_cog.update_cookie_roles(member, cookies)
+                    
+                    # Update cookie roles using the cookies cog
+                    cookies_cog = self.bot.get_cog('Cookies')
+                    if cookies_cog:
+                        await cookies_cog.update_cookie_roles(member, cookies)
             except Exception as e:
                 print(f"Error syncing roles for new member {member}: {e}")
 
