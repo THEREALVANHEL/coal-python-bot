@@ -102,12 +102,39 @@ bot = commands.Bot(
     help_command=None
 )
 
+# Add a simple test command to verify bot is working
+@bot.tree.command(name="test", description="Simple test command to verify bot functionality")
+async def test_command(interaction: discord.Interaction):
+    """Test command to verify bot is working"""
+    embed = discord.Embed(
+        title="✅ Bot Test Successful!",
+        description="The bot is online and commands are working!",
+        color=0x00ff00
+    )
+    embed.add_field(
+        name="📊 Status", 
+        value=f"Loaded Extensions: {len(bot.extensions)}\nCommands in Tree: {len(bot.tree.get_commands())}", 
+        inline=False
+    )
+    await interaction.response.send_message(embed=embed)
+
 @bot.event
 async def on_ready():
     print(f"✅ BOT ONLINE: {bot.user.name}")
     print(f"📊 Bot ID: {bot.user.id}")
     print(f"🔗 Invite: https://discord.com/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands")
     print(f"🌐 Connected to {len(bot.guilds)} guild(s)")
+    
+    # Load cogs after bot is ready (if not already loaded)
+    print("📦 Loading/Reloading cogs after bot ready...")
+    await ensure_cogs_loaded()
+    
+    # Check how many commands are available
+    tree_commands = bot.tree.get_commands()
+    print(f"🌳 Commands in tree before sync: {len(tree_commands)}")
+    if tree_commands:
+        command_names = [cmd.name for cmd in tree_commands]
+        print(f"📋 Available commands: {', '.join(command_names[:10])}{'...' if len(command_names) > 10 else ''}")
     
     # Sync slash commands with multiple fallback methods
     print("⚡ Starting comprehensive command sync...")
@@ -251,6 +278,8 @@ async def load_cogs():
             loaded_count += 1
         except Exception as e:
             print(f"[Main] ❌ Failed to load {cog}: {e}")
+            print(f"[Main] 🔍 Error type: {type(e).__name__}")
+            print(f"[Main] 📝 Error details: {str(e)}")
             failed_cogs.append(cog)
             # Continue loading other cogs instead of failing completely
             
@@ -259,6 +288,53 @@ async def load_cogs():
         print(f"[Main] ⚠️ Failed cogs: {', '.join(failed_cogs)}")
     
     return loaded_count > 0  # Return True if at least one cog loaded
+
+async def ensure_cogs_loaded():
+    """Ensure cogs are loaded, reload if necessary"""
+    print("[Ensure] 🔍 Checking loaded cogs...")
+    
+    # Check what's currently loaded
+    loaded_cogs = list(bot.extensions.keys())
+    print(f"[Ensure] 📋 Currently loaded: {loaded_cogs}")
+    
+    target_cogs = [
+        'cogs.leveling',
+        'cogs.cookies', 
+        'cogs.economy',
+        'cogs.events',
+        'cogs.community',
+        'cogs.moderation',
+        'cogs.settings',
+        'cogs.tickets'
+    ]
+    
+    missing_cogs = [cog for cog in target_cogs if cog not in loaded_cogs]
+    print(f"[Ensure] 🚫 Missing cogs: {missing_cogs}")
+    
+    # Load missing cogs
+    newly_loaded = 0
+    for cog in missing_cogs:
+        try:
+            print(f"[Ensure] 🔄 Loading {cog}...")
+            await bot.load_extension(cog)
+            print(f"[Ensure] ✅ Successfully loaded {cog}")
+            newly_loaded += 1
+        except Exception as e:
+            print(f"[Ensure] ❌ Failed to load {cog}: {e}")
+            print(f"[Ensure] 🔍 Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+    
+    # Final status
+    final_loaded = list(bot.extensions.keys())
+    print(f"[Ensure] 📊 Final status: {len(final_loaded)}/{len(target_cogs)} cogs loaded")
+    print(f"[Ensure] ✅ Loaded cogs: {final_loaded}")
+    
+    # Check commands after loading
+    commands_count = len(bot.tree.get_commands())
+    print(f"[Ensure] 🎯 Commands available: {commands_count}")
+    
+    return len(final_loaded) > 0
 
 async def startup_maintenance():
     """Perform startup maintenance and optimization with timeouts"""
@@ -348,18 +424,26 @@ async def main():
         start_web_server()
         
         # Load all cogs with timeout
-        print("📦 Loading cogs...")
+        print("📦 Loading cogs during startup...")
         try:
-            cogs_loaded = await asyncio.wait_for(load_cogs(), timeout=45)
+            cogs_loaded = await asyncio.wait_for(load_cogs(), timeout=60)
             if cogs_loaded:
-                print("✅ Cogs loaded successfully (at least partially)")
+                print("✅ Cogs loaded successfully during startup")
+                # Show what was loaded
+                loaded_extensions = list(bot.extensions.keys())
+                print(f"📋 Loaded extensions: {loaded_extensions}")
             else:
-                print("⚠️ No cogs loaded successfully - bot will have limited functionality")
+                print("⚠️ No cogs loaded successfully during startup")
+                print("🔄 Will attempt to load again after bot connects")
         except asyncio.TimeoutError:
-            print("⏰ Cog loading timed out, continuing with bot startup...")
+            print("⏰ Cog loading timed out during startup")
+            print("🔄 Will attempt to load again after bot connects")
         except Exception as e:
-            print(f"❌ Error during cog loading: {e}")
-            print("🔄 Continuing with bot startup despite cog errors...")
+            print(f"❌ Error during startup cog loading: {e}")
+            print(f"🔍 Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+            print("🔄 Continuing with bot startup, will retry after connection")
         
         # Perform startup maintenance with timeout
         print("🔧 Running startup maintenance...")
