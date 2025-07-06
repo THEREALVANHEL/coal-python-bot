@@ -112,13 +112,13 @@ class PaginationView(View):
             await interaction.response.edit_message(embed=error_embed, view=self)
 
     async def create_level_leaderboard_embed(self, page: int, members: int = 10):
-        items_per_page = members
-        skip = (page - 1) * items_per_page
+        # Use paginated leaderboard for proper pagination
+        leaderboard_data = db.get_paginated_leaderboard('xp', page, members)
+        page_users = leaderboard_data['users']
+        total_pages = leaderboard_data['total_pages']
+        total_users = leaderboard_data['total_users']
         
-        all_users = db.get_leaderboard('xp')
-        total_users = len(all_users)
-        total_pages = (total_users + items_per_page - 1) // items_per_page
-        page_users = all_users[skip:skip + items_per_page]
+        skip = (page - 1) * members
 
         embed = discord.Embed(
             title="🏆 XP Leaderboard",
@@ -276,20 +276,23 @@ class Leveling(commands.Cog):
 
             # Get leaderboard data based on type
             if type == "xp":
-                all_users = db.get_leaderboard('xp')
-                total_pages = (len(all_users) + members - 1) // members
+                leaderboard_data = db.get_paginated_leaderboard('xp', page, members)
+                all_users = leaderboard_data['users']
+                total_pages = leaderboard_data['total_pages']
                 embed_func = self.create_level_leaderboard_embed
                 no_data_msg = "❌ No XP data available! Start chatting to appear on the leaderboard."
             elif type == "cookies":
-                all_users = db.get_leaderboard('cookies')
-                total_pages = (len(all_users) + members - 1) // members
+                leaderboard_data = db.get_paginated_leaderboard('cookies', page, members)
+                all_users = leaderboard_data['users']
+                total_pages = leaderboard_data['total_pages']
                 from cogs.cookies import Cookies
                 cookies_cog = self.bot.get_cog('Cookies')
                 embed_func = cookies_cog.create_cookie_leaderboard_embed if cookies_cog else None
                 no_data_msg = "❌ No cookie data available! Start collecting cookies to appear here."
             elif type == "coins":
-                all_users = db.get_leaderboard('coins')
-                total_pages = (len(all_users) + members - 1) // members
+                leaderboard_data = db.get_paginated_leaderboard('coins', page, members)
+                all_users = leaderboard_data['users']
+                total_pages = leaderboard_data['total_pages']
                 from cogs.economy import Economy
                 economy_cog = self.bot.get_cog('Economy')
                 embed_func = economy_cog.create_coin_leaderboard_embed if economy_cog else None

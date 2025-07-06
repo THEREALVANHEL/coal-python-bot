@@ -335,7 +335,7 @@ class Moderation(commands.Cog):
                 return
                 
             genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel('gemini-pro')
+            model = genai.GenerativeModel('gemini-1.5-flash')
             
             response = model.generate_content(prompt)
             

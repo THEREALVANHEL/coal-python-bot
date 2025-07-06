@@ -104,13 +104,13 @@ class Economy(commands.Cog):
         print("[Economy] Loaded successfully.")
 
     async def create_coin_leaderboard_embed(self, page: int, members: int = 10):
-        items_per_page = members
-        skip = (page - 1) * items_per_page
+        # Use paginated leaderboard for proper pagination
+        leaderboard_data = db.get_paginated_leaderboard('coins', page, members)
+        page_users = leaderboard_data['users']
+        total_pages = leaderboard_data['total_pages']
+        total_users = leaderboard_data['total_users']
         
-        all_users = db.get_leaderboard('coins')
-        total_users = len(all_users)
-        total_pages = (total_users + items_per_page - 1) // items_per_page
-        page_users = all_users[skip:skip + items_per_page]
+        skip = (page - 1) * members
 
         embed = discord.Embed(
             title="🪙 Coin Leaderboard",

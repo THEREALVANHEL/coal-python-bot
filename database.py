@@ -21,6 +21,7 @@ if not MONGODB_URI:
     starboard_collection = None
     tickets_collection = None
     settings_collection = None
+    guild_settings_collection = None
     backups_collection = None
 else:
     try:
@@ -42,6 +43,7 @@ else:
         starboard_collection = db.starboard
         tickets_collection = db.tickets
         settings_collection = db.settings
+        guild_settings_collection = db.guild_settings
         backups_collection = db.backups  # New collection for backup metadata
         
         print("✅ Connected to MongoDB with enhanced safety features")
@@ -53,6 +55,7 @@ else:
         starboard_collection = None
         tickets_collection = None
         settings_collection = None
+        guild_settings_collection = None
         backups_collection = None
 
 # Enhanced Data Safety System
@@ -720,7 +723,7 @@ def remove_all_cookies_admin(admin_user_id):
         print(f"Error removing all cookies: {e}")
         return {"success": False, "message": str(e)}
 
-def get_leaderboard(field, limit=10):
+def get_leaderboard(field, limit=100):
     """Get leaderboard for a specific field"""
     if users_collection is None:
         return []
@@ -888,6 +891,42 @@ def reset_guild_settings(guild_id):
     except Exception as e:
         print(f"Error resetting guild settings: {e}")
         return False
+
+def update_server_setting(guild_id, setting, value):
+    """Update a server setting (alias for set_guild_setting)"""
+    return set_guild_setting(guild_id, setting, value)
+
+def get_server_settings(guild_id):
+    """Get all server settings for a guild"""
+    if guild_settings_collection is None:
+        return {}
+
+    try:
+        guild_data = guild_settings_collection.find_one({"guild_id": guild_id})
+        if guild_data:
+            # Remove MongoDB's _id field
+            guild_data.pop('_id', None)
+            return guild_data
+        return {}
+    except Exception as e:
+        print(f"Error getting server settings: {e}")
+        return {}
+
+def set_ticketzone_channels(guild_id, channels):
+    """Set ticketzone channels list"""
+    return set_guild_setting(guild_id, 'ticketzone_channels', channels)
+
+def get_ticketzone_channels(guild_id):
+    """Get ticketzone channels list"""
+    return get_guild_setting(guild_id, 'ticketzone_channels', [])
+
+def set_ticketzone_categories(guild_id, categories):
+    """Set ticketzone categories list"""
+    return set_guild_setting(guild_id, 'ticketzone_categories', categories)
+
+def get_ticketzone_categories(guild_id):
+    """Get ticketzone categories list"""
+    return get_guild_setting(guild_id, 'ticketzone_categories', [])
 
 def add_starboard_message(message_id, starboard_message_id, star_count):
     """Add message to starboard"""

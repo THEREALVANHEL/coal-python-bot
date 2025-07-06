@@ -106,7 +106,7 @@ class Community(commands.Cog):
         if self.genai_api_key:
             try:
                 genai.configure(api_key=self.genai_api_key)
-                self.model = genai.GenerativeModel('gemini-pro')
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
             except Exception as e:
                 print(f"[Community] Failed to initialize Gemini AI: {e}")
                 self.model = None
