@@ -376,7 +376,7 @@ class TicketCreationModal(Modal):
             }
             priority_emoji = priority_emojis.get(priority, "🟢")
             
-            # Create clean and elegant welcome embed
+            # MEE6-style clean and simple welcome embed
             welcome_embed = discord.Embed(
                 title=f"🎫 {self.title_input.value}",
                 description=self.description_input.value,
@@ -384,77 +384,25 @@ class TicketCreationModal(Modal):
                 timestamp=datetime.now()
             )
             
-            # Elegant ticket information panel
-            ticket_info = []
-            ticket_info.append(f"**📂 Category:** {self.category_info['name']}")
-            ticket_info.append(f"**🏷️ Type:** {self.subcategory}")
-            ticket_info.append(f"**{priority_emoji} Priority:** {priority.title()}")
-            ticket_info.append(f"**📊 Status:** 🟢 **Open & Active**")
+            welcome_embed.set_author(name=f"{user.display_name} opened a ticket", icon_url=user.display_avatar.url)
+            welcome_embed.set_footer(text=f"{self.subcategory} • {priority_emoji} {priority.title()} Priority")
             
-            welcome_embed.add_field(
-                name="📋 **Ticket Information**",
-                value="\n".join(ticket_info),
-                inline=True
-            )
-            
-            # User information with style
-            user_info = []
-            user_info.append(f"**� Creator:** {user.mention}")
-            user_info.append(f"**🎯 Display Name:** {user.display_name}")
-            user_info.append(f"**🆔 User ID:** `{user.id}`")
-            if user.joined_at:
-                user_info.append(f"**📅 Joined:** <t:{int(user.joined_at.timestamp())}:R>")
-            
-            welcome_embed.add_field(
-                name="� **User Details**",
-                value="\n".join(user_info),
-                inline=True
-            )
-            
-            # Response time expectations with professional touch
-            response_times = {
-                "urgent": "⚡ Within 1 hour",
-                "high": "🔥 Within 4 hours", 
-                "medium": "⏰ Within 24 hours",
-                "low": "📅 Within 48 hours"
-            }
-            
-            welcome_embed.add_field(
-                name="⏱️ **Expected Response**",
-                value=response_times.get(priority, "� Within 48 hours"),
-                inline=True
-            )
-            
-            # Professional tips section
-            welcome_embed.add_field(
-                name="� **Pro Tips for Faster Support**",
-                value="• Be specific and detailed about your issue\n• Include screenshots or examples when helpful\n• Stay patient and check back regularly\n• Use ticket controls below to manage your request",
-                inline=False
-            )
-            
-            welcome_embed.set_author(name=f"Ticket by {user.display_name}", icon_url=user.display_avatar.url)
-            welcome_embed.set_footer(text=f"Ticket ID: {ticket_channel.id}")
-            
-            # Create enhanced ticket controls with better organization
+            # Create simple ticket controls
             control_view = TicketControlView(user.id, self.category_key, self.subcategory)
             
-            # Professional welcome message with role pings
+            # Simple welcome message with role pings
             support_role_mentions = []
             for role_id in ticket_support_roles:
                 role = guild.get_role(role_id)
                 if role:
                     support_role_mentions.append(role.mention)
             
-            # Elegant welcome message
-            welcome_content = f"""
-� **Welcome to Premium Support, {user.mention}!**
+            # Simple welcome message
+            welcome_content = f"""🎫 Hello {user.mention}! Thank you for opening a support ticket.
 
-Your **{self.category_info['name']}** ticket has been created with **{priority.title()}** priority.
-Our expert support team will assist you with your **{self.subcategory}** request shortly.
+Our support team will be with you shortly. Please explain your issue in detail below.
 
-{'🔔 **Staff Alert:** ' + ' '.join(support_role_mentions) if support_role_mentions else '🔔 **Our support team has been notified about your ticket.**'}
-
-✨ *Thank you for choosing our premium support experience!*
+{' '.join(support_role_mentions) if support_role_mentions else ''}
             """.strip()
             
             welcome_msg = await ticket_channel.send(
@@ -475,26 +423,12 @@ Our expert support team will assist you with your **{self.subcategory}** request
             except:
                 pass
             
-            # Elegant success response
+            # Simple success response like MEE6
             success_embed = discord.Embed(
-                title="✨ **Ticket Created Successfully!**",
-                description=f"Your premium **{self.category_info['name']}** ticket is now active.",
+                title="🎫 Ticket Created",
+                description=f"Your ticket has been created in {ticket_channel.mention}\n\nOur support team will assist you shortly.",
                 color=0x00d4aa
             )
-            
-            success_embed.add_field(
-                name="🎫 **Your Ticket Details**",
-                value=f"**Channel:** {ticket_channel.mention}\n**Title:** {self.title_input.value}\n**Category:** {self.subcategory}\n**Priority:** {priority_emoji} {priority.title()}",
-                inline=False
-            )
-            
-            success_embed.add_field(
-                name="⏱️ **What Happens Next**",
-                value=f"• Our team will respond within the expected timeframe\n• You'll receive expert assistance for your request\n• Use the ticket controls to manage your ticket\n• Check {ticket_channel.mention} for updates",
-                inline=False
-            )
-            
-            success_embed.set_footer(text="✨ Premium Support • We're here to help!")
             
             await interaction.response.send_message(embed=success_embed, ephemeral=True)
             
@@ -584,12 +518,10 @@ class TicketControlView(View):
                 await channel.edit(topic=new_topic)
                 
                 embed = discord.Embed(
-                    title="🔄 **Ticket Unclaimed**",
+                    title="🔄 Ticket Unclaimed",
                     description="This ticket is now available for any staff member to claim.",
-                    color=0x7c3aed,
-                    timestamp=datetime.now()
+                    color=0x7c3aed
                 )
-                embed.set_author(name=f"Unclaimed by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
                 
                 await interaction.response.send_message(embed=embed)
                 
@@ -608,17 +540,11 @@ class TicketControlView(View):
             await channel.edit(topic=new_topic)
             
             embed = discord.Embed(
-                title="👤 **Ticket Claimed Successfully**",
-                description=f"This ticket has been claimed by {interaction.user.mention}",
+                title="👤 Ticket Claimed",
+                description=f"{interaction.user.mention} is now handling this ticket.",
                 color=0x00d4aa,
                 timestamp=datetime.now()
             )
-            embed.add_field(
-                name="📋 **What this means:**",
-                value="• This staff member is now handling your case\n• They will be your primary point of contact\n• Other staff can still assist if needed",
-                inline=False
-            )
-            embed.set_author(name=f"Claimed by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
             
             await interaction.response.send_message(embed=embed)
             
@@ -645,41 +571,16 @@ class TicketControlView(View):
         confirm_view = TicketCloseConfirmView(interaction.user.id)
         
         confirm_embed = discord.Embed(
-            title="🔒 **Confirm Ticket Closure**",
-            description="Are you sure you want to close this ticket?\n\n**⚠️ This action cannot be undone!**",
-            color=0xff9966,
-            timestamp=datetime.now()
+            title="🔒 Close Ticket",
+            description="Are you sure you want to close this ticket?\n\n⚠️ This will delete the channel.",
+            color=0xff9966
         )
-        confirm_embed.add_field(
-            name="📋 **What will happen:**",
-            value="• Ticket will be marked as resolved\n• Channel will be deleted in 10 seconds\n• Conversation history will be lost\n• User will be notified of closure",
-            inline=False
-        )
-        confirm_embed.set_footer(text="Click 'Confirm' to close or 'Cancel' to keep open")
         
         await interaction.response.send_message(embed=confirm_embed, view=confirm_view, ephemeral=True)
 
 
 
-    @discord.ui.button(label="📋 Update Priority", style=discord.ButtonStyle.secondary)
-    async def update_priority(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.has_ticket_permissions(interaction.user, interaction.guild):
-            embed = discord.Embed(
-                title="❌ **Permission Denied**",
-                description="Only staff members can update ticket priority.",
-                color=0xff6b6b
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        view = PriorityUpdateView()
-        embed = discord.Embed(
-            title="📋 **Update Ticket Priority**",
-            description="Select the new priority level for this ticket:",
-            color=0x7c3aed
-        )
-        
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
 
 class TicketCloseConfirmView(View):
     def __init__(self, closer_id: int):
@@ -694,12 +595,10 @@ class TicketCloseConfirmView(View):
         
         channel = interaction.channel
         embed = discord.Embed(
-            title="🔒 **Ticket Closed**",
-            description=f"This ticket has been closed by {interaction.user.mention}.\n\n**Channel will be deleted in 10 seconds.**",
-            color=0x28a745,
-            timestamp=datetime.now()
+            title="🔒 Ticket Closed",
+            description=f"Ticket closed by {interaction.user.mention}\n\nChannel will be deleted in 10 seconds.",
+            color=0x28a745
         )
-        embed.set_footer(text="Thank you for using our support system!")
         
         await interaction.response.send_message(embed=embed)
         
