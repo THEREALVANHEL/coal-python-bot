@@ -124,26 +124,47 @@ class Cookies(commands.Cog):
         print("[Cookies] Loaded successfully.")
 
     async def update_cookie_roles(self, user: discord.Member, cookies: int):
-        """Update user's cookie milestone roles"""
+        """Update user's cookie-based roles - only give highest role, remove all others"""
         try:
-            roles_to_add = []
-            roles_to_remove = []
+            guild = user.guild
             
-            for threshold, role_id in COOKIE_ROLES.items():
-                role = user.guild.get_role(role_id)
+            # Find the highest role the user qualifies for
+            highest_role_id = None
+            highest_cookie_req = 0
+            
+            for cookie_req, role_id in COOKIE_ROLES.items():
+                if cookies >= cookie_req and cookie_req > highest_cookie_req:
+                    highest_cookie_req = cookie_req
+                    highest_role_id = role_id
+            
+            # Get all cookie roles
+            all_cookie_roles = []
+            for role_id in COOKIE_ROLES.values():
+                role = guild.get_role(role_id)
                 if role:
-                    if cookies >= threshold and role not in user.roles:
-                        roles_to_add.append(role)
-                    elif cookies < threshold and role in user.roles:
-                        roles_to_remove.append(role)
+                    all_cookie_roles.append(role)
             
-            if roles_to_add:
-                await user.add_roles(*roles_to_add)
+            # Remove all cookie roles first
+            roles_to_remove = [role for role in all_cookie_roles if role in user.roles]
             if roles_to_remove:
-                await user.remove_roles(*roles_to_remove)
-                
+                try:
+                    await user.remove_roles(*roles_to_remove, reason="Cookie milestone role update - clearing old roles")
+                    print(f"[Cookies] Removed {len(roles_to_remove)} cookie roles from {user.display_name}")
+                except Exception as e:
+                    print(f"[Cookies] Error removing cookie roles from {user.display_name}: {e}")
+            
+            # Add only the highest role if user qualifies for one
+            if highest_role_id:
+                highest_role = guild.get_role(highest_role_id)
+                if highest_role:
+                    try:
+                        await user.add_roles(highest_role, reason=f"Cookie milestone role update - {cookies} cookies")
+                        print(f"[Cookies] Gave {highest_role.name} role to {user.display_name} ({cookies} cookies)")
+                    except Exception as e:
+                        print(f"[Cookies] Error adding cookie role {highest_role.name} to {user.display_name}: {e}")
+                        
         except Exception as e:
-            print(f"Error updating cookie roles for {user}: {e}")
+            print(f"[Cookies] Error updating cookie roles for {user}: {e}")
 
 
 
