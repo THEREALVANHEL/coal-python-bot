@@ -148,48 +148,72 @@ class Leveling(commands.Cog):
         return JOB_TITLES[-1]  # Default to highest title
 
     async def update_xp_roles(self, member: discord.Member, level: int):
-        """Update user's XP-based roles"""
+        """Update user's XP-based roles - only give highest role, remove all others"""
         try:
             guild = member.guild
-            roles_to_add = []
-            roles_to_remove = []
+            
+            # Find the highest role the user qualifies for
+            highest_role_id = None
+            highest_level_req = 0
             
             for level_req, role_id in XP_ROLES.items():
+                if level >= level_req and level_req > highest_level_req:
+                    highest_level_req = level_req
+                    highest_role_id = role_id
+            
+            # Get all XP roles
+            all_xp_roles = []
+            for role_id in XP_ROLES.values():
                 role = guild.get_role(role_id)
                 if role:
-                    if level >= level_req and role not in member.roles:
-                        roles_to_add.append(role)
-                    elif level < level_req and role in member.roles:
-                        roles_to_remove.append(role)
+                    all_xp_roles.append(role)
             
-            if roles_to_add:
-                await member.add_roles(*roles_to_add, reason="XP level role update")
+            # Remove all XP roles first
+            roles_to_remove = [role for role in all_xp_roles if role in member.roles]
             if roles_to_remove:
-                await member.remove_roles(*roles_to_remove, reason="XP level role update")
-                
+                await member.remove_roles(*roles_to_remove, reason="XP level role update - clearing old roles")
+            
+            # Add only the highest role if user qualifies for one
+            if highest_role_id:
+                highest_role = guild.get_role(highest_role_id)
+                if highest_role:
+                    await member.add_roles(highest_role, reason=f"XP level role update - level {level}")
+                    
         except Exception as e:
             print(f"Error updating XP roles for {member}: {e}")
 
     async def update_cookie_roles(self, member: discord.Member, cookies: int):
-        """Update user's cookie-based roles"""
+        """Update user's cookie-based roles - only give highest role, remove all others"""
         try:
             guild = member.guild
-            roles_to_add = []
-            roles_to_remove = []
+            
+            # Find the highest role the user qualifies for
+            highest_role_id = None
+            highest_cookie_req = 0
             
             for cookie_req, role_id in COOKIE_ROLES.items():
+                if cookies >= cookie_req and cookie_req > highest_cookie_req:
+                    highest_cookie_req = cookie_req
+                    highest_role_id = role_id
+            
+            # Get all cookie roles
+            all_cookie_roles = []
+            for role_id in COOKIE_ROLES.values():
                 role = guild.get_role(role_id)
                 if role:
-                    if cookies >= cookie_req and role not in member.roles:
-                        roles_to_add.append(role)
-                    elif cookies < cookie_req and role in member.roles:
-                        roles_to_remove.append(role)
+                    all_cookie_roles.append(role)
             
-            if roles_to_add:
-                await member.add_roles(*roles_to_add, reason="Cookie milestone role update")
+            # Remove all cookie roles first
+            roles_to_remove = [role for role in all_cookie_roles if role in member.roles]
             if roles_to_remove:
-                await member.remove_roles(*roles_to_remove, reason="Cookie milestone role update")
-                
+                await member.remove_roles(*roles_to_remove, reason="Cookie milestone role update - clearing old roles")
+            
+            # Add only the highest role if user qualifies for one
+            if highest_role_id:
+                highest_role = guild.get_role(highest_role_id)
+                if highest_role:
+                    await member.add_roles(highest_role, reason=f"Cookie milestone role update - {cookies} cookies")
+                    
         except Exception as e:
             print(f"Error updating cookie roles for {member}: {e}")
 

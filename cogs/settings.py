@@ -85,6 +85,8 @@ class Settings(commands.Cog):
     @app_commands.command(name="viewsettings", description="🔍 View current server settings and configuration")
     async def viewsettings(self, interaction: discord.Interaction):
         try:
+            await interaction.response.defer()
+            
             guild_id = interaction.guild.id
             
             embed = discord.Embed(
@@ -102,35 +104,37 @@ class Settings(commands.Cog):
                 "goodbye": "👋 Goodbye",
                 "starboard": "⭐ Starboard",
                 "modlog": "📋 Mod Log",
-                "suggest": "💡 Suggestions",
-                "ticket_category": "🎫 Tickets"
+                "suggest": "💡 Suggestions"
             }
             channel_settings = []
             for key, name in channels.items():
-                if key == "ticket_category":
-                    channel_id = db.get_server_settings(guild_id).get('ticket_category', None)
-                else:
+                try:
                     channel_id = db.get_guild_setting(guild_id, f"{key}_channel", None)
-                
-                if channel_id:
-                    channel = self.bot.get_channel(channel_id)
-                    channel_text = channel.mention if channel else f"<#{channel_id}> (deleted)"
-                else:
-                    channel_text = "Not set"
-                channel_settings.append(f"**{name}:** {channel_text}")
+                    
+                    if channel_id:
+                        channel = self.bot.get_channel(channel_id)
+                        channel_text = channel.mention if channel else f"<#{channel_id}> (deleted)"
+                    else:
+                        channel_text = "Not set"
+                    channel_settings.append(f"**{name}:** {channel_text}")
+                except Exception as e:
+                    channel_settings.append(f"**{name}:** Error loading")
             
             embed.add_field(name="📁 **Channel Configuration**", value="\n".join(channel_settings), inline=False)
             
             # Starboard settings
-            starboard_enabled = db.get_guild_setting(guild_id, "starboard_enabled", False)
-            starboard_threshold = db.get_guild_setting(guild_id, "starboard_threshold", 5)
-            
-            starboard_info = [
-                f"**Status:** {'✅ Enabled' if starboard_enabled else '❌ Disabled'}",
-                f"**Threshold:** {starboard_threshold} ⭐"
-            ]
-            
-            embed.add_field(name="⭐ **Starboard Settings**", value="\n".join(starboard_info), inline=False)
+            try:
+                starboard_enabled = db.get_guild_setting(guild_id, "starboard_enabled", False)
+                starboard_threshold = db.get_guild_setting(guild_id, "starboard_threshold", 5)
+                
+                starboard_info = [
+                    f"**Status:** {'✅ Enabled' if starboard_enabled else '❌ Disabled'}",
+                    f"**Threshold:** {starboard_threshold} ⭐"
+                ]
+                
+                embed.add_field(name="⭐ **Starboard Settings**", value="\n".join(starboard_info), inline=False)
+            except Exception as e:
+                embed.add_field(name="⭐ **Starboard Settings**", value="❌ Error loading starboard settings", inline=False)
             
             # Ticket settings - Fixed to handle potential errors
             try:
@@ -140,11 +144,14 @@ class Settings(commands.Cog):
                 # Get role names for display
                 role_names = []
                 for role_id in support_roles:
-                    role = interaction.guild.get_role(role_id)
-                    if role:
-                        role_names.append(role.name)
-                    else:
-                        role_names.append("Deleted Role")
+                    try:
+                        role = interaction.guild.get_role(role_id)
+                        if role:
+                            role_names.append(role.name)
+                        else:
+                            role_names.append("Deleted Role")
+                    except:
+                        role_names.append("Unknown Role")
                 
                 ticket_info = [
                     f"**Support Roles:** {len(support_roles)} configured",
@@ -154,21 +161,25 @@ class Settings(commands.Cog):
                 
                 embed.add_field(name="🎫 **Ticket System**", value="\n".join(ticket_info), inline=False)
             except Exception as e:
+                print(f"Error loading ticket settings: {e}")
                 embed.add_field(name="🎫 **Ticket System**", value="❌ Error loading ticket settings", inline=False)
             
             # Setup tips
             not_configured = []
             for key, name in channels.items():
-                if key == "ticket_category":
-                    try:
-                        ticket_config = db.get_server_settings(guild_id)
-                        if not (ticket_config and ticket_config.get('ticket_support_roles')):
-                            not_configured.append("🎫 Ticket Support Roles")
-                    except:
-                        not_configured.append("🎫 Ticket Support Roles")
-                else:
+                try:
                     if not db.get_guild_setting(guild_id, f"{key}_channel", None):
                         not_configured.append(name)
+                except:
+                    not_configured.append(name)
+            
+            # Check ticket roles
+            try:
+                ticket_config = db.get_server_settings(guild_id)
+                if not (ticket_config and ticket_config.get('ticket_support_roles')):
+                    not_configured.append("🎫 Ticket Support Roles")
+            except:
+                not_configured.append("🎫 Ticket Support Roles")
             
             if not_configured:
                 embed.add_field(
@@ -179,10 +190,24 @@ class Settings(commands.Cog):
             
             embed.set_footer(text="✨ Use /quicksetup for easy configuration • /starboard for starboard settings")
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting settings: {str(e)}", ephemeral=True)
+            print(f"ViewSettings error: {e}")
+            try:
+                error_embed = discord.Embed(
+                    title="❌ **Settings Error**",
+                    description="Failed to load server settings. Please try again later.",
+                    color=0xff6b6b
+                )
+                error_embed.add_field(name="🔍 Error Details", value=f"```{str(e)[:100]}```", inline=False)
+                
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(embed=error_embed, ephemeral=True)
+                else:
+                    await interaction.followup.send(embed=error_embed, ephemeral=True)
+            except:
+                pass
 
     @app_commands.command(name="quicksetup", description="🚀 Enhanced setup wizard for all bot functions")
     async def quicksetup(self, interaction: discord.Interaction):

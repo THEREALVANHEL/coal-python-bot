@@ -21,6 +21,131 @@ def has_moderator_role(interaction: discord.Interaction) -> bool:
     user_roles = [role.name for role in interaction.user.roles]
     return any(role in MODERATOR_ROLES for role in user_roles)
 
+class ContinueAdventureModal(discord.ui.Modal):
+    def __init__(self, character: str, style: str):
+        super().__init__(title=f"Continue Adventure as {character}")
+        self.character = character
+        self.style = style
+        
+        self.action_input = discord.ui.TextInput(
+            label="What does your character do next?",
+            placeholder="Describe your action, dialogue, or choice in detail...",
+            style=discord.TextStyle.paragraph,
+            max_length=1000,
+            required=True
+        )
+        self.add_item(self.action_input)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        
+        try:
+            # Get recent channel messages for context
+            channel_history = []
+            try:
+                async for message in interaction.channel.history(limit=10):
+                    if not message.author.bot and len(message.content) > 0:
+                        channel_history.append(f"{message.author.display_name}: {message.content[:100]}")
+            except:
+                pass
+
+            # Build enhanced prompt with context
+            style_prompts = {
+                "fantasy": "magical medieval fantasy world with dragons, magic, and kingdoms",
+                "scifi": "futuristic space setting with advanced technology and alien worlds", 
+                "modern": "contemporary modern-day setting with realistic scenarios",
+                "mystery": "mysterious detective story with clues and puzzles to solve",
+                "comedy": "humorous and funny situation with light-hearted comedy",
+                "creative": "unique and artistic scenario that breaks traditional boundaries"
+            }
+
+            context_text = ""
+            if channel_history:
+                context_text = f"\n\nRecent channel context (for reference): {' | '.join(reversed(channel_history[-3:]))}"
+
+            user_action = self.action_input.value
+
+            prompt = f"""You are an interactive roleplay AI assistant. Continue the adventure based on the user's action.
+
+ROLEPLAY CONTINUATION:
+- User's Character: {self.character}
+- Setting: {style_prompts.get(self.style, 'fantasy adventure')}
+- User's Action: {user_action}
+
+INSTRUCTIONS:
+- Respond to the user's action as both narrator and NPCs
+- Describe the consequences of their action and what happens next
+- Include vivid details about the environment, characters, and atmosphere
+- Keep responses engaging and descriptive but not too long (under 1500 chars)
+- Continue the story naturally based on their choice
+- Include dialogue from NPCs if relevant
+- End with what the character sees/feels/encounters next{context_text}
+
+Continue the adventure:"""
+
+            # Call Gemini AI
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            if not gemini_api_key:
+                embed = discord.Embed(
+                    title="❌ **AI Service Unavailable**",
+                    description="🤖 The roleplay AI is currently offline. Please contact an administrator!",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+                
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            response = model.generate_content(prompt)
+            
+            if response.text:
+                # Create adventure continuation embed
+                embed = discord.Embed(
+                    title=f"🎭 **Adventure Continues - {self.character}**",
+                    description=response.text,
+                    color=0x7c3aed,
+                    timestamp=datetime.now()
+                )
+                
+                embed.add_field(
+                    name="🎯 **Your Action**", 
+                    value=f"*{user_action}*", 
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="� **Continue Playing**",
+                    value="Click 'Continue Adventure' again to keep the story going, or use `/roleplay` to start fresh!",
+                    inline=False
+                )
+                
+                embed.set_author(
+                    name=f"Adventure for {interaction.user.display_name}", 
+                    icon_url=interaction.user.display_avatar.url
+                )
+                embed.set_footer(text="🎮 Interactive Roleplay System")
+                
+                # Add the view again for continuous play
+                view = RoleplayView(self.character, self.style)
+                await interaction.followup.send(embed=embed, view=view)
+            else:
+                embed = discord.Embed(
+                    title="❌ **AI Response Error**",
+                    description="The AI couldn't generate a response. Please try again with a different action.",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ **Adventure Error**",
+                description="Something went wrong continuing your adventure. Please try again.",
+                color=0xff6b6b
+            )
+            embed.add_field(name="🔍 Error Details", value=f"```{str(e)[:100]}```", inline=False)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
 class RoleplayView(discord.ui.View):
     def __init__(self, character: str, style: str):
         super().__init__(timeout=1800)  # 30 minutes
@@ -29,32 +154,8 @@ class RoleplayView(discord.ui.View):
 
     @discord.ui.button(label="🎲 Continue Adventure", style=discord.ButtonStyle.primary, emoji="🎲")
     async def continue_adventure(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = discord.Embed(
-            title="🎭 **Adventure Continues!**",
-            description=f"Ready to continue your story as **{self.character}**? Here's how to proceed:",
-            color=0x7c3aed
-        )
-        
-        embed.add_field(
-            name="📝 **How to Continue Your Story:**",
-            value="1️⃣ Type `/roleplay` command again\n2️⃣ Use the same character name\n3️⃣ Describe your next action/dialogue\n4️⃣ Choose the same style to maintain continuity",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="💡 **Example Actions:**",
-            value="• \"I cautiously enter the mysterious cave...\"\n• \"I ask the wizard about the ancient prophecy\"\n• \"I examine the glowing artifact more closely\"\n• \"I choose to go left toward the forest\"",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="🎯 **Pro Tips:**",
-            value="• The AI remembers your story context\n• Be specific about your actions\n• Your choices shape the adventure\n• Each interaction builds on the previous one",
-            inline=False
-        )
-        
-        embed.set_footer(text="🚀 Ready to continue? Use /roleplay with your next move!")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        modal = ContinueAdventureModal(self.character, self.style)
+        await interaction.response.send_modal(modal)
 
     @discord.ui.button(label="📖 Story Tips", style=discord.ButtonStyle.secondary, emoji="📖")
     async def story_tips(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -91,6 +192,81 @@ class Moderation(commands.Cog):
 
     async def cog_load(self):
         print("[Moderation] Loaded successfully.")
+
+    @app_commands.command(name="addxp", description="Add XP to a user (Admin only)")
+    @app_commands.describe(
+        user="User to give XP to",
+        amount="Amount of XP to add"
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def addxp(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        """Add XP to a user - Admin only command"""
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+            return
+        
+        if amount <= 0:
+            await interaction.response.send_message("❌ XP amount must be positive!", ephemeral=True)
+            return
+        
+        if amount > 100000:
+            await interaction.response.send_message("❌ Cannot add more than 100,000 XP at once!", ephemeral=True)
+            return
+        
+        try:
+            # Get user's current data
+            user_data = db.get_user_data(user.id)
+            old_xp = user_data.get('xp', 0)
+            old_level = db.calculate_level_from_xp(old_xp)
+            
+            # Add XP
+            db.add_xp(user.id, amount)
+            
+            # Get new data
+            new_user_data = db.get_user_data(user.id)
+            new_xp = new_user_data.get('xp', 0)
+            new_level = db.calculate_level_from_xp(new_xp)
+            
+            # Update roles if leveled up
+            if new_level > old_level:
+                leveling_cog = self.bot.get_cog('Leveling')
+                if leveling_cog:
+                    await leveling_cog.update_xp_roles(user, new_level)
+            
+            # Create response embed
+            embed = discord.Embed(
+                title="✅ **XP Added Successfully!**",
+                description=f"Added **{amount:,} XP** to {user.mention}",
+                color=0x00d4aa,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 **XP Details**",
+                value=f"**Previous XP:** {old_xp:,}\n**Added XP:** +{amount:,}\n**New XP:** {new_xp:,}",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="🎯 **Level Details**",
+                value=f"**Previous Level:** {old_level}\n**New Level:** {new_level}\n**Level Change:** +{new_level - old_level}",
+                inline=True
+            )
+            
+            if new_level > old_level:
+                embed.add_field(
+                    name="🎉 **Level Up!**",
+                    value=f"🎊 {user.display_name} leveled up!\nRoles have been automatically updated.",
+                    inline=False
+                )
+            
+            embed.set_author(name=f"XP granted by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="🔧 Admin XP Management System")
+            
+            await interaction.response.send_message(embed=embed)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error adding XP: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="modclear", description="Deletes a specified number of messages from a channel")
     @app_commands.describe(amount="Number of messages to delete (1-100)")
@@ -254,7 +430,7 @@ class Moderation(commands.Cog):
                     color=0x00ff00,
                     timestamp=datetime.now()
                 )
-                embed.add_field(name="� Reason", value=reason, inline=False)
+                embed.add_field(name="📝 Reason", value=reason, inline=False)
                 embed.add_field(name="👮 Moderator", value=interaction.user.mention, inline=True)
                 embed.set_footer(text=FOOTER_TXT)
                 
@@ -275,7 +451,7 @@ class Moderation(commands.Cog):
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="📝 Removed Warning", value=removed_warning.get('reason', 'No reason'), inline=False)
-                embed.add_field(name="� Removal Reason", value=reason, inline=False)
+                embed.add_field(name="📝 Removal Reason", value=reason, inline=False)
                 embed.add_field(name="👮 Moderator", value=interaction.user.mention, inline=True)
                 embed.add_field(name="📊 Remaining", value=f"{len(warnings) - 1} warning(s)", inline=True)
                 embed.set_footer(text=FOOTER_TXT)
@@ -487,37 +663,38 @@ Create an immersive opening scene:"""
                     timestamp=datetime.now()
                 )
                 
-                embed.add_field(name="� **Your Character**", value=f"🎭 {character}", inline=True)
+                embed.add_field(name="🎭 **Your Character**", value=f"🎭 {character}", inline=True)
                 embed.add_field(name="🌍 **Setting**", value=f"📍 {style_prompts[style].title()}", inline=True)
-                embed.add_field(name="� **Scenario**", value=f"🎯 {scenario}", inline=True)
+                embed.add_field(name="🎯 **Scenario**", value=f"🎯 {scenario}", inline=True)
                 
                 embed.add_field(
-                    name="� **How to Continue**",
-                    value="💬 Simply type your response in this channel as your character!\n🎭 The AI will respond to your actions and continue the story.\n🔄 Use `/roleplay` again anytime to start a new adventure!",
+                    name="🎮 **How to Continue**",
+                    value="Click the **'Continue Adventure'** button below to type your character's next action!\n🎭 The AI will respond to your actions and continue the story.",
                     inline=False
                 )
                 
                 embed.set_author(name=f"Roleplay Master for {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-                embed.set_footer(text="✨ Interactive AI Roleplay • Your choices shape the story!")
+                embed.set_footer(text="🎮 Interactive Roleplay System • Use the button to continue!")
                 
-                # Add continue button for easy interaction
+                # Create view with continue button
                 view = RoleplayView(character, style)
                 await interaction.followup.send(embed=embed, view=view)
             else:
                 embed = discord.Embed(
-                    title="❌ **Roleplay Creation Failed**",
-                    description="🎭 Couldn't generate your roleplay scenario. Try different parameters!",
+                    title="❌ **AI Response Error**",
+                    description="The AI couldn't create your adventure. Please try again.",
                     color=0xff6b6b
                 )
                 await interaction.followup.send(embed=embed, ephemeral=True)
-
+                
         except Exception as e:
-            error_embed = discord.Embed(
+            embed = discord.Embed(
                 title="❌ **Roleplay Error**",
-                description=f"🤖 Something went wrong: {str(e)[:200]}",
+                description="Failed to start roleplay session. Please try again.",
                 color=0xff6b6b
             )
-            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            embed.add_field(name="🔍 Error Details", value=f"```{str(e)[:100]}```", inline=False)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Moderation(bot))

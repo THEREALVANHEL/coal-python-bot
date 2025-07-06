@@ -115,29 +115,29 @@ class Community(commands.Cog):
         print("[Community] Loaded successfully.")
 
     def create_pie_wheel_image(self, options, title="Spin the Wheel!", winner=None):
-        """Create an enhanced pie chart wheel with arrow pointing to winner and elegant colors"""
+        """Create a professional and sleek wheel with modern design and smaller arrow"""
         try:
-            # Create a larger image for better quality
-            size = 500
+            # Create a high-quality image
+            size = 600
             img = Image.new('RGBA', (size, size), (255, 255, 255, 0))
             draw = ImageDraw.Draw(img)
             
             # Center and radius
             center = size // 2
-            radius = center - 60
+            radius = center - 80
             
-            # Elegant color palette - 10 beautiful colors
+            # Modern gradient-inspired color palette
             colors = [
-                '#FF6B6B',  # Coral Red
-                '#4ECDC4',  # Turquoise
-                '#45B7D1',  # Sky Blue
-                '#96CEB4',  # Mint Green
-                '#FFEAA7',  # Warm Yellow
-                '#DDA0DD',  # Plum
-                '#98D8C8',  # Seafoam
-                '#F7DC6F',  # Golden Yellow
-                '#BB8FCE',  # Lavender
-                '#85C1E9'   # Light Blue
+                '#667eea',  # Purple Blue
+                '#764ba2',  # Deep Purple
+                '#f093fb',  # Pink Purple
+                '#f5576c',  # Coral Pink
+                '#4facfe',  # Light Blue
+                '#00f2fe',  # Cyan
+                '#43e97b',  # Green
+                '#38f9d7',  # Turquoise
+                '#ffecd2',  # Warm Peach
+                '#fcb69f'   # Soft Orange
             ]
             
             # Calculate angles for each slice
@@ -147,17 +147,33 @@ class Community(commands.Cog):
             # Find winner index
             winner_index = options.index(winner) if winner in options else 0
             
-            # Draw pie slices
+            # Draw outer ring (shadow effect)
+            shadow_radius = radius + 5
+            draw.ellipse([center - shadow_radius, center - shadow_radius, 
+                         center + shadow_radius, center + shadow_radius], 
+                        fill='#00000020', outline=None)
+            
+            # Draw pie slices with gradient effect
             start_angle = 0
             for i, option in enumerate(options):
                 end_angle = start_angle + angle_per_slice
                 color = colors[i % len(colors)]
                 
-                # Highlight winner slice
-                outline_color = '#FFD700' if i == winner_index else 'white'
-                outline_width = 5 if i == winner_index else 3
+                # Enhanced winner highlighting
+                if i == winner_index:
+                    outline_color = '#FFD700'
+                    outline_width = 6
+                    # Add glowing effect for winner
+                    glow_radius = radius + 3
+                    draw.pieslice(
+                        [center - glow_radius, center - glow_radius, center + glow_radius, center + glow_radius],
+                        start_angle, end_angle, fill='#FFD70040', outline=None
+                    )
+                else:
+                    outline_color = '#ffffff'
+                    outline_width = 2
                 
-                # Draw the slice
+                # Draw the main slice
                 draw.pieslice(
                     [center - radius, center - radius, center + radius, center + radius],
                     start_angle, end_angle, fill=color, outline=outline_color, width=outline_width
@@ -165,14 +181,14 @@ class Community(commands.Cog):
                 
                 # Calculate text position
                 mid_angle = math.radians(start_angle + angle_per_slice / 2)
-                text_radius = radius * 0.75
+                text_radius = radius * 0.7
                 text_x = center + text_radius * math.cos(mid_angle)
                 text_y = center + text_radius * math.sin(mid_angle)
                 
-                # Draw text with larger font
+                # Load professional font
                 try:
                     font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-                    font = ImageFont.truetype(font_path, 24)  # Increased from 16 to 24
+                    font = ImageFont.truetype(font_path, 20)
                 except:
                     font = ImageFont.load_default()
                 
@@ -181,65 +197,86 @@ class Community(commands.Cog):
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
                 
-                # Draw text with strong outline for better visibility
-                for dx, dy in [(-2, -2), (-2, 2), (2, -2), (2, 2), (-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    draw.text((text_x - text_width//2 + dx, text_y - text_height//2 + dy), 
-                             option, font=font, fill='black')
+                # Draw text with clean shadow
+                shadow_offset = 2
+                draw.text((text_x - text_width//2 + shadow_offset, text_y - text_height//2 + shadow_offset), 
+                         option, font=font, fill='#00000080')
                 draw.text((text_x - text_width//2, text_y - text_height//2), 
                          option, font=font, fill='white')
                 
                 start_angle = end_angle
             
-            # Draw center circle
-            center_radius = 25
+            # Draw modern center hub
+            center_radius = 30
+            # Outer ring
             draw.ellipse([center - center_radius, center - center_radius, 
                          center + center_radius, center + center_radius], 
-                        fill='white', outline='black', width=3)
+                        fill='#2c3e50', outline='#34495e', width=3)
+            # Inner circle
+            inner_radius = center_radius - 8
+            draw.ellipse([center - inner_radius, center - inner_radius, 
+                         center + inner_radius, center + inner_radius], 
+                        fill='#ecf0f1', outline='#bdc3c7', width=2)
             
-            # Draw arrow pointing to winner
+            # Draw sleek, smaller arrow pointing to winner
             if winner:
                 winner_angle = math.radians(winner_index * angle_per_slice + angle_per_slice / 2)
-                arrow_start_radius = center_radius + 10
-                arrow_end_radius = radius - 10
                 
-                # Calculate arrow position
+                # Smaller, more elegant arrow
+                arrow_length = 60
+                arrow_width = 8
+                arrow_start_radius = center_radius + 5
+                arrow_end_radius = arrow_start_radius + arrow_length
+                
+                # Calculate arrow center line
                 arrow_start_x = center + arrow_start_radius * math.cos(winner_angle)
                 arrow_start_y = center + arrow_start_radius * math.sin(winner_angle)
                 arrow_end_x = center + arrow_end_radius * math.cos(winner_angle)
                 arrow_end_y = center + arrow_end_radius * math.sin(winner_angle)
                 
-                # Draw arrow shaft
+                # Draw arrow shaft (sleeker)
                 draw.line([(arrow_start_x, arrow_start_y), (arrow_end_x, arrow_end_y)], 
-                         fill='#FF0000', width=6)
+                         fill='#e74c3c', width=arrow_width)
                 
-                # Draw arrowhead
-                arrow_head_size = 15
-                head_angle1 = winner_angle + math.pi * 0.8
-                head_angle2 = winner_angle - math.pi * 0.8
+                # Draw smaller, more professional arrowhead
+                arrow_head_size = 10
+                head_angle1 = winner_angle + math.pi * 0.75
+                head_angle2 = winner_angle - math.pi * 0.75
                 
                 head_x1 = arrow_end_x + arrow_head_size * math.cos(head_angle1)
                 head_y1 = arrow_end_y + arrow_head_size * math.sin(head_angle1)
                 head_x2 = arrow_end_x + arrow_head_size * math.cos(head_angle2)
                 head_y2 = arrow_end_y + arrow_head_size * math.sin(head_angle2)
                 
+                # Arrow head with gradient effect
                 draw.polygon([(arrow_end_x, arrow_end_y), (head_x1, head_y1), (head_x2, head_y2)], 
-                           fill='#FF0000', outline='#8B0000', width=2)
+                           fill='#c0392b', outline='#a93226', width=1)
             
-            # Draw title at the top with larger font
+            # Draw modern title with better typography
             try:
-                title_font = ImageFont.truetype(font_path, 32)  # Increased from 24 to 32
+                title_font = ImageFont.truetype(font_path, 28)
             except:
                 title_font = ImageFont.load_default()
             
             bbox = draw.textbbox((0, 0), title, font=title_font)
             title_width = bbox[2] - bbox[0]
             title_x = center - title_width // 2
-            title_y = 15
+            title_y = 20
             
-            # Draw title with strong outline
-            for dx, dy in [(-3, -3), (-3, 3), (3, -3), (3, 3), (-2, 0), (2, 0), (0, -2), (0, 2)]:
-                draw.text((title_x + dx, title_y + dy), title, font=title_font, fill='black')
-            draw.text((title_x, title_y), title, font=title_font, fill='white')
+            # Modern title with subtle shadow
+            draw.text((title_x + 2, title_y + 2), title, font=title_font, fill='#00000040')
+            draw.text((title_x, title_y), title, font=title_font, fill='#2c3e50')
+            
+            # Add subtle corner decoration
+            corner_size = 20
+            # Top-left
+            draw.arc([10, 10, 10 + corner_size, 10 + corner_size], 180, 270, fill='#3498db', width=3)
+            # Top-right  
+            draw.arc([size - corner_size - 10, 10, size - 10, 10 + corner_size], 270, 360, fill='#3498db', width=3)
+            # Bottom-left
+            draw.arc([10, size - corner_size - 10, 10 + corner_size, size - 10], 90, 180, fill='#3498db', width=3)
+            # Bottom-right
+            draw.arc([size - corner_size - 10, size - corner_size - 10, size - 10, size - 10], 0, 90, fill='#3498db', width=3)
             
             # Save the image
             output_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'temp_wheel.png')
@@ -247,7 +284,7 @@ class Community(commands.Cog):
             return output_path
             
         except Exception as e:
-            print(f"Error creating enhanced pie wheel image: {e}")
+            print(f"Error creating professional wheel image: {e}")
             return None
 
     @app_commands.command(name="suggest", description="💡 Submit suggestions to improve the server (with optional media)")
@@ -880,33 +917,146 @@ Please provide a comprehensive, helpful response."""
         except Exception as e:
             await interaction.response.send_message(f"❌ Error starting giveaway: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="announce", description="Creates and sends a formatted announcement")
+    @app_commands.command(name="announce", description="Creates a professional pointwise announcement with optional attachments")
     @app_commands.describe(
         channel="Channel to send the announcement",
-        title="Announcement title",
-        message="Announcement message"
+        title="📢 Main announcement title",
+        points="Announcement points separated by commas (e.g., 'Point 1, Point 2, Point 3')",
+        additional_info="Optional additional information or context",
+        attachment_url="Optional image/video URL to include",
+        mention_role="Optional role to mention (use role name)"
     )
-    async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, message: str):
+    async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, points: str, 
+                      additional_info: str = None, attachment_url: str = None, mention_role: str = None):
         # Check if user has required role
         user_roles = [role.name for role in interaction.user.roles]
         if not any(role in ANNOUNCE_ROLES for role in user_roles):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
-        embed = discord.Embed(
-            title=f"📢 {title}",
-            description=message,
-            color=0xff6b6b,
-            timestamp=datetime.now()
-        )
-        embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
-        embed.set_footer(text=f"Announced by {interaction.user.display_name}")
-
         try:
-            await channel.send(embed=embed)
-            await interaction.response.send_message(f"✅ Announcement sent to {channel.mention}!", ephemeral=True)
+            # Process points into a formatted list
+            point_list = [point.strip() for point in points.split(',') if point.strip()]
+            
+            if len(point_list) == 0:
+                await interaction.response.send_message("❌ Please provide at least one announcement point!", ephemeral=True)
+                return
+            
+            if len(point_list) > 15:
+                await interaction.response.send_message("❌ Maximum 15 points allowed for readability!", ephemeral=True)
+                return
+
+            # Create professional announcement embed
+            embed = discord.Embed(
+                title=f"📢 **{title}**",
+                color=0x3498db,
+                timestamp=datetime.now()
+            )
+            
+            # Format points with professional styling
+            formatted_points = []
+            point_emojis = ["🔹", "🔸", "▫️", "🟦", "🟨", "🟩", "🟧", "🟪", "⬜", "🔷", "🔶", "🔲", "🔳", "⚪", "⚫"]
+            
+            for i, point in enumerate(point_list):
+                emoji = point_emojis[i % len(point_emojis)]
+                formatted_points.append(f"{emoji} **{point}**")
+            
+            # Add main points section
+            points_text = "\n".join(formatted_points)
+            embed.add_field(
+                name="📋 **Key Points**",
+                value=points_text,
+                inline=False
+            )
+            
+            # Add additional info if provided
+            if additional_info:
+                embed.add_field(
+                    name="ℹ️ **Additional Information**",
+                    value=additional_info,
+                    inline=False
+                )
+            
+            # Add attachment if provided
+            if attachment_url:
+                # Basic URL validation
+                if attachment_url.startswith(('http://', 'https://')):
+                    # Check if it's an image/video
+                    if any(attachment_url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.mov', '.webm']):
+                        embed.set_image(url=attachment_url)
+                        embed.add_field(
+                            name="📎 **Attachment**",
+                            value="Media attachment included above",
+                            inline=False
+                        )
+                    else:
+                        embed.add_field(
+                            name="🔗 **Link**",
+                            value=f"[Click here to view]({attachment_url})",
+                            inline=False
+                        )
+                else:
+                    embed.add_field(
+                        name="⚠️ **Attachment Warning**",
+                        value="Invalid attachment URL format",
+                        inline=False
+                    )
+            
+            # Set author and footer
+            embed.set_author(
+                name=f"{interaction.guild.name} • Official Announcement",
+                icon_url=interaction.guild.icon.url if interaction.guild.icon else None
+            )
+            embed.set_footer(text=f"📢 Announced by {interaction.user.display_name} • {datetime.now().strftime('%B %d, %Y')}")
+            
+            # Prepare mention if role is specified
+            mention_text = ""
+            if mention_role:
+                role = discord.utils.get(interaction.guild.roles, name=mention_role)
+                if role:
+                    mention_text = f"{role.mention}\n\n"
+                else:
+                    embed.add_field(
+                        name="⚠️ **Mention Warning**",
+                        value=f"Role '{mention_role}' not found",
+                        inline=False
+                    )
+            
+            # Send the announcement
+            await channel.send(content=mention_text, embed=embed)
+            
+            # Success response with preview
+            success_embed = discord.Embed(
+                title="✅ **Announcement Posted Successfully!**",
+                description=f"Your announcement has been posted in {channel.mention}",
+                color=0x00d4aa,
+                timestamp=datetime.now()
+            )
+            
+            success_embed.add_field(
+                name="📊 **Announcement Summary**",
+                value=f"**Title:** {title}\n**Points:** {len(point_list)}\n**Additional Info:** {'✅ Yes' if additional_info else '❌ No'}\n**Attachment:** {'✅ Yes' if attachment_url else '❌ No'}\n**Role Mention:** {'✅ Yes' if mention_role else '❌ No'}",
+                inline=False
+            )
+            
+            success_embed.set_footer(text="🎯 Professional announcement system")
+            
+            await interaction.response.send_message(embed=success_embed, ephemeral=True)
+            
         except discord.Forbidden:
             await interaction.response.send_message(f"❌ I don't have permission to send messages in {channel.mention}!", ephemeral=True)
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ **Announcement Failed**",
+                description="Failed to create announcement. Please check your inputs and try again.",
+                color=0xff6b6b
+            )
+            error_embed.add_field(
+                name="🔍 **Error Details**",
+                value=f"```{str(e)[:200]}```",
+                inline=False
+            )
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="remind", description="Set a reminder for yourself")
     @app_commands.describe(
