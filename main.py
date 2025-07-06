@@ -80,7 +80,7 @@ def bot_stats():
 
 def run_flask_server():
     """Run Flask server on the port provided by Render"""
-    port = int(os.environ.get('PORT', 8080))  # Use Render's PORT or fallback to 8080
+    port = int(os.environ.get('PORT', 10000))  # Use Render's PORT or fallback to 10000 (consistent with logs)
     print(f"🌐 Starting web server on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
@@ -258,7 +258,7 @@ async def on_ready():
 async def load_cogs():
     """Load all cogs with individual error handling"""
     cogs = [
-        'cogs.leveling',
+        'cogs.leveling',      # Contains profile command - critical
         'cogs.cookies', 
         'cogs.economy',
         'cogs.events',
@@ -276,6 +276,15 @@ async def load_cogs():
             await bot.load_extension(cog)
             print(f"[Main] ✅ Loaded {cog}")
             loaded_count += 1
+            
+            # Special check for leveling cog (contains profile command)
+            if cog == 'cogs.leveling':
+                print(f"[Main] 🎯 Critical cog 'leveling' loaded - profile command should be available")
+                
+        except ImportError as e:
+            print(f"[Main] ❌ Import error loading {cog}: {e}")
+            print(f"[Main] 💡 This usually means missing dependencies or syntax errors")
+            failed_cogs.append(cog)
         except Exception as e:
             print(f"[Main] ❌ Failed to load {cog}: {e}")
             print(f"[Main] 🔍 Error type: {type(e).__name__}")
@@ -286,6 +295,9 @@ async def load_cogs():
     print(f"[Main] 📊 Cog loading complete: {loaded_count}/{len(cogs)} successful")
     if failed_cogs:
         print(f"[Main] ⚠️ Failed cogs: {', '.join(failed_cogs)}")
+        # Special warning for critical cogs
+        if 'cogs.leveling' in failed_cogs:
+            print(f"[Main] 🚨 CRITICAL: leveling cog failed to load - profile command will not work!")
     
     return loaded_count > 0  # Return True if at least one cog loaded
 
