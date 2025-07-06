@@ -1,82 +1,98 @@
+#!/usr/bin/env python3
+
 import asyncio
 import os
-from dotenv import load_dotenv
+import sys
 import discord
 from discord.ext import commands
 
+# Add the project directory to the path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from dotenv import load_dotenv
 load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = 1370009417726169250
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-intents.guilds = True
+# Get token from environment
+TOKEN = os.getenv('DISCORD_TOKEN')
+if not TOKEN:
+    print("❌ Error: DISCORD_TOKEN not found in environment variables!")
+    exit(1)
 
+# Bot setup with all intents
+intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-    print(f'Connected to {len(bot.guilds)} guilds')
-    
-    # Load all cogs first
-    print('Loading cogs...')
-    cogs = [
-        'cogs.leveling',
-        'cogs.cookies', 
-        'cogs.economy',
-        'cogs.events',
-        'cogs.community',
-        'cogs.moderation',
-        'cogs.settings',
-        'cogs.tickets'
-    ]
-    
-    for cog in cogs:
-        try:
-            await bot.load_extension(cog)
-            print(f'✅ Loaded {cog}')
-        except Exception as e:
-            print(f'❌ Failed to load {cog}: {e}')
-    
-    # Clear existing commands first
-    print('Clearing existing commands...')
-    bot.tree.clear_commands(guild=None)
-    await asyncio.sleep(2)
+    print(f"🤖 Logged in as {bot.user}")
+    print("=" * 60)
+    print("🔄 STARTING COMPREHENSIVE COMMAND SYNC...")
+    print("=" * 60)
     
     try:
-        # Sync commands to specific guild first (faster)
-        print('Syncing commands to guild...')
-        guild = discord.Object(id=GUILD_ID)
-        synced_guild = await bot.tree.sync(guild=guild)
-        print(f'✅ Synced {len(synced_guild)} commands to guild {GUILD_ID}')
+        # Load all cogs first
+        cog_files = [
+            'cogs.leveling',
+            'cogs.moderation', 
+            'cogs.community',
+            'cogs.economy',
+            'cogs.settings',
+            'cogs.tickets',
+            'cogs.events',
+            'cogs.cookies',
+            'cogs.event_commands'
+        ]
         
-        # List synced commands
-        guild_commands = [cmd.name for cmd in synced_guild]
-        print(f'Guild commands: {", ".join(guild_commands)}')
+        print("📦 Loading cogs...")
+        for cog in cog_files:
+            try:
+                await bot.load_extension(cog)
+                print(f"✅ Loaded: {cog}")
+            except Exception as e:
+                print(f"❌ Failed to load {cog}: {e}")
         
-        # Sync globally (takes up to 1 hour to appear)
-        print('Syncing commands globally...')
+        print("\n🔄 Syncing commands...")
+        
+        # Clear all commands first
+        print("🧹 Clearing existing commands...")
+        bot.tree.clear_commands(guild=None)
+        
+        # Get total command count
+        total_commands = len(bot.tree.get_commands())
+        print(f"📊 Found {total_commands} commands to sync")
+        
+        # Sync globally 
+        print("🌍 Syncing commands globally...")
         synced_global = await bot.tree.sync()
-        print(f'✅ Synced {len(synced_global)} commands globally')
+        print(f"✅ Synced {len(synced_global)} global commands")
         
-        # List all commands in tree
-        tree_commands = [cmd.name for cmd in bot.tree.get_commands()]
-        print(f'All commands in tree: {", ".join(tree_commands)}')
+        # List all synced commands
+        print("\n📋 Synced Commands:")
+        print("-" * 40)
+        for i, cmd in enumerate(synced_global, 1):
+            print(f"{i:2d}. /{cmd.name} - {cmd.description[:50]}...")
         
-        print('🎉 Command sync completed successfully!')
+        print("\n" + "=" * 60)
+        print("✅ COMMAND SYNC COMPLETED SUCCESSFULLY!")
+        print("=" * 60)
+        print("🎯 All commands should now be visible in Discord")
+        print("💡 If commands don't appear immediately, wait 1-2 minutes")
+        print("🔄 You can also try restarting Discord client")
         
     except Exception as e:
-        print(f'❌ Failed to sync commands: {e}')
-    
-    await bot.close()
+        print(f"❌ Error during sync: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        await bot.close()
 
-async def main():
-    async with bot:
-        await bot.start(TOKEN)
-
-if __name__ == '__main__':
-    print("🔄 Starting comprehensive command sync...")
-    print("This will sync all commands including the new ones you added.")
-    asyncio.run(main())
+if __name__ == "__main__":
+    print("� Starting command sync bot...")
+    try:
+        asyncio.run(bot.start(TOKEN))
+    except KeyboardInterrupt:
+        print("\n🛑 Sync interrupted by user")
+    except Exception as e:
+        print(f"❌ Error starting bot: {e}")
+        import traceback
+        traceback.print_exc()

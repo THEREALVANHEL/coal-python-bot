@@ -482,6 +482,22 @@ def add_xp(user_id, xp_amount):
         print(f"Error adding XP: {e}")
         return False
 
+def remove_xp(user_id, xp_amount):
+    """Remove XP from user"""
+    if users_collection is None:
+        return False
+    
+    try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$inc": {"xp": -xp_amount}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error removing XP: {e}")
+        return False
+
 def add_cookies(user_id, cookie_amount):
     """Add cookies to user"""
     if users_collection is None:

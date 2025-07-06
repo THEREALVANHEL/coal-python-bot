@@ -246,6 +246,9 @@ class Cookies(commands.Cog):
             return
 
         try:
+            # Defer immediately for all amounts
+            await interaction.response.defer()
+            
             old_data = db.get_user_data(user.id)
             old_cookies = old_data.get('cookies', 0)
             
@@ -278,10 +281,13 @@ class Cookies(commands.Cog):
             
             embed.set_author(name=f"Cookie boost by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
             embed.set_footer(text="🍪 Cookie Management System • Sweet success!")
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error adding cookies: {str(e)}", ephemeral=True)
+            try:
+                await interaction.followup.send(f"❌ Error adding cookies: {str(e)}", ephemeral=True)
+            except:
+                await interaction.response.send_message(f"❌ Error adding cookies: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="removecookies", description="Remove cookies from a user with selection options (Manager only)")
     @app_commands.describe(user="User to remove cookies from", option="Select removal option")

@@ -117,14 +117,14 @@ class Community(commands.Cog):
     def create_pie_wheel_image(self, options, title="Spin the Wheel!", winner=None):
         """Create a professional and elegant wheel with larger options and golden title"""
         try:
-            # Create a high-quality image
-            size = 700
+            # Create a high-quality image - increased size for better quality
+            size = 900  # Increased from 700 to 900
             img = Image.new('RGBA', (size, size), (255, 255, 255, 0))
             draw = ImageDraw.Draw(img)
             
             # Center and radius
             center = size // 2
-            radius = center - 100
+            radius = center - 120  # Increased margin for larger text
             
             # Simple elegant color palette - white, black, grays
             colors = [
@@ -148,7 +148,7 @@ class Community(commands.Cog):
             winner_index = options.index(winner) if winner in options else 0
             
             # Draw outer ring (shadow effect)
-            shadow_radius = radius + 8
+            shadow_radius = radius + 12
             draw.ellipse([center - shadow_radius, center - shadow_radius, 
                          center + shadow_radius, center + shadow_radius], 
                         fill='#00000030', outline=None)
@@ -162,16 +162,16 @@ class Community(commands.Cog):
                 # Enhanced winner highlighting with golden glow
                 if i == winner_index:
                     outline_color = '#FFD700'  # Golden
-                    outline_width = 8
+                    outline_width = 10
                     # Add golden glowing effect for winner
-                    glow_radius = radius + 6
+                    glow_radius = radius + 8
                     draw.pieslice(
                         [center - glow_radius, center - glow_radius, center + glow_radius, center + glow_radius],
                         start_angle, end_angle, fill='#FFD70060', outline=None
                     )
                 else:
                     outline_color = '#CCCCCC'
-                    outline_width = 3
+                    outline_width = 4
                 
                 # Draw the main slice
                 draw.pieslice(
@@ -185,10 +185,10 @@ class Community(commands.Cog):
                 text_x = center + text_radius * math.cos(mid_angle)
                 text_y = center + text_radius * math.sin(mid_angle)
                 
-                # Load bigger font for options
+                # Load bigger font for options - much larger now
                 try:
                     font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-                    font = ImageFont.truetype(font_path, 26)  # Increased from 20 to 26
+                    font = ImageFont.truetype(font_path, 34)  # Increased from 26 to 34
                 except:
                     font = ImageFont.load_default()
                 
@@ -201,7 +201,7 @@ class Community(commands.Cog):
                 text_color = '#000000' if color in ['#FFFFFF', '#F5F5F5', '#E8E8E8', '#FAFAFA', '#DDDDDD'] else '#FFFFFF'
                 
                 # Draw text with better shadow for visibility
-                shadow_offset = 3
+                shadow_offset = 4
                 draw.text((text_x - text_width//2 + shadow_offset, text_y - text_height//2 + shadow_offset), 
                          option, font=font, fill='#00000080')
                 draw.text((text_x - text_width//2, text_y - text_height//2), 
@@ -210,25 +210,25 @@ class Community(commands.Cog):
                 start_angle = end_angle
             
             # Draw modern center hub
-            center_radius = 35
+            center_radius = 45  # Increased from 35 to 45
             # Outer ring - elegant black
             draw.ellipse([center - center_radius, center - center_radius, 
                          center + center_radius, center + center_radius], 
-                        fill='#000000', outline='#333333', width=4)
+                        fill='#000000', outline='#333333', width=5)
             # Inner circle - clean white
-            inner_radius = center_radius - 10
+            inner_radius = center_radius - 12
             draw.ellipse([center - inner_radius, center - inner_radius, 
                          center + inner_radius, center + inner_radius], 
-                        fill='#FFFFFF', outline='#CCCCCC', width=2)
+                        fill='#FFFFFF', outline='#CCCCCC', width=3)
             
             # Draw sleek, smaller arrow pointing to winner
             if winner:
                 winner_angle = math.radians(winner_index * angle_per_slice + angle_per_slice / 2)
                 
-                # Smaller, more elegant arrow
-                arrow_length = 70
-                arrow_width = 10
-                arrow_start_radius = center_radius + 8
+                # Slightly larger arrow for better visibility
+                arrow_length = 90  # Increased from 70 to 90
+                arrow_width = 12  # Increased from 10 to 12
+                arrow_start_radius = center_radius + 10
                 arrow_end_radius = arrow_start_radius + arrow_length
                 
                 # Calculate arrow center line
@@ -242,7 +242,7 @@ class Community(commands.Cog):
                          fill='#000000', width=arrow_width)
                 
                 # Draw smaller, more professional arrowhead
-                arrow_head_size = 12
+                arrow_head_size = 15  # Increased from 12 to 15
                 head_angle1 = winner_angle + math.pi * 0.75
                 head_angle2 = winner_angle - math.pi * 0.75
                 
@@ -257,30 +257,30 @@ class Community(commands.Cog):
             
             # Draw GOLDEN title with larger font
             try:
-                title_font = ImageFont.truetype(font_path, 36)  # Increased from 28 to 36
+                title_font = ImageFont.truetype(font_path, 48)  # Increased from 36 to 48
             except:
                 title_font = ImageFont.load_default()
             
             bbox = draw.textbbox((0, 0), title, font=title_font)
             title_width = bbox[2] - bbox[0]
             title_x = center - title_width // 2
-            title_y = 30
+            title_y = 40
             
             # Golden title with elegant shadow
-            draw.text((title_x + 3, title_y + 3), title, font=title_font, fill='#00000040')
+            draw.text((title_x + 4, title_y + 4), title, font=title_font, fill='#00000040')
             draw.text((title_x, title_y), title, font=title_font, fill='#FFD700')  # Golden color
             
             # Add simple elegant corner decorations
-            corner_size = 25
+            corner_size = 30  # Increased from 25 to 30
             decoration_color = '#FFD700'  # Golden decorations
             # Top-left
-            draw.arc([15, 15, 15 + corner_size, 15 + corner_size], 180, 270, fill=decoration_color, width=4)
+            draw.arc([20, 20, 20 + corner_size, 20 + corner_size], 180, 270, fill=decoration_color, width=5)
             # Top-right  
-            draw.arc([size - corner_size - 15, 15, size - 15, 15 + corner_size], 270, 360, fill=decoration_color, width=4)
+            draw.arc([size - corner_size - 20, 20, size - 20, 20 + corner_size], 270, 360, fill=decoration_color, width=5)
             # Bottom-left
-            draw.arc([15, size - corner_size - 15, 15 + corner_size, size - 15], 90, 180, fill=decoration_color, width=4)
+            draw.arc([20, size - corner_size - 20, 20 + corner_size, size - 20], 90, 180, fill=decoration_color, width=5)
             # Bottom-right
-            draw.arc([size - corner_size - 15, size - corner_size - 15, size - 15, size - 15], 0, 90, fill=decoration_color, width=4)
+            draw.arc([size - corner_size - 20, size - corner_size - 20, size - 20, size - 20], 0, 90, fill=decoration_color, width=5)
             
             # Save the image
             output_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'temp_wheel.png')
@@ -927,11 +927,10 @@ Please provide a comprehensive, helpful response."""
         title="📢 Main announcement title",
         points="Announcement points separated by commas (e.g., 'Point 1, Point 2, Point 3')",
         additional_info="Optional additional information or context",
-        attachment_url="Optional image/video URL to include",
-        mention_role="Optional role to mention (use role name)"
+        attachment_url="Optional image/video URL to include"
     )
     async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, points: str, 
-                      additional_info: str = None, attachment_url: str = None, mention_role: str = None):
+                      additional_info: str = None, attachment_url: str = None):
         # Check if user has required role
         user_roles = [role.name for role in interaction.user.roles]
         if not any(role in ANNOUNCE_ROLES for role in user_roles):
@@ -1011,15 +1010,8 @@ Please provide a comprehensive, helpful response."""
             )
             embed.set_footer(text=f"📢 Announced by {interaction.user.display_name} • {datetime.now().strftime('%B %d, %Y')}")
             
-            # Prepare mention if role is specified - no warning, just mention
-            mention_text = ""
-            if mention_role:
-                role = discord.utils.get(interaction.guild.roles, name=mention_role)
-                if role:
-                    mention_text = f"{role.mention}\n\n"
-            
             # Send the announcement
-            await channel.send(content=mention_text, embed=embed)
+            await channel.send(embed=embed)
             
             # Success response with preview
             success_embed = discord.Embed(
@@ -1031,7 +1023,7 @@ Please provide a comprehensive, helpful response."""
             
             success_embed.add_field(
                 name="📊 **Announcement Summary**",
-                value=f"**Title:** {title}\n**Points:** {len(point_list)}\n**Additional Info:** {'✅ Yes' if additional_info else '❌ No'}\n**Attachment:** {'✅ Yes' if attachment_url else '❌ No'}\n**Role Mention:** {'✅ Yes' if mention_role else '❌ No'}",
+                value=f"**Title:** {title}\n**Points:** {len(point_list)}\n**Additional Info:** {'✅ Yes' if additional_info else '❌ No'}\n**Attachment:** {'✅ Yes' if attachment_url else '❌ No'}",
                 inline=False
             )
             

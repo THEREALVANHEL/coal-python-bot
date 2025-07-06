@@ -647,127 +647,6 @@ class PriorityUpdateView(View):
         
         await interaction.response.send_message(embed=embed)
 
-class Tickets(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-
-    async def cog_load(self):
-        # Add persistent views
-        self.bot.add_view(TicketCategorySelectView())
-        self.bot.add_view(TicketFormView())
-        print("[Tickets] Loaded successfully with persistent views.")
-
-    @app_commands.command(name="formticket", description="🎫 Create a comprehensive ticket form (Available to everyone)")
-    @app_commands.describe(channel="Channel where the ticket form will be posted (optional)")
-    async def form_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
-        """Create a comprehensive ticket form that everyone can use"""
-        try:
-            await interaction.response.defer()
-            
-            target_channel = channel or interaction.channel
-            
-            # Check bot permissions in target channel
-            bot_permissions = target_channel.permissions_for(interaction.guild.me)
-            if not all([bot_permissions.send_messages, bot_permissions.embed_links, bot_permissions.manage_channels]):
-                missing_perms = []
-                if not bot_permissions.send_messages:
-                    missing_perms.append("Send Messages")
-                if not bot_permissions.embed_links:
-                    missing_perms.append("Embed Links")
-                if not bot_permissions.manage_channels:
-                    missing_perms.append("Manage Channels")
-                
-                embed = discord.Embed(
-                    title="❌ **Missing Permissions**",
-                    description=f"I need the following permissions in {target_channel.mention}:",
-                    color=0xff6b6b
-                )
-                embed.add_field(
-                    name="🔧 **Required Permissions**",
-                    value="\n".join([f"• {perm}" for perm in missing_perms]),
-                    inline=False
-                )
-                await interaction.followup.send(embed=embed, ephemeral=True)
-                return
-            
-            # Create comprehensive ticket form embed
-            embed = discord.Embed(
-                title="🎫 **Support Ticket System**",
-                description="Welcome to our comprehensive support system! Click the button below to create a ticket for any assistance you need.",
-                color=0x7c3aed,
-                timestamp=datetime.now()
-            )
-            
-            # Add all ticket categories with their descriptions
-            categories_text = ""
-            for category_key, category_info in TICKET_CATEGORIES.items():
-                categories_text += f"{category_info['emoji']} **{category_info['name']}**\n{category_info['description']}\n\n"
-            
-            embed.add_field(
-                name="� **Available Categories**",
-                value=categories_text,
-                inline=False
-            )
-            
-            embed.add_field(
-                name="🚀 **How It Works**",
-                value="1️⃣ Click **'Create Ticket'** below\n2️⃣ Select your ticket category\n3️⃣ Choose specific subcategory\n4️⃣ Fill out the ticket form\n5️⃣ Get help from our support team!",
-                inline=False
-            )
-            
-            embed.add_field(
-                name="⚡ **Response Times**",
-                value="• **Urgent:** Within 1 hour\n• **High:** Within 4 hours\n• **Medium:** Within 24 hours\n• **Low:** Within 48 hours",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="🛡️ **Privacy**",
-                value="• Private channels created for each ticket\n• Only you and staff can see your ticket\n• Secure and confidential support",
-                inline=True
-            )
-            
-            embed.set_footer(text="🎯 Professional Ticket System • Create a ticket anytime!")
-            embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
-            
-            # Create the view with ticket button
-            view = TicketFormView()
-            
-            # Send the ticket form
-            await target_channel.send(embed=embed, view=view)
-            
-            # Success response
-            success_embed = discord.Embed(
-                title="✅ **Ticket Form Created Successfully!**",
-                description=f"The ticket form has been posted in {target_channel.mention}",
-                color=0x00d4aa
-            )
-            success_embed.add_field(
-                name="🎯 **What's Next?**",
-                value="Users can now click the button to create tickets for any support needs!",
-                inline=False
-            )
-            success_embed.set_footer(text="🎫 Ticket System Ready")
-            
-            await interaction.followup.send(embed=success_embed, ephemeral=True)
-            
-        except Exception as e:
-            error_embed = discord.Embed(
-                title="❌ **Failed to Create Ticket Form**",
-                description="There was an error creating the ticket form. Please try again.",
-                color=0xff6b6b
-            )
-            error_embed.add_field(
-                name="🔍 **Error Details**",
-                value=f"```{str(e)[:100]}```",
-                inline=False
-            )
-            
-            try:
-                await interaction.followup.send(embed=error_embed, ephemeral=True)
-            except:
-                await interaction.response.send_message(embed=error_embed, ephemeral=True)
-
 class TicketFormView(View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -803,6 +682,160 @@ class TicketFormView(View):
                 color=0xff6b6b
             )
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
+class Tickets(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    async def cog_load(self):
+        # Add persistent views
+        self.bot.add_view(TicketCategorySelectView())
+        self.bot.add_view(TicketFormView())
+        print("[Tickets] Loaded successfully with persistent views.")
+
+    @app_commands.command(name="createticket", description="🎫 Create a support ticket instantly")
+    async def create_ticket_quick(self, interaction: discord.Interaction):
+        """Quick ticket creation for everyone"""
+        try:
+            # Create category selection view
+            view = TicketCategorySelectView()
+            
+            embed = discord.Embed(
+                title="🎫 **Create Support Ticket**",
+                description="Please select the category that best matches your support need:",
+                color=0x7c3aed,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📋 **Categories Available**",
+                value="Choose from the dropdown menu below to get started with your ticket.",
+                inline=False
+            )
+            
+            embed.set_footer(text="Select a category to continue • Professional Support")
+            
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ **Error**",
+                description="Failed to start ticket creation. Please try again.",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
+    @app_commands.command(name="ticketpanel", description="🎫 Create ticket panel in current channel (Admin only)")
+    @app_commands.describe(channel="Channel where the ticket panel will be posted (optional)")
+    @app_commands.default_permissions(administrator=True)
+    async def ticket_panel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
+        """Create a ticket panel that everyone can use"""
+        try:
+            await interaction.response.defer()
+            
+            target_channel = channel or interaction.channel
+            
+            # Check bot permissions in target channel
+            bot_permissions = target_channel.permissions_for(interaction.guild.me)
+            if not all([bot_permissions.send_messages, bot_permissions.embed_links, bot_permissions.manage_channels]):
+                missing_perms = []
+                if not bot_permissions.send_messages:
+                    missing_perms.append("Send Messages")
+                if not bot_permissions.embed_links:
+                    missing_perms.append("Embed Links")
+                if not bot_permissions.manage_channels:
+                    missing_perms.append("Manage Channels")
+                
+                embed = discord.Embed(
+                    title="❌ **Missing Permissions**",
+                    description=f"I need the following permissions in {target_channel.mention}:",
+                    color=0xff6b6b
+                )
+                embed.add_field(
+                    name="🔧 **Required Permissions**",
+                    value="\n".join([f"• {perm}" for perm in missing_perms]),
+                    inline=False
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Create comprehensive ticket form embed
+            embed = discord.Embed(
+                title="🎫 **Support Ticket System**",
+                description="Welcome to our support system! Click the button below to create a ticket for any assistance you need.",
+                color=0x7c3aed,
+                timestamp=datetime.now()
+            )
+            
+            # Add all ticket categories with their descriptions
+            categories_text = ""
+            for category_key, category_info in TICKET_CATEGORIES.items():
+                categories_text += f"{category_info['emoji']} **{category_info['name']}**\n{category_info['description']}\n\n"
+            
+            embed.add_field(
+                name="📋 **Available Categories**",
+                value=categories_text,
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🚀 **How It Works**",
+                value="1️⃣ Click **'Create Ticket'** below\n2️⃣ Select your ticket category\n3️⃣ Choose specific subcategory\n4️⃣ Fill out the ticket form\n5️⃣ Get help from our support team!",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="⚡ **Response Times**",
+                value="• **Urgent:** Within 1 hour\n• **High:** Within 4 hours\n• **Medium:** Within 24 hours\n• **Low:** Within 48 hours",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="🛡️ **Privacy**",
+                value="• Private channels created for each ticket\n• Only you and staff can see your ticket\n• Secure and confidential support",
+                inline=True
+            )
+            
+            embed.set_footer(text="🎯 Professional Ticket System • Create a ticket anytime!")
+            embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+            
+            # Create the view with ticket button
+            view = TicketFormView()
+            
+            # Send the ticket form
+            await target_channel.send(embed=embed, view=view)
+            
+            # Success response
+            success_embed = discord.Embed(
+                title="✅ **Ticket Panel Created Successfully!**",
+                description=f"The ticket panel has been posted in {target_channel.mention}",
+                color=0x00d4aa
+            )
+            success_embed.add_field(
+                name="🎯 **What's Next?**",
+                value="Users can now click the button to create tickets for any support needs!",
+                inline=False
+            )
+            success_embed.set_footer(text="🎫 Ticket System Ready")
+            
+            await interaction.followup.send(embed=success_embed, ephemeral=True)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ **Failed to Create Ticket Panel**",
+                description="There was an error creating the ticket panel. Please try again.",
+                color=0xff6b6b
+            )
+            error_embed.add_field(
+                name="🔍 **Error Details**",
+                value=f"```{str(e)[:100]}```",
+                inline=False
+            )
+            
+            try:
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+            except:
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="giveticketroleperms", description="🎫 Grant ticket support permissions to roles (Admin only)")
     @app_commands.describe(

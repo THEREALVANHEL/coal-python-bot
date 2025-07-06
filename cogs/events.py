@@ -486,6 +486,10 @@ class Events(commands.Cog):
                 )
                 await starboard_channel.send(embed=sticker_embed)
 
+            # Add separator for visual spacing between different starred messages
+            separator_embed = discord.Embed(description="⭐ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ⭐", color=0x2f3136)
+            await starboard_channel.send(embed=separator_embed)
+
             # Save to database
             db.add_starboard_message(original_message.id, starboard_msg.id, star_count)
 
@@ -516,6 +520,10 @@ class Events(commands.Cog):
             embed.set_footer(text=f"✨ Starred Message")
 
             starboard_msg = await starboard_channel.send(embed=embed)
+
+            # Add separator for visual spacing
+            separator_embed = discord.Embed(description="⭐ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ⭐", color=0x2f3136)
+            await starboard_channel.send(embed=separator_embed)
 
             # Save to database
             db.add_starboard_message(original_message.id, starboard_msg.id, star_count)

@@ -194,79 +194,143 @@ class Moderation(commands.Cog):
         print("[Moderation] Loaded successfully.")
 
     @app_commands.command(name="addxp", description="Add XP to a user (Admin only)")
-    @app_commands.describe(
-        user="User to give XP to",
-        amount="Amount of XP to add"
-    )
+    @app_commands.describe(user="User to give XP to", amount="Amount of XP to add")
     @app_commands.default_permissions(administrator=True)
     async def addxp(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        """Add XP to a user - Admin only command"""
+        """Add XP to a user"""
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
             return
-        
+
         if amount <= 0:
-            await interaction.response.send_message("❌ XP amount must be positive!", ephemeral=True)
+            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
             return
-        
-        if amount > 100000:
-            await interaction.response.send_message("❌ Cannot add more than 100,000 XP at once!", ephemeral=True)
-            return
-        
+
         try:
-            # Get user's current data
-            user_data = db.get_user_data(user.id)
-            old_xp = user_data.get('xp', 0)
-            old_level = db.calculate_level_from_xp(old_xp)
+            await interaction.response.defer()
+            
+            # Get current XP
+            old_user_data = db.get_user_data(user.id)
+            old_xp = old_user_data.get('xp', 0)
+            
+            # Calculate levels
+            leveling_cog = self.bot.get_cog('Leveling')
+            old_level = leveling_cog.calculate_level_from_xp(old_xp) if leveling_cog else 0
             
             # Add XP
             db.add_xp(user.id, amount)
+            new_xp = old_xp + amount
+            new_level = leveling_cog.calculate_level_from_xp(new_xp) if leveling_cog else 0
             
-            # Get new data
-            new_user_data = db.get_user_data(user.id)
-            new_xp = new_user_data.get('xp', 0)
-            new_level = db.calculate_level_from_xp(new_xp)
+            # Update roles
+            if leveling_cog and hasattr(user, 'guild'):
+                await leveling_cog.update_xp_roles(user, new_level)
             
-            # Update roles if leveled up
+            # Check for level up
+            level_up_text = ""
             if new_level > old_level:
-                leveling_cog = self.bot.get_cog('Leveling')
-                if leveling_cog:
-                    await leveling_cog.update_xp_roles(user, new_level)
+                level_up_text = f"\n🎉 **Level Up!** {old_level} → {new_level}"
             
-            # Create response embed
             embed = discord.Embed(
-                title="✅ **XP Added Successfully!**",
-                description=f"Added **{amount:,} XP** to {user.mention}",
-                color=0x00d4aa,
+                title="⚡ **XP Boost Added!**",
+                description=f"Successfully added **{amount:,} XP** to {user.mention}!{level_up_text}",
+                color=0x7c3aed,
                 timestamp=datetime.now()
             )
+            embed.add_field(name="📊 Previous XP", value=f"⚡ {old_xp:,}", inline=True)
+            embed.add_field(name="➕ XP Added", value=f"🎁 {amount:,}", inline=True)
+            embed.add_field(name="💫 New XP", value=f"✨ {new_xp:,}", inline=True)
+            embed.add_field(name="� Level", value=f"🏆 Level {new_level}", inline=True)
             
-            embed.add_field(
-                name="📊 **XP Details**",
-                value=f"**Previous XP:** {old_xp:,}\n**Added XP:** +{amount:,}\n**New XP:** {new_xp:,}",
-                inline=True
+            embed.set_author(name=f"XP boost by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="⚡ XP Management System")
+            
+            await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            try:
+                await interaction.followup.send(f"❌ Error adding XP: {str(e)}", ephemeral=True)
+            except:
+                await interaction.response.send_message(f"❌ Error adding XP: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="removexp", description="Remove XP from a user (Admin only)")
+    @app_commands.describe(user="User to remove XP from", amount="Amount of XP to remove")
+    @app_commands.default_permissions(administrator=True)
+    async def removexp(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        """Remove XP from a user"""
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+            return
+
+        if amount <= 0:
+            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+            return
+
+        try:
+            await interaction.response.defer()
+            
+            # Get current XP
+            old_user_data = db.get_user_data(user.id)
+            old_xp = old_user_data.get('xp', 0)
+            
+            if old_xp <= 0:
+                embed = discord.Embed(
+                    title="⚡ **No XP to Remove**",
+                    description=f"{user.mention} doesn't have any XP to remove!",
+                    color=0xff9966
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Don't remove more than they have
+            amount_to_remove = min(amount, old_xp)
+            
+            # Calculate levels
+            leveling_cog = self.bot.get_cog('Leveling')
+            old_level = leveling_cog.calculate_level_from_xp(old_xp) if leveling_cog else 0
+            
+            # Remove XP
+            db.remove_xp(user.id, amount_to_remove)
+            new_xp = old_xp - amount_to_remove
+            new_level = leveling_cog.calculate_level_from_xp(new_xp) if leveling_cog else 0
+            
+            # Update roles
+            if leveling_cog and hasattr(user, 'guild'):
+                await leveling_cog.update_xp_roles(user, new_level)
+            
+            # Check for level down
+            level_change_text = ""
+            if new_level < old_level:
+                level_change_text = f"\n📉 **Level Down:** {old_level} → {new_level}"
+            
+            embed = discord.Embed(
+                title="⚡ **XP Removed**",
+                description=f"Successfully removed **{amount_to_remove:,} XP** from {user.mention}!{level_change_text}",
+                color=0xff6b6b,
+                timestamp=datetime.now()
             )
+            embed.add_field(name="📊 Previous XP", value=f"⚡ {old_xp:,}", inline=True)
+            embed.add_field(name="➖ XP Removed", value=f"🗑️ {amount_to_remove:,}", inline=True)
+            embed.add_field(name="💫 New XP", value=f"📉 {new_xp:,}", inline=True)
+            embed.add_field(name="📈 Level", value=f"🏆 Level {new_level}", inline=True)
             
-            embed.add_field(
-                name="🎯 **Level Details**",
-                value=f"**Previous Level:** {old_level}\n**New Level:** {new_level}\n**Level Change:** +{new_level - old_level}",
-                inline=True
-            )
-            
-            if new_level > old_level:
+            if amount_to_remove < amount:
                 embed.add_field(
-                    name="🎉 **Level Up!**",
-                    value=f"🎊 {user.display_name} leveled up!\nRoles have been automatically updated.",
+                    name="ℹ️ Note", 
+                    value=f"Only removed {amount_to_remove:,} XP (user only had {old_xp:,} XP)", 
                     inline=False
                 )
             
-            embed.set_author(name=f"XP granted by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="🔧 Admin XP Management System")
+            embed.set_author(name=f"XP removal by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="⚡ XP Management System")
             
-            await interaction.response.send_message(embed=embed)
-            
+            await interaction.followup.send(embed=embed)
+
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error adding XP: {str(e)}", ephemeral=True)
+            try:
+                await interaction.followup.send(f"❌ Error removing XP: {str(e)}", ephemeral=True)
+            except:
+                await interaction.response.send_message(f"❌ Error removing XP: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="modclear", description="Deletes a specified number of messages from a channel")
     @app_commands.describe(amount="Number of messages to delete (1-100)")
