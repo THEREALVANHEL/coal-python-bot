@@ -302,10 +302,11 @@ class TicketCreationModal(Modal):
             }
             priority_prefix = priority_prefixes.get(priority, "🟢")
             
-            # Clean username for channel name
-            clean_username = user.display_name.lower().replace(' ', '').replace('-', '')[:12]
+            # Clean username for channel name - simplified and elegant
+            clean_username = user.display_name.lower().replace(' ', '').replace('-', '')[:10]
             
-            channel_name = f"{priority_prefix}{safe_title}-{clean_username}-{user.id}"
+            # Elegant simplified channel naming
+            channel_name = f"ticket-{clean_username}-{user.id}"
             
             # Enhanced permissions with proper hierarchy
             overwrites = {
@@ -571,19 +572,13 @@ class TicketControlView(View):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
         
-        # Update channel name to reflect claimed status
+        # Update channel name to simple "claimed by {user}" format
         current_name = channel.name
         clean_claimer = interaction.user.display_name.lower().replace(' ', '').replace('-', '')[:10]
         
-        # Change channel name to show claimed status with username
-        if not current_name.startswith("🔒claimed-by-"):
-            # Extract priority prefix and base name
-            if current_name.startswith(("🟢", "🟡", "🟠", "🔴")):
-                priority_prefix = current_name[0]
-                base_name = current_name[1:]
-                new_name = f"🔒claimed-by-{clean_claimer}-{base_name}"
-            else:
-                new_name = f"🔒claimed-by-{clean_claimer}-{current_name}"
+        # Simple elegant naming: "claimed by {user}"
+        if not current_name.startswith("claimed-by-"):
+            new_name = f"claimed-by-{clean_claimer}"
             
             try:
                 await channel.edit(name=new_name)
@@ -648,28 +643,26 @@ class TicketControlView(View):
                 await unclaim_interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
-            # Revert channel name back to unclaimed
+            # Revert channel name back to original ticket format
             current_name = channel.name
-            if current_name.startswith("🔒claimed-by-"):
-                # Remove the "🔒claimed-by-username-" part and restore original format
-                parts = current_name.split("-", 3)  # Split into: ['🔒claimed', 'by', 'username', 'rest']
-                if len(parts) >= 4:
-                    # Reconstruct original name: priority + rest
-                    original_rest = parts[3]
-                    if original_rest.startswith(("🟢", "🟡", "🟠", "🔴")):
-                        new_name = original_rest
+            if current_name.startswith("claimed-by-"):
+                # Extract the original user info from topic or channel name and restore simple format
+                user_id = None
+                try:
+                    # Try to get user ID from topic if available
+                    topic_parts = topic.split("ID: ")
+                    if len(topic_parts) > 1:
+                        user_id = topic_parts[1].split(" ")[0]
+                    
+                    # Create simple ticket name
+                    if user_id:
+                        claimer_name = clean_claimer
+                        new_name = f"ticket-{claimer_name}-{user_id}"
                     else:
-                        # Find the priority from topic or default to 🟢
-                        if "🔴" in topic:
-                            new_name = f"🔴{original_rest}"
-                        elif "🟠" in topic:
-                            new_name = f"🟠{original_rest}"
-                        elif "🟡" in topic:
-                            new_name = f"🟡{original_rest}"
-                        else:
-                            new_name = f"🟢{original_rest}"
-                else:
-                    new_name = current_name.replace("🔒claimed-by-", "🟢", 1)
+                        # Fallback to generic name
+                        new_name = f"ticket-{clean_claimer}"
+                except:
+                    new_name = f"ticket-{clean_claimer}"
                 
                 try:
                     await channel.edit(name=new_name)

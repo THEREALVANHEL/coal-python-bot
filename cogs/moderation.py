@@ -196,7 +196,612 @@ class Moderation(commands.Cog):
         self.bot = bot
 
     async def cog_load(self):
-        print("[Moderation] Loaded successfully.")
+        print("[Moderation] Loaded successfully with comprehensive A-Z logging.")
+
+    async def get_log_channel(self, guild):
+        """Get the moderation log channel for the guild"""
+        try:
+            server_settings = db.get_server_settings(guild.id)
+            log_channel_id = server_settings.get('mod_log_channel')
+            
+            if log_channel_id:
+                return guild.get_channel(log_channel_id)
+            
+            # Look for common log channel names
+            for channel in guild.text_channels:
+                if any(name in channel.name.lower() for name in ['mod-log', 'modlog', 'audit-log', 'logs']):
+                    return channel
+            
+            return None
+        except:
+            return None
+
+    async def log_moderation_action(self, guild, action_type, embed):
+        """Send moderation log to appropriate channel"""
+        try:
+            log_channel = await self.get_log_channel(guild)
+            if log_channel:
+                await log_channel.send(embed=embed)
+        except Exception as e:
+            print(f"Failed to log moderation action: {e}")
+
+    # === COMPREHENSIVE EVENT LOGGING ===
+    
+    @commands.Cog.listener()
+    async def on_message_delete(self, message):
+        """Log message deletions including attachments, embeds, etc."""
+        if message.author.bot:
+            return
+        
+        try:
+            embed = discord.Embed(
+                title="🗑️ **Message Deleted**",
+                color=0xff6b6b,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👤 **User**",
+                value=f"{message.author.mention}\n`{message.author}` (ID: {message.author.id})",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📍 **Channel**",
+                value=f"{message.channel.mention}\n`#{message.channel.name}`",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="🕒 **Deleted At**",
+                value=f"<t:{int(datetime.now().timestamp())}:R>",
+                inline=True
+            )
+            
+            # Message content
+            if message.content:
+                content = message.content[:1000] + ("..." if len(message.content) > 1000 else "")
+                embed.add_field(
+                    name="📝 **Content**",
+                    value=f"```{content}```",
+                    inline=False
+                )
+            
+            # Attachments
+            if message.attachments:
+                attachment_info = []
+                for attachment in message.attachments:
+                    attachment_info.append(f"📎 **{attachment.filename}** ({attachment.size} bytes)")
+                embed.add_field(
+                    name="📁 **Attachments**",
+                    value="\n".join(attachment_info),
+                    inline=False
+                )
+            
+            # Embeds
+            if message.embeds:
+                embed.add_field(
+                    name="🔗 **Embeds**",
+                    value=f"Message contained {len(message.embeds)} embed(s)",
+                    inline=False
+                )
+            
+            # Reactions
+            if message.reactions:
+                reactions = [f"{reaction.emoji} ({reaction.count})" for reaction in message.reactions]
+                embed.add_field(
+                    name="😀 **Reactions**",
+                    value=" • ".join(reactions),
+                    inline=False
+                )
+            
+            embed.set_author(
+                name=f"Message by {message.author.display_name}",
+                icon_url=message.author.display_avatar.url
+            )
+            embed.set_footer(text=f"Message ID: {message.id}")
+            
+            await self.log_moderation_action(message.guild, "message_delete", embed)
+            
+        except Exception as e:
+            print(f"Error logging message deletion: {e}")
+
+    @commands.Cog.listener()
+    async def on_message_edit(self, before, after):
+        """Log message edits"""
+        if before.author.bot:
+            return
+        
+        if before.content == after.content:
+            return  # No content change
+        
+        try:
+            embed = discord.Embed(
+                title="✏️ **Message Edited**",
+                color=0xffa500,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👤 **User**",
+                value=f"{after.author.mention}\n`{after.author}` (ID: {after.author.id})",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📍 **Channel**",
+                value=f"{after.channel.mention}\n`#{after.channel.name}`",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="🔗 **Jump to Message**",
+                value=f"[Click here]({after.jump_url})",
+                inline=True
+            )
+            
+            # Before content
+            if before.content:
+                before_content = before.content[:500] + ("..." if len(before.content) > 500 else "")
+                embed.add_field(
+                    name="📝 **Before**",
+                    value=f"```{before_content}```",
+                    inline=False
+                )
+            
+            # After content
+            if after.content:
+                after_content = after.content[:500] + ("..." if len(after.content) > 500 else "")
+                embed.add_field(
+                    name="📝 **After**",
+                    value=f"```{after_content}```",
+                    inline=False
+                )
+            
+            embed.set_author(
+                name=f"Edit by {after.author.display_name}",
+                icon_url=after.author.display_avatar.url
+            )
+            embed.set_footer(text=f"Message ID: {after.id}")
+            
+            await self.log_moderation_action(after.guild, "message_edit", embed)
+            
+        except Exception as e:
+            print(f"Error logging message edit: {e}")
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member):
+        """Log member joins"""
+        try:
+            embed = discord.Embed(
+                title="📥 **Member Joined**",
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👤 **Member**",
+                value=f"{member.mention}\n`{member}` (ID: {member.id})",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📅 **Account Created**",
+                value=f"<t:{int(member.created_at.timestamp())}:R>",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📊 **Member Count**",
+                value=f"{member.guild.member_count} total members",
+                inline=True
+            )
+            
+            embed.set_author(
+                name=f"{member.display_name} joined the server",
+                icon_url=member.display_avatar.url
+            )
+            embed.set_thumbnail(url=member.display_avatar.url)
+            embed.set_footer(text=f"User ID: {member.id}")
+            
+            await self.log_moderation_action(member.guild, "member_join", embed)
+            
+        except Exception as e:
+            print(f"Error logging member join: {e}")
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member):
+        """Log member leaves/kicks"""
+        try:
+            embed = discord.Embed(
+                title="📤 **Member Left**",
+                color=0xff0000,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👤 **Member**",
+                value=f"`{member}` (ID: {member.id})",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📅 **Joined**",
+                value=f"<t:{int(member.joined_at.timestamp())}:R>" if member.joined_at else "Unknown",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📊 **Member Count**",
+                value=f"{member.guild.member_count} total members",
+                inline=True
+            )
+            
+            # Show roles they had
+            if member.roles[1:]:  # Exclude @everyone
+                roles = [role.mention for role in member.roles[1:]]
+                embed.add_field(
+                    name="🎭 **Roles**",
+                    value=" • ".join(roles[:10]),  # Limit to 10 roles
+                    inline=False
+                )
+            
+            embed.set_author(
+                name=f"{member.display_name} left the server",
+                icon_url=member.display_avatar.url
+            )
+            embed.set_thumbnail(url=member.display_avatar.url)
+            embed.set_footer(text=f"User ID: {member.id}")
+            
+            await self.log_moderation_action(member.guild, "member_leave", embed)
+            
+        except Exception as e:
+            print(f"Error logging member leave: {e}")
+
+    @commands.Cog.listener()
+    async def on_member_ban(self, guild, user):
+        """Log member bans"""
+        try:
+            embed = discord.Embed(
+                title="🔨 **Member Banned**",
+                color=0x8b0000,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👤 **Banned User**",
+                value=f"`{user}` (ID: {user.id})",
+                inline=True
+            )
+            
+            # Try to get ban reason from audit log
+            try:
+                async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=5):
+                    if entry.target.id == user.id:
+                        embed.add_field(
+                            name="👮 **Banned By**",
+                            value=f"{entry.user.mention}\n`{entry.user}`",
+                            inline=True
+                        )
+                        if entry.reason:
+                            embed.add_field(
+                                name="📝 **Reason**",
+                                value=entry.reason,
+                                inline=False
+                            )
+                        break
+            except:
+                pass
+            
+            embed.set_author(
+                name=f"{user.display_name} was banned",
+                icon_url=user.display_avatar.url
+            )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            embed.set_footer(text=f"User ID: {user.id}")
+            
+            await self.log_moderation_action(guild, "member_ban", embed)
+            
+        except Exception as e:
+            print(f"Error logging member ban: {e}")
+
+    @commands.Cog.listener()
+    async def on_member_unban(self, guild, user):
+        """Log member unbans"""
+        try:
+            embed = discord.Embed(
+                title="🔓 **Member Unbanned**",
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👤 **Unbanned User**",
+                value=f"`{user}` (ID: {user.id})",
+                inline=True
+            )
+            
+            # Try to get unban info from audit log
+            try:
+                async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=5):
+                    if entry.target.id == user.id:
+                        embed.add_field(
+                            name="👮 **Unbanned By**",
+                            value=f"{entry.user.mention}\n`{entry.user}`",
+                            inline=True
+                        )
+                        if entry.reason:
+                            embed.add_field(
+                                name="📝 **Reason**",
+                                value=entry.reason,
+                                inline=False
+                            )
+                        break
+            except:
+                pass
+            
+            embed.set_author(
+                name=f"{user.display_name} was unbanned",
+                icon_url=user.display_avatar.url
+            )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            embed.set_footer(text=f"User ID: {user.id}")
+            
+            await self.log_moderation_action(guild, "member_unban", embed)
+            
+        except Exception as e:
+            print(f"Error logging member unban: {e}")
+
+    @commands.Cog.listener()
+    async def on_guild_channel_create(self, channel):
+        """Log channel creation"""
+        try:
+            embed = discord.Embed(
+                title="📝 **Channel Created**",
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📍 **Channel**",
+                value=f"{channel.mention}\n`#{channel.name}` (ID: {channel.id})",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="🏷️ **Type**",
+                value=str(channel.type).title(),
+                inline=True
+            )
+            
+            # Try to get creator from audit log
+            try:
+                async for entry in channel.guild.audit_logs(action=discord.AuditLogAction.channel_create, limit=5):
+                    if entry.target.id == channel.id:
+                        embed.add_field(
+                            name="👮 **Created By**",
+                            value=f"{entry.user.mention}\n`{entry.user}`",
+                            inline=True
+                        )
+                        break
+            except:
+                pass
+            
+            if hasattr(channel, 'category') and channel.category:
+                embed.add_field(
+                    name="📁 **Category**",
+                    value=channel.category.name,
+                    inline=True
+                )
+            
+            embed.set_footer(text=f"Channel ID: {channel.id}")
+            
+            await self.log_moderation_action(channel.guild, "channel_create", embed)
+            
+        except Exception as e:
+            print(f"Error logging channel creation: {e}")
+
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel):
+        """Log channel deletion"""
+        try:
+            embed = discord.Embed(
+                title="🗑️ **Channel Deleted**",
+                color=0xff0000,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📍 **Channel**",
+                value=f"`#{channel.name}` (ID: {channel.id})",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="🏷️ **Type**",
+                value=str(channel.type).title(),
+                inline=True
+            )
+            
+            # Try to get deleter from audit log
+            try:
+                async for entry in channel.guild.audit_logs(action=discord.AuditLogAction.channel_delete, limit=5):
+                    if entry.target.id == channel.id:
+                        embed.add_field(
+                            name="👮 **Deleted By**",
+                            value=f"{entry.user.mention}\n`{entry.user}`",
+                            inline=True
+                        )
+                        if entry.reason:
+                            embed.add_field(
+                                name="📝 **Reason**",
+                                value=entry.reason,
+                                inline=False
+                            )
+                        break
+            except:
+                pass
+            
+            if hasattr(channel, 'category') and channel.category:
+                embed.add_field(
+                    name="📁 **Category**",
+                    value=channel.category.name,
+                    inline=True
+                )
+            
+            embed.set_footer(text=f"Channel ID: {channel.id}")
+            
+            await self.log_moderation_action(channel.guild, "channel_delete", embed)
+            
+        except Exception as e:
+            print(f"Error logging channel deletion: {e}")
+
+    @commands.Cog.listener()
+    async def on_member_update(self, before, after):
+        """Log member updates (roles, nickname, etc.)"""
+        try:
+            changes = []
+            
+            # Check nickname change
+            if before.nick != after.nick:
+                changes.append({
+                    "type": "nickname",
+                    "before": before.nick or before.name,
+                    "after": after.nick or after.name
+                })
+            
+            # Check role changes
+            before_roles = set(before.roles)
+            after_roles = set(after.roles)
+            
+            added_roles = after_roles - before_roles
+            removed_roles = before_roles - after_roles
+            
+            if added_roles:
+                changes.append({
+                    "type": "roles_added",
+                    "roles": [role.mention for role in added_roles]
+                })
+            
+            if removed_roles:
+                changes.append({
+                    "type": "roles_removed",
+                    "roles": [role.mention for role in removed_roles]
+                })
+            
+            # If no significant changes, don't log
+            if not changes:
+                return
+            
+            embed = discord.Embed(
+                title="👤 **Member Updated**",
+                color=0x3498db,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👤 **Member**",
+                value=f"{after.mention}\n`{after}` (ID: {after.id})",
+                inline=True
+            )
+            
+            # Log changes
+            for change in changes:
+                if change["type"] == "nickname":
+                    embed.add_field(
+                        name="📝 **Nickname Changed**",
+                        value=f"**Before:** {change['before']}\n**After:** {change['after']}",
+                        inline=False
+                    )
+                elif change["type"] == "roles_added":
+                    embed.add_field(
+                        name="➕ **Roles Added**",
+                        value=" • ".join(change["roles"]),
+                        inline=False
+                    )
+                elif change["type"] == "roles_removed":
+                    embed.add_field(
+                        name="➖ **Roles Removed**",
+                        value=" • ".join(change["roles"]),
+                        inline=False
+                    )
+            
+            embed.set_author(
+                name=f"Update for {after.display_name}",
+                icon_url=after.display_avatar.url
+            )
+            embed.set_thumbnail(url=after.display_avatar.url)
+            embed.set_footer(text=f"User ID: {after.id}")
+            
+            await self.log_moderation_action(after.guild, "member_update", embed)
+            
+        except Exception as e:
+            print(f"Error logging member update: {e}")
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        """Log voice channel activity"""
+        try:
+            if before.channel == after.channel:
+                return  # No channel change
+            
+            embed = discord.Embed(
+                title="🔊 **Voice Activity**",
+                color=0x9b59b6,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="👤 **Member**",
+                value=f"{member.mention}\n`{member}` (ID: {member.id})",
+                inline=True
+            )
+            
+            if before.channel is None and after.channel is not None:
+                # Joined voice channel
+                embed.title = "🔊 **Voice Channel Joined**"
+                embed.color = 0x00ff00
+                embed.add_field(
+                    name="📍 **Joined**",
+                    value=f"{after.channel.mention}\n`{after.channel.name}`",
+                    inline=True
+                )
+            elif before.channel is not None and after.channel is None:
+                # Left voice channel
+                embed.title = "🔇 **Voice Channel Left**"
+                embed.color = 0xff0000
+                embed.add_field(
+                    name="📍 **Left**",
+                    value=f"`{before.channel.name}`",
+                    inline=True
+                )
+            else:
+                # Moved between channels
+                embed.title = "🔄 **Voice Channel Moved**"
+                embed.color = 0xffa500
+                embed.add_field(
+                    name="📍 **From**",
+                    value=f"`{before.channel.name}`",
+                    inline=True
+                )
+                embed.add_field(
+                    name="📍 **To**",
+                    value=f"{after.channel.mention}\n`{after.channel.name}`",
+                    inline=True
+                )
+            
+            embed.set_author(
+                name=f"Voice activity by {member.display_name}",
+                icon_url=member.display_avatar.url
+            )
+            embed.set_footer(text=f"User ID: {member.id}")
+            
+            await self.log_moderation_action(member.guild, "voice_update", embed)
+            
+        except Exception as e:
+            print(f"Error logging voice activity: {e}")
+
+    # === ENHANCED MODCLEAR COMMAND ===
 
     @app_commands.command(name="addxp", description="Add XP to a user (Admin only)")
     @app_commands.describe(user="User to give XP to", amount="Amount of XP to add")
@@ -352,16 +957,131 @@ class Moderation(commands.Cog):
         await interaction.response.defer()
 
         try:
+            # Store message info before deletion for logging
+            messages_to_delete = []
+            async for message in interaction.channel.history(limit=amount):
+                message_info = {
+                    "author": str(message.author),
+                    "author_id": message.author.id,
+                    "content": message.content[:100] + ("..." if len(message.content) > 100 else ""),
+                    "attachments": len(message.attachments),
+                    "embeds": len(message.embeds),
+                    "created_at": message.created_at
+                }
+                messages_to_delete.append(message_info)
+            
             deleted = await interaction.channel.purge(limit=amount)
             
+            # Create comprehensive logging embed
+            log_embed = discord.Embed(
+                title="🗑️ **Bulk Message Deletion**",
+                description=f"**{len(deleted)}** messages were deleted from {interaction.channel.mention}",
+                color=0xff6b6b,
+                timestamp=datetime.now()
+            )
+            
+            log_embed.add_field(
+                name="👮 **Moderator**",
+                value=f"{interaction.user.mention}\n`{interaction.user}` (ID: {interaction.user.id})",
+                inline=True
+            )
+            
+            log_embed.add_field(
+                name="📍 **Channel**",
+                value=f"{interaction.channel.mention}\n`#{interaction.channel.name}` (ID: {interaction.channel.id})",
+                inline=True
+            )
+            
+            log_embed.add_field(
+                name="🔢 **Amount**",
+                value=f"**{len(deleted)}** messages deleted",
+                inline=True
+            )
+            
+            # Analyze deleted messages
+            if messages_to_delete:
+                authors = {}
+                total_attachments = 0
+                total_embeds = 0
+                
+                for msg in messages_to_delete:
+                    author_name = msg["author"]
+                    authors[author_name] = authors.get(author_name, 0) + 1
+                    total_attachments += msg["attachments"]
+                    total_embeds += msg["embeds"]
+                
+                # Top authors
+                sorted_authors = sorted(authors.items(), key=lambda x: x[1], reverse=True)
+                top_authors = sorted_authors[:5]  # Top 5 authors
+                author_text = "\n".join([f"**{author}**: {count} message(s)" for author, count in top_authors])
+                
+                log_embed.add_field(
+                    name="👥 **Top Message Authors**",
+                    value=author_text if author_text else "No messages found",
+                    inline=False
+                )
+                
+                # Content summary
+                if total_attachments > 0 or total_embeds > 0:
+                    content_summary = []
+                    if total_attachments > 0:
+                        content_summary.append(f"📎 {total_attachments} attachment(s)")
+                    if total_embeds > 0:
+                        content_summary.append(f"🔗 {total_embeds} embed(s)")
+                    
+                    log_embed.add_field(
+                        name="📊 **Content Summary**",
+                        value=" • ".join(content_summary),
+                        inline=False
+                    )
+                
+                # Recent messages preview (last 3)
+                recent_messages = messages_to_delete[:3]
+                if recent_messages:
+                    preview_text = ""
+                    for msg in recent_messages:
+                        if msg["content"]:
+                            preview_text += f"**{msg['author']}**: {msg['content']}\n"
+                    
+                    if preview_text:
+                        log_embed.add_field(
+                            name="👁️ **Recent Messages Preview**",
+                            value=preview_text[:500] + ("..." if len(preview_text) > 500 else ""),
+                            inline=False
+                        )
+            
+            log_embed.set_author(
+                name=f"Bulk deletion by {interaction.user.display_name}",
+                icon_url=interaction.user.display_avatar.url
+            )
+            log_embed.set_footer(text=f"Moderation Action • {len(deleted)} messages removed")
+            
+            # Send to log channel
+            await self.log_moderation_action(interaction.guild, "bulk_delete", log_embed)
+            
+            # Response to moderator
             embed = discord.Embed(
-                title="🗑️ Messages Cleared",
-                description=f"Successfully deleted **{len(deleted)}** messages",
+                title="🗑️ **Messages Cleared Successfully**",
+                description=f"Successfully deleted **{len(deleted)}** messages from {interaction.channel.mention}",
                 color=0x00ff00,
                 timestamp=datetime.now()
             )
+            
+            embed.add_field(
+                name="📊 **Deletion Summary**",
+                value=f"• **Messages Deleted**: {len(deleted)}\n• **Channel**: {interaction.channel.mention}\n• **Moderator**: {interaction.user.mention}",
+                inline=False
+            )
+            
+            if len(deleted) != amount:
+                embed.add_field(
+                    name="ℹ️ **Note**",
+                    value=f"Requested {amount} messages, but only {len(deleted)} were available/deleted.",
+                    inline=False
+                )
+            
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text=FOOTER_TXT)
+            embed.set_footer(text="✨ Professional Moderation System")
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -369,6 +1089,107 @@ class Moderation(commands.Cog):
             await interaction.followup.send("❌ I don't have permission to delete messages in this channel!", ephemeral=True)
         except Exception as e:
             await interaction.followup.send(f"❌ An error occurred: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="setlogchannel", description="🔧 Set the moderation log channel (Admin only)")
+    @app_commands.describe(channel="Channel to use for moderation logs")
+    @app_commands.default_permissions(administrator=True)
+    async def set_log_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        """Set the moderation log channel"""
+        if not (interaction.user.guild_permissions.administrator or has_special_permissions(interaction)):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command!", ephemeral=True)
+            return
+
+        try:
+            # Check bot permissions in the channel
+            bot_permissions = channel.permissions_for(interaction.guild.me)
+            if not all([bot_permissions.send_messages, bot_permissions.embed_links]):
+                missing_perms = []
+                if not bot_permissions.send_messages:
+                    missing_perms.append("Send Messages")
+                if not bot_permissions.embed_links:
+                    missing_perms.append("Embed Links")
+                
+                embed = discord.Embed(
+                    title="❌ **Missing Permissions**",
+                    description=f"I need the following permissions in {channel.mention}:",
+                    color=0xff6b6b
+                )
+                embed.add_field(
+                    name="🔧 **Required Permissions**",
+                    value="\n".join([f"• {perm}" for perm in missing_perms]),
+                    inline=False
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+
+            # Save to database
+            db.set_guild_setting(interaction.guild.id, 'mod_log_channel', channel.id)
+            
+            # Create success embed
+            embed = discord.Embed(
+                title="✅ **Moderation Log Channel Set**",
+                description=f"Moderation logs will now be sent to {channel.mention}",
+                color=0x00d4aa,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 **What Will Be Logged**",
+                value="""• Message deletions & edits
+• Member joins & leaves
+• Bans & unbans
+• Role changes & nickname updates
+• Voice channel activity
+• Channel creation & deletion
+• Moderation commands (warns, kicks, etc.)
+• Bulk message deletions""",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🔧 **Next Steps**",
+                value="All moderation actions will now be automatically logged to this channel with detailed information.",
+                inline=False
+            )
+            
+            embed.set_author(
+                name=f"Setup by {interaction.user.display_name}",
+                icon_url=interaction.user.display_avatar.url
+            )
+            embed.set_footer(text="🛡️ Comprehensive Moderation Logging Active")
+            
+            await interaction.response.send_message(embed=embed)
+            
+            # Send test log to confirm it's working
+            test_embed = discord.Embed(
+                title="🛡️ **Moderation Logging System Activated**",
+                description="This channel is now set up for comprehensive moderation logging.",
+                color=0x7c3aed,
+                timestamp=datetime.now()
+            )
+            
+            test_embed.add_field(
+                name="✅ **System Status**",
+                value="• Logging system is active\n• All moderation events will be recorded\n• Comprehensive A-Z coverage enabled",
+                inline=False
+            )
+            
+            test_embed.set_footer(text="🔍 Test log message - System is working correctly")
+            
+            await channel.send(embed=test_embed)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ **Failed to Set Log Channel**",
+                description="There was an error setting up the moderation log channel.",
+                color=0xff6b6b
+            )
+            error_embed.add_field(
+                name="🔍 **Error Details**",
+                value=f"```{str(e)[:100]}```",
+                inline=False
+            )
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="warn", description="Warn a user")
     @app_commands.describe(
