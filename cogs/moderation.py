@@ -29,11 +29,32 @@ class RoleplayView(discord.ui.View):
 
     @discord.ui.button(label="🎲 Continue Adventure", style=discord.ButtonStyle.primary, emoji="🎲")
     async def continue_adventure(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(
-            f"🎭 **{interaction.user.display_name}** is continuing their adventure as **{self.character}**!\n\n" +
-            "💬 Just type your next action or dialogue in the chat, and the AI will respond to continue the story! 🌟",
-            ephemeral=True
+        embed = discord.Embed(
+            title="🎭 **Adventure Continues!**",
+            description=f"Ready to continue your story as **{self.character}**? Here's how to proceed:",
+            color=0x7c3aed
         )
+        
+        embed.add_field(
+            name="📝 **How to Continue Your Story:**",
+            value="1️⃣ Type `/roleplay` command again\n2️⃣ Use the same character name\n3️⃣ Describe your next action/dialogue\n4️⃣ Choose the same style to maintain continuity",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💡 **Example Actions:**",
+            value="• \"I cautiously enter the mysterious cave...\"\n• \"I ask the wizard about the ancient prophecy\"\n• \"I examine the glowing artifact more closely\"\n• \"I choose to go left toward the forest\"",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🎯 **Pro Tips:**",
+            value="• The AI remembers your story context\n• Be specific about your actions\n• Your choices shape the adventure\n• Each interaction builds on the previous one",
+            inline=False
+        )
+        
+        embed.set_footer(text="🚀 Ready to continue? Use /roleplay with your next move!")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.ui.button(label="📖 Story Tips", style=discord.ButtonStyle.secondary, emoji="📖")
     async def story_tips(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -329,15 +350,17 @@ class Moderation(commands.Cog):
             )
             
             if roles_added:
+                role_list = "\n".join([f"🎉 **{role}**" for role in roles_added])
                 embed.add_field(
                     name="➕ **Roles Added**", 
-                    value="🎉 " + "\n🎉 ".join(roles_added), 
+                    value=role_list, 
                     inline=False
                 )
             if roles_removed:
+                role_list = "\n".join([f"🗑️ **{role}**" for role in roles_removed])
                 embed.add_field(
                     name="➖ **Roles Removed**", 
-                    value="🗑️ " + "\n🗑️ ".join(roles_removed), 
+                    value=role_list, 
                     inline=False
                 )
             if not roles_added and not roles_removed:
@@ -347,12 +370,28 @@ class Moderation(commands.Cog):
                     inline=False
                 )
             
-            # Add stats
+            # Add detailed stats
             embed.add_field(
                 name="📊 **Update Summary**",
-                value=f"➕ Added: **{len(roles_added)}** roles\n➖ Removed: **{len(roles_removed)}** roles",
+                value=f"➕ **Added:** {len(roles_added)} role(s)\n➖ **Removed:** {len(roles_removed)} role(s)",
                 inline=True
             )
+            
+            # Add role breakdown if changes were made
+            if roles_added or roles_removed:
+                status_text = "✨ **Role updates successfully applied!**"
+                if roles_added and roles_removed:
+                    status_text = "🔄 **Roles updated - added new milestones and removed outdated ones**"
+                elif roles_added:
+                    status_text = "🎉 **Congratulations! New milestone roles earned**"
+                elif roles_removed:
+                    status_text = "🧹 **Cleaned up outdated roles**"
+                
+                embed.add_field(
+                    name="🎯 **Status**",
+                    value=status_text,
+                    inline=False
+                )
             
             embed.set_author(name=f"Updated by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
             embed.set_footer(text=f"✨ {FOOTER_TXT} • Role management system")
