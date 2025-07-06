@@ -39,11 +39,11 @@ JOB_TIERS = {
             },
             {
                 "name": "Customer Support", 
-                "emoji": "�",
+                "emoji": "📞",
                 "min_pay": 18, 
                 "max_pay": 32, 
                 "description": "helping customers",
-                "full_description": "� You assist customers with their questions and problems, providing friendly and helpful service.",
+                "full_description": "📞 You assist customers with their questions and problems, providing friendly and helpful service.",
                 "skill": "support"
             }
         ]
@@ -89,11 +89,11 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Software Developer", 
-                "emoji": "�️",
+                "emoji": "💻",
                 "min_pay": 40, 
                 "max_pay": 80, 
                 "description": "developing applications",
-                "full_description": "�️ You build robust applications and features, solving complex problems with code.",
+                "full_description": "💻 You build robust applications and features, solving complex problems with code.",
                 "skill": "development"
             },
             {
@@ -107,11 +107,11 @@ JOB_TIERS = {
             },
             {
                 "name": "Project Coordinator", 
-                "emoji": "�",
+                "emoji": "📊",
                 "min_pay": 50, 
                 "max_pay": 85, 
                 "description": "coordinating team projects",
-                "full_description": "� You ensure projects run smoothly by coordinating teams and managing timelines.",
+                "full_description": "📊 You ensure projects run smoothly by coordinating teams and managing timelines.",
                 "skill": "management"
             }
         ]
@@ -191,11 +191,11 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Industry Innovator", 
-                "emoji": "�",
+                "emoji": "💡",
                 "min_pay": 300, 
                 "max_pay": 500, 
                 "description": "revolutionizing the industry",
-                "full_description": "� You create groundbreaking innovations that change entire industries forever.",
+                "full_description": "💡 You create groundbreaking innovations that change entire industries forever.",
                 "skill": "innovation"
             },
             {
