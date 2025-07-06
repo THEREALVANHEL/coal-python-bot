@@ -115,29 +115,29 @@ class Community(commands.Cog):
         print("[Community] Loaded successfully.")
 
     def create_pie_wheel_image(self, options, title="Spin the Wheel!", winner=None):
-        """Create a professional and elegant wheel with larger options and golden title"""
+        """Create a modern, professional wheel with premium fonts and sleek design"""
         try:
-            # Create a high-quality image - increased size for better quality
-            size = 900  # Increased from 700 to 900
-            img = Image.new('RGBA', (size, size), (255, 255, 255, 0))
+            # Create ultra high-quality image
+            size = 1200  # Ultra high resolution for crisp quality
+            img = Image.new('RGBA', (size, size), (30, 30, 30, 255))  # Dark background
             draw = ImageDraw.Draw(img)
             
             # Center and radius
             center = size // 2
-            radius = center - 120  # Increased margin for larger text
+            radius = center - 150  # More margin for text
             
-            # Simple elegant color palette - white, black, grays
+            # Modern vibrant color palette - professional and attractive
             colors = [
-                '#FFFFFF',  # Pure White
-                '#000000',  # Pure Black  
-                '#F5F5F5',  # Light Gray
-                '#2C2C2C',  # Dark Gray
-                '#E8E8E8',  # Lighter Gray
-                '#404040',  # Medium Dark Gray
-                '#FAFAFA',  # Off White
-                '#1A1A1A',  # Near Black
-                '#DDDDDD',  # Light Gray 2
-                '#333333'   # Charcoal
+                '#FF6B6B',  # Coral Red
+                '#4ECDC4',  # Teal
+                '#45B7D1',  # Sky Blue
+                '#96CEB4',  # Mint Green
+                '#FFEAA7',  # Light Yellow
+                '#DDA0DD',  # Plum
+                '#98D8C8',  # Mint
+                '#F7DC6F',  # Gold
+                '#BB8FCE',  # Lavender
+                '#85C1E9'   # Light Blue
             ]
             
             # Calculate angles for each slice
@@ -147,11 +147,15 @@ class Community(commands.Cog):
             # Find winner index
             winner_index = options.index(winner) if winner in options else 0
             
-            # Draw outer ring (shadow effect)
-            shadow_radius = radius + 12
-            draw.ellipse([center - shadow_radius, center - shadow_radius, 
-                         center + shadow_radius, center + shadow_radius], 
-                        fill='#00000030', outline=None)
+            # Draw outer glow effect
+            glow_radius = radius + 20
+            for i in range(10):
+                alpha = 30 - (i * 3)
+                glow_color = f'rgba(255, 255, 255, {alpha})'
+                current_radius = glow_radius - (i * 2)
+                draw.ellipse([center - current_radius, center - current_radius, 
+                             center + current_radius, center + current_radius], 
+                            fill=f'#FFFFFF{alpha:02x}', outline=None)
             
             # Draw pie slices
             start_angle = 0
@@ -159,19 +163,21 @@ class Community(commands.Cog):
                 end_angle = start_angle + angle_per_slice
                 color = colors[i % len(colors)]
                 
-                # Enhanced winner highlighting with golden glow
+                # Enhanced winner highlighting with rainbow glow
                 if i == winner_index:
                     outline_color = '#FFD700'  # Golden
-                    outline_width = 10
-                    # Add golden glowing effect for winner
-                    glow_radius = radius + 8
-                    draw.pieslice(
-                        [center - glow_radius, center - glow_radius, center + glow_radius, center + glow_radius],
-                        start_angle, end_angle, fill='#FFD70060', outline=None
-                    )
+                    outline_width = 15
+                    # Add rainbow glowing effect for winner
+                    for j in range(5):
+                        glow_colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFEAA7', '#DDA0DD']
+                        glow_radius = radius + 15 - (j * 3)
+                        draw.pieslice(
+                            [center - glow_radius, center - glow_radius, center + glow_radius, center + glow_radius],
+                            start_angle, end_angle, fill=f'{glow_colors[j % len(glow_colors)]}40', outline=None
+                        )
                 else:
-                    outline_color = '#CCCCCC'
-                    outline_width = 4
+                    outline_color = '#2C2C2C'
+                    outline_width = 8
                 
                 # Draw the main slice
                 draw.pieslice(
@@ -179,22 +185,35 @@ class Community(commands.Cog):
                     start_angle, end_angle, fill=color, outline=outline_color, width=outline_width
                 )
                 
-                # Calculate text position - closer to edge for better visibility
+                # Calculate text position optimally
                 mid_angle = math.radians(start_angle + angle_per_slice / 2)
-                text_radius = radius * 0.75  # Moved closer to edge
+                text_radius = radius * 0.7  # Optimal position for readability
                 text_x = center + text_radius * math.cos(mid_angle)
                 text_y = center + text_radius * math.sin(mid_angle)
                 
-                # Load bigger font for options - much larger now using assets font
-                try:
-                    font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-                    if os.path.exists(font_path):
-                        font = ImageFont.truetype(font_path, 48)  # Premium font from assets
-                    else:
-                        # Fallback to any system font
-                        font = ImageFont.load_default()
-                except Exception as e:
-                    print(f"Font loading error: {e}")
+                # Load premium fonts with multiple fallbacks
+                font = None
+                font_size = 60  # Larger font for better visibility
+                font_paths = [
+                    # Try system fonts first
+                    "arial.ttf",
+                    "Arial.ttf", 
+                    "/System/Library/Fonts/Arial.ttf",
+                    "/System/Library/Fonts/Helvetica.ttc",
+                    # Try custom fonts from assets
+                    os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf'),
+                    os.path.join(os.path.dirname(__file__), '..', 'assets', 'Arial-Bold.ttf'),
+                ]
+                
+                for font_path in font_paths:
+                    try:
+                        font = ImageFont.truetype(font_path, font_size)
+                        break
+                    except:
+                        continue
+                
+                if not font:
+                    # Ultimate fallback
                     font = ImageFont.load_default()
                 
                 # Get text size for centering
@@ -202,38 +221,73 @@ class Community(commands.Cog):
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
                 
-                # Choose text color based on background for better contrast
-                text_color = '#000000' if color in ['#FFFFFF', '#F5F5F5', '#E8E8E8', '#FAFAFA', '#DDDDDD'] else '#FFFFFF'
+                # Smart text color selection for maximum contrast
+                def get_brightness(hex_color):
+                    hex_color = hex_color.lstrip('#')
+                    r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+                    return (r * 299 + g * 587 + b * 114) / 1000
                 
-                # Draw text with better shadow for visibility
-                shadow_offset = 4
-                draw.text((text_x - text_width//2 + shadow_offset, text_y - text_height//2 + shadow_offset), 
-                         option, font=font, fill='#00000080')
+                brightness = get_brightness(color)
+                text_color = '#FFFFFF' if brightness < 128 else '#000000'
+                
+                # Draw premium text with multiple shadow layers for depth
+                shadow_colors = ['#000000BB', '#00000088', '#00000055']
+                shadow_offsets = [6, 4, 2]
+                
+                for shadow_color, offset in zip(shadow_colors, shadow_offsets):
+                    draw.text((text_x - text_width//2 + offset, text_y - text_height//2 + offset), 
+                             option, font=font, fill=shadow_color)
+                
+                # Draw main text with stroke effect
+                stroke_width = 3
+                for dx in range(-stroke_width, stroke_width + 1):
+                    for dy in range(-stroke_width, stroke_width + 1):
+                        if dx != 0 or dy != 0:
+                            draw.text((text_x - text_width//2 + dx, text_y - text_height//2 + dy), 
+                                     option, font=font, fill='#000000' if text_color == '#FFFFFF' else '#FFFFFF')
+                
                 draw.text((text_x - text_width//2, text_y - text_height//2), 
                          option, font=font, fill=text_color)
                 
                 start_angle = end_angle
             
-            # Draw modern center hub
-            center_radius = 45  # Increased from 35 to 45
-            # Outer ring - elegant black
+            # Draw ultra-modern center hub with gradient effect
+            center_radius = 60  # Larger for better visibility
+            
+            # Create gradient effect for center hub
+            for i in range(center_radius):
+                alpha = 255 - (i * 3)
+                gradient_radius = center_radius - i
+                gradient_color = f'#1E1E1E{alpha:02x}' if alpha > 0 else '#1E1E1E00'
+                draw.ellipse([center - gradient_radius, center - gradient_radius, 
+                             center + gradient_radius, center + gradient_radius], 
+                            fill=gradient_color, outline=None)
+            
+            # Outer ring - premium metallic look
             draw.ellipse([center - center_radius, center - center_radius, 
                          center + center_radius, center + center_radius], 
-                        fill='#000000', outline='#333333', width=5)
-            # Inner circle - clean white
-            inner_radius = center_radius - 12
+                        fill='#2C2C2C', outline='#FFD700', width=8)
+            
+            # Inner circle - glossy finish
+            inner_radius = center_radius - 18
             draw.ellipse([center - inner_radius, center - inner_radius, 
                          center + inner_radius, center + inner_radius], 
-                        fill='#FFFFFF', outline='#CCCCCC', width=3)
+                        fill='#1A1A1A', outline='#404040', width=4)
             
-            # Draw sleek, smaller arrow pointing to winner
+            # Ultra center dot - crystal effect
+            dot_radius = 12
+            draw.ellipse([center - dot_radius, center - dot_radius, 
+                         center + dot_radius, center + dot_radius], 
+                        fill='#FFD700', outline='#FFA500', width=2)
+            
+            # Draw ultra-modern arrow pointing to winner
             if winner:
                 winner_angle = math.radians(winner_index * angle_per_slice + angle_per_slice / 2)
                 
-                # Slightly larger arrow for better visibility
-                arrow_length = 90  # Increased from 70 to 90
-                arrow_width = 12  # Increased from 10 to 12
-                arrow_start_radius = center_radius + 10
+                # Premium arrow design
+                arrow_length = 120  # Longer for better visibility
+                arrow_width = 16   # Thicker for modern look
+                arrow_start_radius = center_radius + 15
                 arrow_end_radius = arrow_start_radius + arrow_length
                 
                 # Calculate arrow center line
@@ -242,55 +296,110 @@ class Community(commands.Cog):
                 arrow_end_x = center + arrow_end_radius * math.cos(winner_angle)
                 arrow_end_y = center + arrow_end_radius * math.sin(winner_angle)
                 
-                # Draw arrow shaft (elegant black)
-                draw.line([(arrow_start_x, arrow_start_y), (arrow_end_x, arrow_end_y)], 
-                         fill='#000000', width=arrow_width)
+                # Draw arrow with gradient effect
+                gradient_colors = ['#FFD700', '#FFA500', '#FF8C00']
+                for i, color in enumerate(gradient_colors):
+                    width = arrow_width - (i * 4)
+                    if width > 0:
+                        draw.line([(arrow_start_x, arrow_start_y), (arrow_end_x, arrow_end_y)], 
+                                 fill=color, width=width)
                 
-                # Draw smaller, more professional arrowhead
-                arrow_head_size = 15  # Increased from 12 to 15
-                head_angle1 = winner_angle + math.pi * 0.75
-                head_angle2 = winner_angle - math.pi * 0.75
+                # Draw premium arrowhead with glow
+                arrow_head_size = 24  # Larger for impact
+                head_angle1 = winner_angle + math.pi * 0.8
+                head_angle2 = winner_angle - math.pi * 0.8
                 
                 head_x1 = arrow_end_x + arrow_head_size * math.cos(head_angle1)
                 head_y1 = arrow_end_y + arrow_head_size * math.sin(head_angle1)
                 head_x2 = arrow_end_x + arrow_head_size * math.cos(head_angle2)
                 head_y2 = arrow_end_y + arrow_head_size * math.sin(head_angle2)
                 
-                # Arrow head with black fill
-                draw.polygon([(arrow_end_x, arrow_end_y), (head_x1, head_y1), (head_x2, head_y2)], 
-                           fill='#000000', outline='#333333', width=1)
+                # Glowing arrow head effect
+                glow_colors = ['#FFD70080', '#FFD700BB', '#FFD700']
+                glow_sizes = [28, 26, 24]
+                
+                for glow_color, glow_size in zip(glow_colors, glow_sizes):
+                    head_x1_glow = arrow_end_x + glow_size * math.cos(head_angle1)
+                    head_y1_glow = arrow_end_y + glow_size * math.sin(head_angle1)
+                    head_x2_glow = arrow_end_x + glow_size * math.cos(head_angle2)
+                    head_y2_glow = arrow_end_y + glow_size * math.sin(head_angle2)
+                    
+                    draw.polygon([(arrow_end_x, arrow_end_y), (head_x1_glow, head_y1_glow), (head_x2_glow, head_y2_glow)], 
+                               fill=glow_color, outline=None)
             
-            # Draw GOLDEN title with larger font using assets font
-            try:
-                font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-                if os.path.exists(font_path):
-                    title_font = ImageFont.truetype(font_path, 65)  # Premium title font from assets
-                else:
-                    title_font = ImageFont.load_default()
-            except Exception as e:
-                print(f"Title font loading error: {e}")
+            # Draw premium title with modern typography
+            title_font = None
+            title_font_size = 85  # Larger for impact
+            title_font_paths = [
+                "arial.ttf",
+                "Arial.ttf",
+                "/System/Library/Fonts/Arial.ttf",
+                "/System/Library/Fonts/Helvetica.ttc",
+                os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf'),
+            ]
+            
+            for font_path in title_font_paths:
+                try:
+                    title_font = ImageFont.truetype(font_path, title_font_size)
+                    break
+                except:
+                    continue
+            
+            if not title_font:
                 title_font = ImageFont.load_default()
             
             bbox = draw.textbbox((0, 0), title, font=title_font)
             title_width = bbox[2] - bbox[0]
             title_x = center - title_width // 2
-            title_y = 40
+            title_y = 60
             
-            # Golden title with elegant shadow
-            draw.text((title_x + 4, title_y + 4), title, font=title_font, fill='#00000040')
-            draw.text((title_x, title_y), title, font=title_font, fill='#FFD700')  # Golden color
+            # Create title with multiple effects
+            # Outer glow
+            glow_colors = ['#FFD70020', '#FFD70040', '#FFD70060', '#FFD70080']
+            glow_offsets = [8, 6, 4, 2]
             
-            # Add simple elegant corner decorations
-            corner_size = 30  # Increased from 25 to 30
-            decoration_color = '#FFD700'  # Golden decorations
-            # Top-left
-            draw.arc([20, 20, 20 + corner_size, 20 + corner_size], 180, 270, fill=decoration_color, width=5)
-            # Top-right  
-            draw.arc([size - corner_size - 20, 20, size - 20, 20 + corner_size], 270, 360, fill=decoration_color, width=5)
-            # Bottom-left
-            draw.arc([20, size - corner_size - 20, 20 + corner_size, size - 20], 90, 180, fill=decoration_color, width=5)
-            # Bottom-right
-            draw.arc([size - corner_size - 20, size - corner_size - 20, size - 20, size - 20], 0, 90, fill=decoration_color, width=5)
+            for glow_color, offset in zip(glow_colors, glow_offsets):
+                for dx in range(-offset, offset + 1):
+                    for dy in range(-offset, offset + 1):
+                        if dx*dx + dy*dy <= offset*offset:
+                            draw.text((title_x + dx, title_y + dy), title, font=title_font, fill=glow_color)
+            
+            # Main title with gradient effect simulation
+            gradient_colors = ['#FFD700', '#FFA500', '#FF8C00']
+            for i, color in enumerate(gradient_colors):
+                y_offset = i * 2
+                draw.text((title_x, title_y + y_offset), title, font=title_font, fill=color)
+            
+            # Add modern geometric decorations
+            decoration_size = 40
+            decoration_thickness = 8
+            decoration_color = '#FFD700'
+            
+            # Top decorations - modern lines
+            draw.rectangle([50, 30, 50 + decoration_size * 2, 30 + decoration_thickness], fill=decoration_color)
+            draw.rectangle([size - 50 - decoration_size * 2, 30, size - 50, 30 + decoration_thickness], fill=decoration_color)
+            
+            # Side accent lines
+            draw.rectangle([30, center - decoration_size, 30 + decoration_thickness, center + decoration_size], fill=decoration_color)
+            draw.rectangle([size - 30 - decoration_thickness, center - decoration_size, size - 30, center + decoration_size], fill=decoration_color)
+            
+            # Bottom decorations - diamond shapes
+            diamond_size = 20
+            diamond_points = [
+                (center - 200, size - 60),  # left
+                (center - 200 + diamond_size, size - 60 - diamond_size),  # top
+                (center - 200 + diamond_size * 2, size - 60),  # right
+                (center - 200 + diamond_size, size - 60 + diamond_size)   # bottom
+            ]
+            draw.polygon(diamond_points, fill=decoration_color)
+            
+            diamond_points_right = [
+                (center + 200, size - 60),  # left
+                (center + 200 + diamond_size, size - 60 - diamond_size),  # top
+                (center + 200 + diamond_size * 2, size - 60),  # right
+                (center + 200 + diamond_size, size - 60 + diamond_size)   # bottom
+            ]
+            draw.polygon(diamond_points_right, fill=decoration_color)
             
             # Save the image
             output_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'temp_wheel.png')
@@ -728,22 +837,29 @@ class Community(commands.Cog):
         await interaction.response.defer()
 
         try:
-            # Enhanced prompt for comprehensive responses
-            prompt = f"""You are 'BleckNephew' - a helpful, knowledgeable, and friendly AI assistant. You are someone's nephew who's really good with technology and answering questions. 
+            # Enhanced prompt for efficient, direct responses
+            prompt = f"""You are BleckNephew, a smart and efficient AI assistant. You're tech-savvy and give PRECISE, ACTIONABLE answers.
 
-INSTRUCTIONS:
-- Always respond in a helpful, friendly manner as if you're actually their nephew
-- For complex topics, provide detailed explanations
-- For simple questions, give concise but complete answers
-- Include relevant links when helpful (use full URLs)
-- Use emojis appropriately to make responses engaging
-- If asked about images, explain what you would show if you could generate images
-- Break down complex topics into easy-to-understand parts
-- Be conversational and approachable
+CORE RULES:
+- Be DIRECT and TO THE POINT - no unnecessary rambling
+- Give PRACTICAL solutions and specific steps
+- Use bullet points for clarity when appropriate  
+- Keep responses under 500 words unless absolutely necessary
+- Include examples when they help understanding
+- For technical questions: Give specific commands, code, or settings
+- For general questions: Provide clear, actionable advice
+- Always end with a specific next step the user can take
 
-Question: {question}
+RESPONSE STYLE:
+- Skip lengthy introductions
+- Get straight to the answer
+- Use emojis sparingly (1-2 max)
+- Be confident and knowledgeable
+- If you're unsure, say so briefly and suggest alternatives
 
-Please provide a comprehensive, helpful response."""
+USER QUESTION: {question}
+
+Provide a focused, helpful response that gets straight to the point."""
 
             response = self.model.generate_content(prompt)
             
@@ -751,76 +867,52 @@ Please provide a comprehensive, helpful response."""
                 await interaction.followup.send("❌ BleckNephew couldn't generate a response. Please try rephrasing your question.", ephemeral=True)
                 return
             
-            # Handle long responses by splitting them
-            response_text = response.text
-            if len(response_text) > 2000:
-                # Split into chunks
-                chunks = []
-                current_chunk = ""
-                words = response_text.split()
+            # Handle responses efficiently - prioritize clarity over length
+            response_text = response.text.strip()
+            
+            # If response is too long, try to extract the most important parts
+            if len(response_text) > 1500:
+                # Try to find a good breaking point
+                sentences = response_text.split('. ')
+                truncated_response = ""
                 
-                for word in words:
-                    if len(current_chunk + word + " ") <= 2000:
-                        current_chunk += word + " "
+                for sentence in sentences:
+                    if len(truncated_response + sentence + '. ') <= 1500:
+                        truncated_response += sentence + '. '
                     else:
-                        chunks.append(current_chunk.strip())
-                        current_chunk = word + " "
+                        break
                 
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                
-                # Send first chunk as main response
-                embed = discord.Embed(
-                    title="🤖 BleckNephew Responds",
-                    description=chunks[0],
-                    color=0x9932cc,
-                    timestamp=datetime.now()
-                )
-                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-                embed.set_footer(text="BleckNephew • Your helpful AI nephew")
-                embed.add_field(name="❓ Your Question", value=f"```{question[:500] + ('...' if len(question) > 500 else '')}```", inline=False)
-                
-                if len(chunks) > 1:
-                    embed.add_field(name="📄 Response", value=f"Part 1 of {len(chunks)}", inline=False)
-                
-                # Check for URLs and add buttons if found
-                urls = extract_urls(response_text)
-                if urls:
-                    view = LinkView(urls)
-                    await interaction.followup.send(embed=embed, view=view)
+                if truncated_response:
+                    response_text = truncated_response.strip()
+                    if not response_text.endswith('.'):
+                        response_text += '.'
+                    response_text += "\n\n*Response optimized for clarity*"
                 else:
-                    await interaction.followup.send(embed=embed)
-                
-                # Send additional chunks
-                for i, chunk in enumerate(chunks[1:], 2):
-                    embed = discord.Embed(
-                        title=f"🤖 BleckNephew Responds (Part {i})",
-                        description=chunk,
-                        color=0x9932cc,
-                        timestamp=datetime.now()
-                    )
-                    embed.set_footer(text="BleckNephew • Your helpful AI nephew")
-                    await interaction.followup.send(embed=embed)
-                    
-            else:
-                # Short response - send normally
-                embed = discord.Embed(
-                    title="🤖 BleckNephew Responds",
-                    description=response_text,
-                    color=0x9932cc,
-                    timestamp=datetime.now()
-                )
-                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-                embed.set_footer(text="BleckNephew • Your helpful AI nephew")
-                embed.add_field(name="❓ Your Question", value=f"```{question[:500] + ('...' if len(question) > 500 else '')}```", inline=False)
+                    # If we can't find good sentences, just truncate
+                    response_text = response_text[:1500] + "...\n\n*Response truncated for clarity*"
+            
+            # Create clean, professional embed
+            embed = discord.Embed(
+                title="🤖 **BleckNephew AI**",
+                description=response_text,
+                color=0x4169E1,  # Royal blue for professionalism
+                timestamp=datetime.now()
+            )
+            
+            # Only show question if it's reasonably short
+            if len(question) <= 150:
+                embed.add_field(name="💭 **Question**", value=f"`{question}`", inline=False)
+            
+            embed.set_author(name=f"Asked by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="BleckNephew AI • Precise & Helpful")
 
-                # Check for URLs and add buttons if found
-                urls = extract_urls(response_text)
-                if urls:
-                    view = LinkView(urls)
-                    await interaction.followup.send(embed=embed, view=view)
-                else:
-                    await interaction.followup.send(embed=embed)
+            # Check for URLs and add buttons if found
+            urls = extract_urls(response_text)
+            if urls:
+                view = LinkView(urls[:3])  # Limit to 3 URLs max
+                await interaction.followup.send(embed=embed, view=view)
+            else:
+                await interaction.followup.send(embed=embed)
 
         except Exception as e:
             error_embed = discord.Embed(

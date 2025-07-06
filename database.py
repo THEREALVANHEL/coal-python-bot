@@ -928,21 +928,7 @@ def get_server_settings(guild_id):
         print(f"Error getting server settings: {e}")
         return {}
 
-def set_ticketzone_channels(guild_id, channels):
-    """Set ticketzone channels list"""
-    return set_guild_setting(guild_id, 'ticketzone_channels', channels)
-
-def get_ticketzone_channels(guild_id):
-    """Get ticketzone channels list"""
-    return get_guild_setting(guild_id, 'ticketzone_channels', [])
-
-def set_ticketzone_categories(guild_id, categories):
-    """Set ticketzone categories list"""
-    return set_guild_setting(guild_id, 'ticketzone_categories', categories)
-
-def get_ticketzone_categories(guild_id):
-    """Get ticketzone categories list"""
-    return get_guild_setting(guild_id, 'ticketzone_categories', [])
+# Removed unused ticketzone functions - simplified ticket system now in use
 
 def add_starboard_message(message_id, starboard_message_id, star_count):
     """Add message to starboard"""

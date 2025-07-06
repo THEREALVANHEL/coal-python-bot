@@ -10,7 +10,7 @@ import asyncio
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
-# Enhanced ticket categories with subcategories
+# Enhanced ticket categories with subcategories and claim system
 TICKET_CATEGORIES = {
     "general": {
         "name": "🆘 General Support",
@@ -70,6 +70,18 @@ TICKET_CATEGORIES = {
             {"name": "Warning Appeal", "emoji": "⚠️", "description": "Appeal a warning"},
             {"name": "Mute Appeal", "emoji": "🔇", "description": "Appeal a mute"},
             {"name": "Other Appeal", "emoji": "📋", "description": "Appeal other punishment"}
+        ]
+    },
+    "regional": {
+        "name": "🌍 Regional Support",
+        "description": "Location-based and regional assistance",
+        "emoji": "🌍",
+        "color": 0x00d4aa,
+        "subcategories": [
+            {"name": "UK Support", "emoji": "🇬🇧", "description": "United Kingdom regional support"},
+            {"name": "US Support", "emoji": "🇺🇸", "description": "United States regional support"},
+            {"name": "EU Support", "emoji": "🇪🇺", "description": "European Union regional support"},
+            {"name": "Other Region", "emoji": "🌎", "description": "Other regional support"}
         ]
     },
     "partnership": {
@@ -472,7 +484,87 @@ class TicketControlView(View):
         
         return False
 
-    @discord.ui.button(label="🔒 Close Ticket", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="� Claim Ticket", style=discord.ButtonStyle.success)
+    async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.has_ticket_permissions(interaction.user, interaction.guild):
+            embed = discord.Embed(
+                title="❌ **Permission Denied**",
+                description="Only staff members can claim tickets.",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        channel = interaction.channel
+        topic = channel.topic or ""
+        
+        # Handle unclaim if already claimed
+        if "| Claimed by:" in topic:
+            current_claimer = topic.split("| Claimed by:")[-1].strip()
+            
+            # Only allow the claimer or higher permissions to unclaim
+            if current_claimer != interaction.user.display_name and not interaction.user.guild_permissions.administrator:
+                embed = discord.Embed(
+                    title="⚠️ **Cannot Unclaim**",
+                    description=f"This ticket is claimed by **{current_claimer}**. Only they or an administrator can unclaim it.",
+                    color=0xff9966
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Unclaim the ticket
+            try:
+                new_topic = topic.split("| Claimed by:")[0].strip()
+                await channel.edit(topic=new_topic)
+                
+                embed = discord.Embed(
+                    title="🔄 **Ticket Unclaimed**",
+                    description="This ticket is now available for any staff member to claim.",
+                    color=0x7c3aed,
+                    timestamp=datetime.now()
+                )
+                embed.set_author(name=f"Unclaimed by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+                
+                await interaction.response.send_message(embed=embed)
+                
+                # Update button back to claim
+                button.label = "👤 Claim Ticket"
+                button.style = discord.ButtonStyle.success
+                await interaction.edit_original_response(view=self)
+                
+            except Exception as e:
+                await interaction.response.send_message(f"❌ Error unclaiming ticket: {str(e)}", ephemeral=True)
+            return
+        
+        # Claim the ticket
+        try:
+            new_topic = f"{topic} | Claimed by: {interaction.user.display_name}"
+            await channel.edit(topic=new_topic)
+            
+            embed = discord.Embed(
+                title="👤 **Ticket Claimed Successfully**",
+                description=f"This ticket has been claimed by {interaction.user.mention}",
+                color=0x00d4aa,
+                timestamp=datetime.now()
+            )
+            embed.add_field(
+                name="📋 **What this means:**",
+                value="• This staff member is now handling your case\n• They will be your primary point of contact\n• Other staff can still assist if needed",
+                inline=False
+            )
+            embed.set_author(name=f"Claimed by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            
+            await interaction.response.send_message(embed=embed)
+            
+            # Update button to show unclaim option
+            button.label = "🔄 Unclaim Ticket"
+            button.style = discord.ButtonStyle.secondary
+            await interaction.edit_original_response(view=self)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
+
+    @discord.ui.button(label="�� Close Ticket", style=discord.ButtonStyle.danger)
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             embed = discord.Embed(
@@ -499,7 +591,7 @@ class TicketControlView(View):
         )
         confirm_embed.set_footer(text="Click 'Confirm' to close or 'Cancel' to keep open")
         
-        await interaction.response.send_message(embed=confirm_embed, view=confirm_view)
+        await interaction.response.send_message(embed=confirm_embed, view=confirm_view, ephemeral=True)
 
     @discord.ui.button(label="📌 Add Note", style=discord.ButtonStyle.secondary)
     async def add_note(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -532,6 +624,7 @@ class TicketControlView(View):
             description="Select the new priority level for this ticket:",
             color=0x7c3aed
         )
+        
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 class TicketCloseConfirmView(View):

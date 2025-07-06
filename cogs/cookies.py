@@ -314,12 +314,14 @@ class Cookies(commands.Cog):
     @app_commands.describe(
         user="User to remove cookies from", 
         option="Select removal option",
-        custom_amount="Custom amount to remove (only used with 'Custom Amount' option)"
+        custom_amount="Custom amount to remove (numbers, percentages like '25%', or special codes)"
     )
     @app_commands.choices(option=[
         app_commands.Choice(name="💔 Remove All Cookies", value="all"),
         app_commands.Choice(name="📉 Remove Half", value="half"),
-        app_commands.Choice(name="🔢 Custom Amount", value="custom")
+        app_commands.Choice(name="🔢 Custom Amount", value="custom"),
+        app_commands.Choice(name="📊 Custom Percentage", value="percentage"),
+        app_commands.Choice(name="🎯 Special Code", value="special")
     ])
     async def removecookies(self, interaction: discord.Interaction, user: discord.Member, option: str, custom_amount: str = None):
         if not has_manager_role(interaction):
@@ -342,6 +344,9 @@ class Cookies(commands.Cog):
                 await interaction.followup.send(embed=embed, ephemeral=True)
                 return
             
+            amount = 0
+            removal_type = ""
+            
             if option == "custom":
                 if not custom_amount:
                     embed = discord.Embed(
@@ -352,7 +357,9 @@ class Cookies(commands.Cog):
                     await interaction.followup.send(embed=embed, ephemeral=True)
                     return
                 try:
-                    amount = int(custom_amount)
+                    # Support both numbers and formatted strings
+                    clean_amount = custom_amount.strip().replace(",", "").replace("k", "000").replace("K", "000")
+                    amount = int(clean_amount)
                     if amount <= 0 or amount > old_cookies:
                         embed = discord.Embed(
                             title="❌ **Invalid Custom Amount**",
@@ -361,19 +368,83 @@ class Cookies(commands.Cog):
                         )
                         await interaction.followup.send(embed=embed, ephemeral=True)
                         return
-                    amount = int(custom_amount)
+                    removal_type = f"🎯 Custom: {custom_amount}"
                 except ValueError:
                     embed = discord.Embed(
                         title="❌ **Invalid Custom Amount**",
-                        description="Please enter a valid number for the custom amount!",
+                        description="Please enter a valid number! Examples: `1000`, `5k`, `2,500`",
                         color=0xff6b6b
                     )
                     await interaction.followup.send(embed=embed, ephemeral=True)
                     return
+                    
+            elif option == "percentage":
+                if not custom_amount:
+                    embed = discord.Embed(
+                        title="❌ **Missing Percentage**",
+                        description="You must provide a percentage to remove! (e.g., 25%, 50%)",
+                        color=0xff6b6b
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    return
+                try:
+                    # Handle percentage input
+                    percentage_str = custom_amount.strip().replace("%", "")
+                    percentage = float(percentage_str)
+                    if percentage <= 0 or percentage > 100:
+                        raise ValueError("Invalid percentage")
+                    amount = int(old_cookies * (percentage / 100))
+                    if amount <= 0:
+                        amount = 1
+                    removal_type = f"📊 {percentage}% removal"
+                except ValueError:
+                    embed = discord.Embed(
+                        title="❌ **Invalid Percentage**",
+                        description="Please enter a valid percentage! Examples: `25%`, `50`, `75%`",
+                        color=0xff6b6b
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    return
+                    
+            elif option == "special":
+                if not custom_amount:
+                    embed = discord.Embed(
+                        title="❌ **Missing Special Code**",
+                        description="You must provide a special code! Examples: `reset`, `penalty`, `violation`",
+                        color=0xff6b6b
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    return
+                
+                # Handle special codes
+                code = custom_amount.lower().strip()
+                if code in ["reset", "clear", "zero"]:
+                    amount = old_cookies
+                    removal_type = "🔄 Account reset"
+                elif code in ["penalty", "violation", "warning"]:
+                    amount = min(1000, old_cookies // 4)  # Remove 25% or 1000, whichever is smaller
+                    removal_type = "⚠️ Penalty removal"
+                elif code in ["mild", "light", "small"]:
+                    amount = min(500, old_cookies // 10)  # Remove 10% or 500, whichever is smaller
+                    removal_type = "💫 Light penalty"
+                elif code in ["severe", "major", "heavy"]:
+                    amount = min(5000, old_cookies // 2)  # Remove 50% or 5000, whichever is smaller
+                    removal_type = "🚨 Major penalty"
+                else:
+                    embed = discord.Embed(
+                        title="❌ **Unknown Special Code**",
+                        description="Valid codes: `reset`, `penalty`, `violation`, `mild`, `severe`",
+                        color=0xff6b6b
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    return
+                    
             elif option == "all":
                 amount = old_cookies
+                removal_type = "🚨 Complete removal"
             elif option == "half":
                 amount = old_cookies // 2
+                removal_type = "⚖️ 50% reduction"
             
             # Process the removal
             db.remove_cookies(user.id, amount)
@@ -404,16 +475,15 @@ class Cookies(commands.Cog):
                 percentage = ((old_cookies - new_cookies) / old_cookies) * 100
                 embed.add_field(name="📉 Decrease", value=f"📊 -{percentage:.1f}%", inline=True)
             
-            # Add removal reason
-            removal_reasons = {
-                "all": "🚨 Complete removal",
-                "half": "⚖️ 50% reduction",
-                "custom": "🎯 Custom amount"
-            }
-            embed.add_field(name="📋 Removal Type", value=removal_reasons[option], inline=True)
+            # Add removal type
+            embed.add_field(name="📋 Removal Type", value=removal_type, inline=True)
+            
+            # Add custom amount info if provided
+            if custom_amount and option in ["custom", "percentage", "special"]:
+                embed.add_field(name="🎯 Input Used", value=f"`{custom_amount}`", inline=True)
             
             embed.set_author(name=f"Cookie removal by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="🍪 Cookie Management System • Disciplinary action")
+            embed.set_footer(text="🍪 Enhanced Cookie Management System • Flexible removal options")
             
             await interaction.followup.send(embed=embed)
 
