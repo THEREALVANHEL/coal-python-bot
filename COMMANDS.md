@@ -1,355 +1,144 @@
-# 🤖 COAL BOT - Complete Command List
+# 🤖 COAL BOT - Commands List
 
 ## 📋 **Role Permissions Reference**
-- **🦥 Overseer** - Full admin access
-- **Forgotten one** - Full admin access  
-- **� Lead moderator** - Manager + Host permissions
-- **Moderator �🚓** - Basic moderation + announcements
+- **Administrator** - Administrator permission or special admin role
+- **Manage Messages** - Manage Messages permission or special admin role  
+- **Manage Channels** - Manage Channels permission
+- **Manage Roles** - Manage Roles permission or special admin role
+- **Manage Guild** - Manage Guild/Server permission
+- **Cookie Manager** - Role ID: 1372121024841125888
+- **Host Roles** - "🦥 Overseer", "Forgotten one", "🚨 Lead moderator" or special admin role
+- **Announce Roles** - Role IDs: 1378338515791904808, 1371003310223654974
+- **Moderator Role** - "Moderator 🚨🚓", "🚨 Lead moderator" or special admin role
+- **Everyone** - No permissions required
 
 ---
 
-## � **TICKET SYSTEM**
+## 🎫 **TICKET SYSTEM**
 
-### `/createticket`
-- **Function:** Create a support ticket instantly
-- **Permissions:** Everyone
-- **Description:** Opens a private ticket with regional support options (UK/US/EU)
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| `/createticket` | Create a support ticket instantly | Everyone |
+| `/ticketpanel` | Create ticket panel in current channel | Administrator |
+| `/giveticketroleperms` | Grant ticket support permissions to roles | Administrator |
+| `/ticketstats` | View comprehensive ticket system statistics | Manage Channels |
+| `/closealltickets` | Emergency: Close all open tickets | Administrator |
+| `/ticketdashboard` | View live ticket dashboard with real-time stats | Manage Channels |
+| `/ticketmanager` | Advanced ticket management interface for staff | Manage Channels |
 
-### `/ticketpanel`
-- **Function:** Create ticket panel in current channel
-- **Permissions:** Administrator only
-- **Description:** Sets up the ticket creation interface
+---
 
-### `/giveticketroleperms`
-- **Function:** Grant ticket support permissions to roles
-- **Permissions:** Administrator only
-- **Description:** Allows roles to access and manage tickets
+## �️ **MODERATION**
 
-### `/ticketstats`
-- **Function:** View comprehensive ticket system statistics
-- **Permissions:** Manage Channels
-- **Description:** Shows ticket analytics and system info
-
-### `/closealltickets`
-- **Function:** Emergency: Close all open tickets
-- **Permissions:** Administrator only
-- **Description:** Nuclear option for emergency situations
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| `/addxp` | Add XP to a user | Administrator |
+| `/removexp` | Remove XP from a user | Administrator |
+| `/modclear` | Delete specified number of messages from channel | Manage Messages |
+| `/setlogchannel` | Set the moderation log channel | Administrator |
+| `/warn` | Warn a user | Moderator Role |
+| `/checkwarnlist` | Check warnings for a user | Moderator Role |
+| `/removewarnlist` | Remove specific warning or clear all warnings | Moderator Role |
+| `/updateroles` | Update roles based on user's level and cookies | Manage Roles |
+| `/roleplay` | Interactive AI roleplay with character persistence | Everyone |
+| `/sync` | Force sync all slash commands | Administrator |
 
 ---
 
 ## 💰 **ECONOMY SYSTEM**
 
-### `/balance`
-- **Function:** Check your shiny coin balance
-- **Permissions:** Everyone
-- **Description:** View your current coin wallet
-
-### `/work`
-- **Function:** Work various jobs to earn coins
-- **Permissions:** Everyone
-- **Description:** Choose from different jobs to earn money
-
-### `/shop`
-- **Function:** View the premium temporary items shop
-- **Permissions:** Everyone
-- **Description:** Browse 16 premium items across 4 categories
-
-### `/buy`
-- **Function:** Purchase premium temporary items
-- **Permissions:** Everyone
-- **Description:** Buy power-ups, social status, access perks, and fun items
-
-### `/coinflip`
-- **Function:** Flip a coin and bet coins
-- **Permissions:** Everyone
-- **Description:** Gambling mini-game with coin betting
-
-### `/myitems`
-- **Function:** View your active temporary purchases
-- **Permissions:** Everyone
-- **Description:** Check remaining time on purchased items
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| `/balance` | Check your coin balance | Everyone |
+| `/work` | Independent career progression system | Everyone |
+| `/shop` | View the premium temporary items shop | Everyone |
+| `/buy` | Purchase premium temporary items | Everyone |
+| `/coinflip` | Flip a coin and bet coins | Everyone |
+| `/myitems` | View your active temporary purchases | Everyone |
 
 ---
 
 ## 🍪 **COOKIE SYSTEM**
 
-### `/cookies`
-- **Function:** Check your delicious cookie balance
-- **Permissions:** Everyone
-- **Description:** View your cookie wealth and stats
-
-### `/addcookies`
-- **Function:** Add cookies to a user
-- **Permissions:** Cookie manager role only (Role ID: 1372121024841125888)
-- **Description:** Give cookies to members
-
-### `/removecookies`
-- **Function:** Remove cookies with selection options
-- **Permissions:** Cookie manager role only (Role ID: 1372121024841125888)
-- **Description:** Remove cookies, supports percentages, reset, penalty codes
-
-### `/cookiesgiveall`
-- **Function:** Give cookies to everyone in server
-- **Permissions:** Cookie manager role only (Role ID: 1372121024841125888)
-- **Description:** Mass cookie distribution
-
-### `/cookiesremoveall`
-- **Function:** Remove all cookies from everyone in server
-- **Permissions:** Cookie manager role only (Role ID: 1372121024841125888)
-- **Description:** Nuclear option - removes all cookies from all members with confirmation
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| `/cookies` | Check your cookie balance | Everyone |
+| `/addcookies` | Add cookies to a user | Cookie Manager |
+| `/removecookies` | Remove cookies from a user with selection options | Cookie Manager |
+| `/cookiesgiveall` | Give cookies to everyone in server | Cookie Manager |
+| `/cookiesremoveall` | Remove all cookies from everyone in server | Cookie Manager |
 
 ---
 
 ## 🏆 **LEVELING & PROFILE**
 
-### `/profile`
-- **Function:** Show comprehensive profile
-- **Permissions:** Everyone
-- **Description:** View level, cookies, job, daily streak, and stats
-
-### `/leaderboard`
-- **Function:** View all server leaderboards
-- **Permissions:** Everyone
-- **Description:** See top members by XP, cookies, and level
-
-### `/daily`
-- **Function:** Claim daily XP and coin bonus
-- **Permissions:** Everyone
-- **Description:** Daily rewards with streak multipliers
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| `/profile` | Show comprehensive profile with level, cookies, job, daily streak | Everyone |
+| `/leaderboard` | View all server leaderboards with pagination | Everyone |
+| `/daily` | Claim daily XP and coin bonus with streak rewards | Everyone |
 
 ---
 
-## 🚨 **MODERATION**
+## � **COMMUNITY & EVENTS**
 
-### `/addxp`
-- **Function:** Add XP to a user
-- **Permissions:** Administrator only
-- **Description:** Manually adjust member XP
-
-### `/removexp`
-- **Function:** Remove XP from a user
-- **Permissions:** Administrator only
-- **Description:** Reduce member XP for violations
-
-### `/modclear`
-- **Function:** Delete specified number of messages
-- **Permissions:** Manage Messages
-- **Description:** Bulk message deletion for cleanup
-
-### `/warn`
-- **Function:** Warn a user
-- **Permissions:** Manage Messages
-- **Description:** Issue formal warnings to members
-
-### `/checkwarnlist`
-- **Function:** Check warnings for a user
-- **Permissions:** Manage Messages
-- **Description:** View member's warning history
-
-### `/removewarnlist`
-- **Function:** Remove warnings or clear all
-- **Permissions:** Manage Messages
-- **Description:** Delete specific warnings or reset count
-
-### `/updateroles`
-- **Function:** Update roles based on level and cookies
-- **Permissions:** Manage Roles
-- **Description:** Sync member roles with their progression
-
-### `/roleplay`
-- **Function:** Interactive AI roleplay with persistence
-- **Permissions:** Everyone
-- **Description:** Chat with AI characters with memory
-
----
-
-## 📢 **COMMUNITY & EVENTS**
-
-### `/suggest`
-- **Function:** Submit server improvement suggestions
-- **Permissions:** Everyone
-- **Description:** Send suggestions with optional media to suggestion channel
-
-### `/shout`
-- **Function:** Create event announcements with live tracking
-- **Permissions:** Specific roles only (Role IDs: 1378338515791904808, 1371003310223654974)
-- **Description:** Professional event posts with participant tracking, time strings (1h, 30m)
-
-### `/gamelog`
-- **Function:** Log completed games with details
-- **Permissions:** Specific roles only (Role IDs: 1378338515791904808, 1371003310223654974)
-- **Description:** Record game results with participants and media
-
-### `/spinwheel`
-- **Function:** Spin enhanced wheel with arrow
-- **Permissions:** Everyone
-- **Description:** Modern wheel spinner with premium design
-
-### `/giveaway`
-- **Function:** Start giveaway with duration and winners
-- **Permissions:** Specific roles only (Role IDs: 1378338515791904808, 1371003310223654974)
-- **Description:** Automated giveaway system with time limits
-
-### `/announce`
-- **Function:** Create professional pointwise announcements
-- **Permissions:** Specific roles only (Role IDs: 1378338515791904808, 1371003310223654974)
-- **Description:** Structured announcements with bullet points
-
-### `/remind`
-- **Function:** Set personal reminders
-- **Permissions:** Everyone
-- **Description:** Get pinged after specified time (5m, 1h, 2d format)
-
----
-
-## ℹ️ **INFORMATION & UTILITY**
-
-### `/userinfo`
-- **Function:** View detailed member information
-- **Permissions:** Everyone
-- **Description:** Comprehensive user stats and details
-
-### `/serverinfo`
-- **Function:** Show server stats and information
-- **Permissions:** Everyone
-- **Description:** Server overview with member counts and features
-
-### `/ping`
-- **Function:** Check bot's ping to Discord
-- **Permissions:** Everyone
-- **Description:** Test bot responsiveness and latency
-
-### `/askblecknephew`
-- **Function:** Ask BleckNephew AI anything
-- **Permissions:** Everyone
-- **Description:** Chat with optimized AI assistant (under 500 words)
-
-### `/flip`
-- **Function:** Flip a coin - heads or tails
-- **Permissions:** Everyone
-- **Description:** Simple coin flip game
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| `/suggest` | Submit server improvement suggestions with optional media | Everyone |
+| `/shout` | Create event announcement with live participant tracking | Announce Roles |
+| `/gamelog` | Log completed game with details and optional picture | Announce Roles |
+| `/spinwheel` | Spin enhanced wheel with arrow pointing to winner | Everyone |
+| `/userinfo` | View detailed member information | Everyone |
+| `/serverinfo` | Show server stats and information | Everyone |
+| `/ping` | Check bot's ping to Discord servers | Everyone |
+| `/askblecknephew` | Ask BleckNephew AI anything | Everyone |
+| `/flip` | Flip a coin - heads or tails | Everyone |
+| `/giveaway` | Start giveaway with specified duration and winner count | Announce Roles |
+| `/announce` | Create professional pointwise announcement with attachments | Announce Roles |
+| `/remind` | Set personal reminders | Everyone |
 
 ---
 
 ## ⚙️ **SERVER SETTINGS**
 
-### `/quicksetup`
-- **Function:** Enhanced setup wizard for all bot functions
-- **Permissions:** Manage Server
-- **Description:** Configure channels, roles, and bot features
-
-### `/starboard`
-- **Function:** Configure starboard settings
-- **Permissions:** Manage Server
-- **Description:** Set up reaction-based message highlighting
-
-### `/viewsettings`
-- **Function:** View current server configuration
-- **Permissions:** Manage Server
-- **Description:** Check all bot settings and channels
-
-### `/sync`
-- **Function:** Force sync all slash commands
-- **Permissions:** Administrator only
-- **Description:** Refresh command registration (emergency use)
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| `/starboard` | Configure starboard settings | Manage Guild |
+| `/viewsettings` | View current server configuration | Manage Guild |
+| `/quicksetup` | Enhanced setup wizard for all bot functions | Manage Guild |
 
 ---
 
-## 🔧 **DEVELOPMENT/TESTING**
+## 🔧 **EVENT COMMANDS** (Alternative)
 
-### `/hello`
-- **Function:** Basic hello command
-- **Permissions:** Everyone
-- **Description:** Test if bot is responding
-
-### `/test`
-- **Function:** Simple test command
-- **Permissions:** Everyone
-- **Description:** Verify bot responsiveness
-
-### `/info`
-- **Function:** Show bot information and status
-- **Permissions:** Everyone
-- **Description:** Bot version and system info
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| Event `/shout` | Make bot send message to specific channel | Host Roles |
+| Event `/gamelog` | Log game event with image support | Host Roles |
 
 ---
 
-## 🎮 **EVENT COMMANDS** (Alternative versions)
+## 🧪 **UTILITY/TESTING**
 
-### Event `/shout`
-- **Function:** Make bot send message to specific channel
-- **Permissions:** Host roles (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
-- **Description:** Alternative shout command for events
-
-### Event `/gamelog`
-- **Function:** Log game event with image support
-- **Permissions:** Host roles (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
-- **Description:** Alternative gamelog with winner tracking
+| Command | Function | Permissions |
+|---------|----------|-------------|
+| `/hello` | Basic hello command - test bot response | Everyone |
+| `/test` | Simple test command to verify bot responsiveness | Everyone |
+| `/ping` | Check bot latency and response time | Everyone |
+| `/info` | Show bot information and status | Everyone |
+| `/sync` | Manually sync slash commands | Administrator |
 
 ---
 
-## 📊 **USAGE TIPS**
+## � **SUMMARY**
 
-- **Time Formats:** Use `1h` (1 hour), `30m` (30 minutes), `2d` (2 days), `now` for immediate
-- **Percentage Cookies:** Use `25%` to remove percentage of cookies
-- **Special Codes:** Use `reset` or `penalty` for special cookie removal
-- **Live Events:** Shout command now shows live participant count to everyone
-- **Temporary Items:** Shop items are organized in Power-Ups, Social Status, Access, and Fun categories
-
-## 🎯 **PREMIUM SHOP CATEGORIES**
-
-### 💪 Power-Ups (4 items)
-- XP Boost, Cookie Multiplier, Coin Boost, Work Success
-
-### ⭐ Social Status (4 items)  
-- VIP Role, Custom Color, Crown Badge, Rainbow Name
-
-### 🔓 Access (4 items)
-- VIP Channels, Nickname Freedom, Voice Priority, Early Access
-
-### 🎉 Fun & Games (4 items)
-- Luck Boost, Party Mode, Double Daily, Mystery Box
+- **Total Commands:** 47
+- **Categories:** 8
+- **Admin Commands:** 9
+- **Moderator Commands:** 3
+- **Public Commands:** 25
+- **Special Role Commands:** 10
 
 ---
 
-## 🚀 **RECENT UPDATES**
-
-### ✨ **Latest Features**
-- **Live Event Tracking:** Shout command now shows real-time participant counts
-- **Enhanced Ticket System:** Regional support with claim/unclaim functionality
-- **Expanded Premium Shop:** 16 temporary items across 4 categories
-- **Time String Support:** Natural time parsing (1h, 30m, 2d)
-- **Optimized AI:** BleckNephew responses under 500 words for better engagement
-- **Advanced Cookie Management:** Percentage removal and special codes
-
-### 🎨 **Design Improvements**
-- **Modern Spin Wheel:** Premium typography and gradient effects
-- **Professional Embeds:** Consistent branding across all commands
-- **Enhanced UI:** Better buttons, modals, and user interactions
-- **Responsive Design:** Optimized for all Discord platforms
-
-### 🛡️ **System Enhancements**
-- **Permission Overhaul:** Clear role-based access control
-- **Database Optimization:** Efficient data management and cleanup
-- **Error Handling:** Improved stability and user feedback
-- **Performance:** Faster response times and better resource usage
-
----
-
-## � **Support & Documentation**
-
-### 🔗 **Quick Links**
-- **GitHub Repository:** https://github.com/THEREALVANHEL/coal-python-bot.git
-- **Command Categories:** 9 major categories with 47 total commands
-- **Premium Features:** 16 temporary shop items with auto-cleanup
-
-### 💡 **Getting Help**
-- Use `/help` or specific command help for guidance
-- Contact moderators for permission-related issues
-- Check `/viewsettings` to verify server configuration
-
-**Total Commands: 48** | **Categories: 9** | **Premium Items: 16**
-
----
-
-*Last Updated: January 2025 - Complete Feature Set*
+*Commands require exact role names or role IDs as specified. Special admin role bypasses most permission checks.*
