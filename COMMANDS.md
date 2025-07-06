@@ -80,18 +80,23 @@
 
 ### `/addcookies`
 - **Function:** Add cookies to a user
-- **Permissions:** Manager roles only (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
+- **Permissions:** Cookie manager role only (Role ID: 1372121024841125888)
 - **Description:** Give cookies to members
 
 ### `/removecookies`
 - **Function:** Remove cookies with selection options
-- **Permissions:** Manager roles only (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
+- **Permissions:** Cookie manager role only (Role ID: 1372121024841125888)
 - **Description:** Remove cookies, supports percentages, reset, penalty codes
 
 ### `/cookiesgiveall`
 - **Function:** Give cookies to everyone in server
-- **Permissions:** Manager roles only (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
+- **Permissions:** Cookie manager role only (Role ID: 1372121024841125888)
 - **Description:** Mass cookie distribution
+
+### `/cookiesremoveall`
+- **Function:** Remove all cookies from everyone in server
+- **Permissions:** Cookie manager role only (Role ID: 1372121024841125888)
+- **Description:** Nuclear option - removes all cookies from all members with confirmation
 
 ---
 
@@ -167,12 +172,12 @@
 
 ### `/shout`
 - **Function:** Create event announcements with live tracking
-- **Permissions:** Announcement roles (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+- **Permissions:** Specific roles only (Role IDs: 1378338515791904808, 1371003310223654974)
 - **Description:** Professional event posts with participant tracking, time strings (1h, 30m)
 
 ### `/gamelog`
 - **Function:** Log completed games with details
-- **Permissions:** Announcement roles (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+- **Permissions:** Specific roles only (Role IDs: 1378338515791904808, 1371003310223654974)
 - **Description:** Record game results with participants and media
 
 ### `/spinwheel`
@@ -182,12 +187,12 @@
 
 ### `/giveaway`
 - **Function:** Start giveaway with duration and winners
-- **Permissions:** Announcement roles (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+- **Permissions:** Specific roles only (Role IDs: 1378338515791904808, 1371003310223654974)
 - **Description:** Automated giveaway system with time limits
 
 ### `/announce`
 - **Function:** Create professional pointwise announcements
-- **Permissions:** Announcement roles (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+- **Permissions:** Specific roles only (Role IDs: 1378338515791904808, 1371003310223654974)
 - **Description:** Structured announcements with bullet points
 
 ### `/remind`
@@ -343,7 +348,7 @@
 - Contact moderators for permission-related issues
 - Check `/viewsettings` to verify server configuration
 
-**Total Commands: 47** | **Categories: 9** | **Premium Items: 16**
+**Total Commands: 48** | **Categories: 9** | **Premium Items: 16**
 
 ---
 
