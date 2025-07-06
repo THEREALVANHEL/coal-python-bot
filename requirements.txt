@@ -8,3 +8,4 @@ numpy>=1.26.4
 google-generativeai>=0.3.2
 gunicorn>=22.0.0
 Pillow>=10.0.0
+# Force redeploy Sun Jul  6 01:52:59 PM UTC 2025
