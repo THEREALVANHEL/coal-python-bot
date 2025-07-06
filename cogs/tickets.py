@@ -290,7 +290,7 @@ class TicketCreationModal(Modal):
             
             # Create unique channel name with elegant formatting and priority indicator
             safe_title = "".join(c for c in self.title_input.value if c.isalnum() or c in (' ', '-')).strip()
-            safe_title = safe_title.replace(' ', '-')[:25]  # Slightly longer for clarity
+            safe_title = safe_title.replace(' ', '-')[:20]  # Shorter for better readability
             
             # Add priority prefix to channel name
             priority = self.priority_input.value.lower() if self.priority_input.value else "low"
@@ -302,7 +302,10 @@ class TicketCreationModal(Modal):
             }
             priority_prefix = priority_prefixes.get(priority, "🟢")
             
-            channel_name = f"{priority_prefix}ticket-{user.display_name.lower().replace(' ', '-')}-{safe_title}-{user.id}"
+            # Clean username for channel name
+            clean_username = user.display_name.lower().replace(' ', '').replace('-', '')[:12]
+            
+            channel_name = f"{priority_prefix}{safe_title}-{clean_username}-{user.id}"
             
             # Enhanced permissions with proper hierarchy
             overwrites = {
@@ -387,16 +390,46 @@ class TicketCreationModal(Modal):
             }
             priority_emoji = priority_emojis.get(priority, "🟢")
             
-            # MEE6-style clean and simple welcome embed
+            # MEE6-style clean and elegant welcome embed
             welcome_embed = discord.Embed(
-                title=f"🎫 {self.title_input.value}",
-                description=self.description_input.value,
+                title=f"🎫 Support Ticket #{user.id % 10000}",
+                description=f"**{self.title_input.value}**",
                 color=priority_color,
                 timestamp=datetime.now()
             )
             
-            welcome_embed.set_author(name=f"{user.display_name} opened a ticket", icon_url=user.display_avatar.url)
-            welcome_embed.set_footer(text=f"{self.subcategory} • {priority_emoji} {priority.title()} Priority")
+            # Ticket Information Section
+            welcome_embed.add_field(
+                name="📋 **Ticket Details**",
+                value=f"**Category:** {self.category_info['name']}\n**Subcategory:** {self.subcategory}\n**Priority:** {priority_emoji} {priority.title()}",
+                inline=True
+            )
+            
+            # User Information Section  
+            welcome_embed.add_field(
+                name="👤 **Requester Info**",
+                value=f"**User:** {user.mention}\n**Display Name:** {user.display_name}\n**Account Created:** <t:{int(user.created_at.timestamp())}:R>",
+                inline=True
+            )
+            
+            # Status Section
+            welcome_embed.add_field(
+                name="📊 **Status**",
+                value=f"**Ticket Status:** 🟡 Open\n**Staff Assigned:** None\n**Created:** <t:{int(datetime.now().timestamp())}:R>",
+                inline=True
+            )
+            
+            # Description Section
+            if len(self.description_input.value) > 0:
+                welcome_embed.add_field(
+                    name="📝 **Description**",
+                    value=self.description_input.value[:1000] + ("..." if len(self.description_input.value) > 1000 else ""),
+                    inline=False
+                )
+            
+            welcome_embed.set_author(name=f"{user.display_name} opened a support ticket", icon_url=user.display_avatar.url)
+            welcome_embed.set_footer(text=f"Ticket ID: {user.id} • {self.subcategory}")
+            welcome_embed.set_thumbnail(url=user.display_avatar.url)
             
             # Create simple ticket controls
             control_view = TicketControlView(user.id, self.category_key, self.subcategory)
@@ -408,12 +441,28 @@ class TicketCreationModal(Modal):
                 if role:
                     support_role_mentions.append(role.mention)
             
-            # Simple welcome message
-            welcome_content = f"""🎫 Hello {user.mention}! Thank you for opening a support ticket.
+            # Clean and professional welcome message
+            welcome_content = f"""✨ **Welcome to Support, {user.display_name}!**
 
-Our support team will be with you shortly. Please explain your issue in detail below.
+Thank you for creating this support ticket. Our team has been notified and will assist you shortly.
+
+**📋 Ticket Information:**
+• **Category:** {self.category_info['name']}
+• **Subcategory:** {self.subcategory}
+• **Priority:** {priority_emoji} {priority.title()}
+• **Ticket ID:** #{user.id % 10000}
+
+**🔧 What happens next?**
+1. A staff member will claim your ticket
+2. They'll review your request and respond
+3. We'll work together to solve your issue
 
 {' '.join(support_role_mentions) if support_role_mentions else ''}
+
+**💡 While you wait:**
+• Please provide any additional details that might help
+• Stay patient - we aim to respond within 30 minutes
+• Keep the conversation in this channel
             """.strip()
             
             welcome_msg = await ticket_channel.send(
@@ -524,12 +573,17 @@ class TicketControlView(View):
         
         # Update channel name to reflect claimed status
         current_name = channel.name
-        if not current_name.startswith("🔒claimed-"):
-            # Change from "ticket-user-title-id" to "🔒claimed-user-title-id"
-            if current_name.startswith("ticket-"):
-                new_name = current_name.replace("ticket-", "🔒claimed-", 1)
+        clean_claimer = interaction.user.display_name.lower().replace(' ', '').replace('-', '')[:10]
+        
+        # Change channel name to show claimed status with username
+        if not current_name.startswith("🔒claimed-by-"):
+            # Extract priority prefix and base name
+            if current_name.startswith(("🟢", "🟡", "🟠", "🔴")):
+                priority_prefix = current_name[0]
+                base_name = current_name[1:]
+                new_name = f"🔒claimed-by-{clean_claimer}-{base_name}"
             else:
-                new_name = f"🔒claimed-{current_name}"
+                new_name = f"🔒claimed-by-{clean_claimer}-{current_name}"
             
             try:
                 await channel.edit(name=new_name)
@@ -543,28 +597,38 @@ class TicketControlView(View):
         except:
             pass
         
-        # Create claim announcement embed
+        # Create elegant claim announcement embed
         claim_embed = discord.Embed(
-            title="🎯 **Ticket Claimed!**",
-            description=f"**{interaction.user.display_name}** has claimed this ticket and will assist you.",
+            title="✅ **Ticket Successfully Claimed**",
+            description=f"This support ticket has been assigned to **{interaction.user.display_name}** and is now being handled.",
             color=0x00d4aa,
             timestamp=datetime.now()
         )
         
+        # Staff Assignment Section
         claim_embed.add_field(
-            name="👤 **Assigned Staff**",
-            value=f"{interaction.user.mention}\n*{interaction.user.display_name}*",
+            name="👨‍� **Assigned Support Staff**",
+            value=f"**Name:** {interaction.user.display_name}\n**User:** {interaction.user.mention}\n**Role:** Support Team",
             inline=True
         )
         
+        # Ticket Status Update
         claim_embed.add_field(
-            name="⏰ **Response Time**",
-            value="You can expect a response soon!\nPlease be patient while we review your case.",
+            name="📊 **Status Update**",
+            value=f"**Previous Status:** 🟡 Open\n**Current Status:** 🔒 Claimed\n**Claimed At:** <t:{int(datetime.now().timestamp())}:R>",
             inline=True
         )
         
-        claim_embed.set_author(name="Support Team", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
-        claim_embed.set_footer(text="✨ Thank you for choosing our support!")
+        # What to Expect
+        claim_embed.add_field(
+            name="⏰ **What to Expect**",
+            value="• **Response Time:** Usually within 30 minutes\n• **Updates:** Staff will keep you informed\n• **Resolution:** We'll work until your issue is solved",
+            inline=False
+        )
+        
+        claim_embed.set_author(name="Support Team Assignment", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        claim_embed.set_footer(text="✨ Thank you for your patience!")
+        claim_embed.set_thumbnail(url=interaction.user.display_avatar.url)
         
         # Update the button to show claimed status
         button.label = f"✅ Claimed by {interaction.user.display_name}"
@@ -586,8 +650,27 @@ class TicketControlView(View):
             
             # Revert channel name back to unclaimed
             current_name = channel.name
-            if current_name.startswith("🔒claimed-"):
-                new_name = current_name.replace("🔒claimed-", "ticket-", 1)
+            if current_name.startswith("🔒claimed-by-"):
+                # Remove the "🔒claimed-by-username-" part and restore original format
+                parts = current_name.split("-", 3)  # Split into: ['🔒claimed', 'by', 'username', 'rest']
+                if len(parts) >= 4:
+                    # Reconstruct original name: priority + rest
+                    original_rest = parts[3]
+                    if original_rest.startswith(("🟢", "🟡", "🟠", "🔴")):
+                        new_name = original_rest
+                    else:
+                        # Find the priority from topic or default to 🟢
+                        if "🔴" in topic:
+                            new_name = f"🔴{original_rest}"
+                        elif "🟠" in topic:
+                            new_name = f"🟠{original_rest}"
+                        elif "🟡" in topic:
+                            new_name = f"🟡{original_rest}"
+                        else:
+                            new_name = f"🟢{original_rest}"
+                else:
+                    new_name = current_name.replace("🔒claimed-by-", "🟢", 1)
+                
                 try:
                     await channel.edit(name=new_name)
                 except:
@@ -1174,25 +1257,33 @@ class Tickets(commands.Cog):
             channel_name = channel.name.lower()
             
             # Check if it's a ticket channel
-            if any(prefix in channel_name for prefix in ["🟢ticket-", "🟡ticket-", "🟠ticket-", "🔴ticket-", "🔒claimed-", "ticket-"]):
+            if any(prefix in channel_name for prefix in ["🟢", "🟡", "🟠", "🔴"]) or "claimed-by-" in channel_name:
                 total_tickets += 1
                 
                 # Check claim status
-                if channel_name.startswith("🔒claimed-") or (channel.topic and "🔒 CLAIMED" in channel.topic):
+                if channel_name.startswith("🔒claimed-by-") or (channel.topic and "🔒 CLAIMED" in channel.topic):
                     claimed_tickets += 1
-                    status = "🔒 Claimed"
+                    # Extract claimer name from channel name
+                    if "claimed-by-" in channel_name:
+                        try:
+                            claimer_part = channel_name.split("claimed-by-")[1].split("-")[0]
+                            status = f"🔒 Claimed by {claimer_part.title()}"
+                        except:
+                            status = "🔒 Claimed"
+                    else:
+                        status = "🔒 Claimed"
                 else:
                     unclaimed_tickets += 1
                     status = "⏳ Waiting"
                 
-                # Check priority
-                if channel_name.startswith("🔴"):
+                # Check priority from channel name
+                if channel_name.startswith("🔴") or "🔴" in channel_name:
                     urgent_tickets += 1
                     priority = "🔴 Urgent"
-                elif channel_name.startswith("🟠"):
+                elif channel_name.startswith("🟠") or "🟠" in channel_name:
                     high_tickets += 1
                     priority = "🟠 High"
-                elif channel_name.startswith("🟡"):
+                elif channel_name.startswith("🟡") or "🟡" in channel_name:
                     medium_tickets += 1
                     priority = "🟡 Medium"
                 else:
@@ -1200,16 +1291,28 @@ class Tickets(commands.Cog):
                     priority = "🟢 Low"
                 
                 # Extract user info from channel name
-                name_parts = channel_name.split("-")
-                if len(name_parts) >= 2:
-                    user_name = name_parts[1] if not channel_name.startswith("🔒claimed-") else name_parts[2]
-                    ticket_details.append({
-                        "channel": channel,
-                        "user": user_name.title(),
-                        "priority": priority,
-                        "status": status,
-                        "created": channel.created_at
-                    })
+                if "claimed-by-" in channel_name:
+                    # Format: 🔒claimed-by-username-title-userid
+                    name_parts = channel_name.split("-")
+                    if len(name_parts) >= 4:
+                        user_name = name_parts[2].title()
+                    else:
+                        user_name = "Unknown"
+                else:
+                    # Format: 🟢title-username-userid
+                    name_parts = channel_name.split("-")
+                    if len(name_parts) >= 2:
+                        user_name = name_parts[-2].title()  # Second to last part should be username
+                    else:
+                        user_name = "Unknown"
+                
+                ticket_details.append({
+                    "channel": channel,
+                    "user": user_name,
+                    "priority": priority,
+                    "status": status,
+                    "created": channel.created_at
+                })
         
         # Create dashboard embed
         embed = discord.Embed(
@@ -1262,6 +1365,136 @@ class Tickets(commands.Cog):
         )
         
         embed.set_footer(text="🎛️ Dashboard updates in real-time • Use /ticketdashboard to refresh")
+        embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+        
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="ticketmanager", description="🎯 Advanced ticket management interface for staff")
+    @app_commands.default_permissions(manage_channels=True)
+    async def ticket_manager(self, interaction: discord.Interaction):
+        """Display an elegant ticket management interface"""
+        guild = interaction.guild
+        
+        # Get all ticket channels
+        ticket_channels = []
+        for channel in guild.text_channels:
+            channel_name = channel.name.lower()
+            if any(prefix in channel_name for prefix in ["🟢", "🟡", "🟠", "🔴"]) or "claimed-by-" in channel_name:
+                
+                # Determine status and priority
+                if channel_name.startswith("🔒claimed-by-"):
+                    claimer = channel_name.split("claimed-by-")[1].split("-")[0].title()
+                    status = f"🔒 {claimer}"
+                    status_color = "🟢"
+                else:
+                    status = "⏳ Open"
+                    status_color = "🟡"
+                
+                # Get priority
+                if "🔴" in channel_name:
+                    priority = "🔴 Urgent"
+                elif "🟠" in channel_name:
+                    priority = "🟠 High"
+                elif "🟡" in channel_name:
+                    priority = "🟡 Medium"
+                else:
+                    priority = "🟢 Low"
+                
+                # Extract user info
+                name_parts = channel_name.split("-")
+                if "claimed-by-" in channel_name and len(name_parts) >= 4:
+                    user_name = name_parts[2].title()
+                elif len(name_parts) >= 2:
+                    user_name = name_parts[-2].title()
+                else:
+                    user_name = "Unknown"
+                
+                ticket_channels.append({
+                    "channel": channel,
+                    "name": channel.name,
+                    "user": user_name,
+                    "priority": priority,
+                    "status": status,
+                    "status_color": status_color,
+                    "created": channel.created_at,
+                    "link": f"https://discord.com/channels/{guild.id}/{channel.id}"
+                })
+        
+        # Sort by priority and creation time
+        priority_order = {"🔴 Urgent": 0, "🟠 High": 1, "🟡 Medium": 2, "🟢 Low": 3}
+        ticket_channels.sort(key=lambda x: (priority_order.get(x["priority"], 4), x["created"]))
+        
+        if not ticket_channels:
+            embed = discord.Embed(
+                title="🎯 **Ticket Manager**",
+                description="✨ **No active tickets found!**\n\nAll tickets have been resolved. Great job, team!",
+                color=0x00d4aa
+            )
+            await interaction.response.send_message(embed=embed)
+            return
+        
+        # Create elegant management embed
+        embed = discord.Embed(
+            title="🎯 **Advanced Ticket Manager**",
+            description=f"**{len(ticket_channels)} active tickets** requiring attention",
+            color=0x7c3aed,
+            timestamp=datetime.now()
+        )
+        
+        # Group tickets by priority
+        urgent_tickets = [t for t in ticket_channels if t["priority"] == "🔴 Urgent"]
+        high_tickets = [t for t in ticket_channels if t["priority"] == "🟠 High"]
+        medium_tickets = [t for t in ticket_channels if t["priority"] == "🟡 Medium"]
+        low_tickets = [t for t in ticket_channels if t["priority"] == "🟢 Low"]
+        
+        # Add priority sections
+        if urgent_tickets:
+            urgent_text = ""
+            for ticket in urgent_tickets[:3]:  # Show top 3
+                time_ago = f"<t:{int(ticket['created'].timestamp())}:R>"
+                urgent_text += f"{ticket['status_color']} **{ticket['user']}** • {time_ago}\n└ [{ticket['name'][:30]}...]({ticket['link']})\n\n"
+            
+            embed.add_field(
+                name="🔴 **Urgent Priority** (Immediate Action)",
+                value=urgent_text or "None",
+                inline=False
+            )
+        
+        if high_tickets:
+            high_text = ""
+            for ticket in high_tickets[:3]:
+                time_ago = f"<t:{int(ticket['created'].timestamp())}:R>"
+                high_text += f"{ticket['status_color']} **{ticket['user']}** • {time_ago}\n└ [{ticket['name'][:30]}...]({ticket['link']})\n\n"
+            
+            embed.add_field(
+                name="🟠 **High Priority** (Same Day Response)",
+                value=high_text or "None",
+                inline=True
+            )
+        
+        if medium_tickets or low_tickets:
+            other_text = ""
+            for ticket in (medium_tickets + low_tickets)[:4]:
+                time_ago = f"<t:{int(ticket['created'].timestamp())}:R>"
+                other_text += f"{ticket['status_color']} **{ticket['user']}** • {time_ago}\n└ {ticket['priority']}\n\n"
+            
+            embed.add_field(
+                name="📋 **Standard Priority**",
+                value=other_text or "None",
+                inline=True
+            )
+        
+        # Quick stats
+        claimed_count = len([t for t in ticket_channels if t["status"] != "⏳ Open"])
+        open_count = len(ticket_channels) - claimed_count
+        
+        embed.add_field(
+            name="📊 **Quick Stats**",
+            value=f"**🔒 Claimed:** {claimed_count}\n**⏳ Open:** {open_count}\n**🎯 Total:** {len(ticket_channels)}",
+            inline=True
+        )
+        
+        embed.set_footer(text="🎯 Use /ticketdashboard for detailed analytics")
         embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
         
         await interaction.response.send_message(embed=embed)

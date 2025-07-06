@@ -588,7 +588,7 @@ class Economy(commands.Cog):
                     options=[
                         discord.SelectOption(
                             label=f"{job['name']} ({job['tier_name']})",
-                            description=f"💰 {job['min_pay']}-{job['max_pay']} coins • {job['description']}",
+                            description=f"💰 {job['min_pay']}-{job['max_pay']} coins",
                             emoji=job.get("emoji", "💼"),
                             value=str(i)
                         ) for i, job in enumerate(available_jobs[:25])  # Discord limit
