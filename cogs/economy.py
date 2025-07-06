@@ -55,20 +55,20 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Junior Developer", 
-                "emoji": "👨‍💻",
+                "emoji": "",
                 "min_pay": 25, 
                 "max_pay": 50, 
                 "description": "writing simple code",
-                "full_description": "👨‍💻 You write and test basic code, learning the fundamentals of software development.",
+                "full_description": "💻 You write and test basic code, learning the fundamentals of software development.",
                 "skill": "development"
             },
             {
                 "name": "Content Creator", 
-                "emoji": "✍️",
+                "emoji": "📝",
                 "min_pay": 30, 
                 "max_pay": 55, 
                 "description": "creating engaging content",
-                "full_description": "✍️ You create articles, posts, and media content that engages and informs audiences.",
+                "full_description": "📝 You create articles, posts, and media content that engages and informs audiences.",
                 "skill": "creative"
             },
             {
@@ -123,11 +123,11 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Senior Engineer", 
-                "emoji": "🏗️",
+                "emoji": "🔧",
                 "min_pay": 70, 
                 "max_pay": 120, 
                 "description": "architecting solutions",
-                "full_description": "🏗️ You design and implement complex systems that form the backbone of applications.",
+                "full_description": "🔧 You design and implement complex systems that form the backbone of applications.",
                 "skill": "engineering"
             },
             {
@@ -157,11 +157,11 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Engineering Director", 
-                "emoji": "🔧",
+                "emoji": "⚙️",
                 "min_pay": 120, 
                 "max_pay": 200, 
                 "description": "directing engineering efforts",
-                "full_description": "🔧 You oversee multiple engineering teams and set technical direction for the organization.",
+                "full_description": "⚙️ You oversee multiple engineering teams and set technical direction for the organization.",
                 "skill": "engineering"
             },
             {

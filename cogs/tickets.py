@@ -646,27 +646,37 @@ class TicketControlView(View):
             # Revert channel name back to original ticket format
             current_name = channel.name
             if current_name.startswith("claimed-by-"):
-                # Extract the original user info from topic or channel name and restore simple format
+                # Extract the original user info from topic and restore simple format
                 user_id = None
                 try:
-                    # Try to get user ID from topic if available
-                    topic_parts = topic.split("ID: ")
-                    if len(topic_parts) > 1:
-                        user_id = topic_parts[1].split(" ")[0]
+                    # Get original ticket creator ID from the topic
+                    if "ID: " in topic:
+                        user_id = topic.split("ID: ")[1].split(" ")[0]
+                    elif f"-{self.creator_id}" in current_name:
+                        user_id = str(self.creator_id)
                     
-                    # Create simple ticket name
+                                         # Get original username for clean format
                     if user_id:
-                        claimer_name = clean_claimer
-                        new_name = f"ticket-{claimer_name}-{user_id}"
+                        try:
+                            original_user = unclaim_interaction.client.get_user(int(user_id))
+                            if original_user:
+                                original_username = original_user.display_name.lower().replace(' ', '').replace('-', '')[:10]
+                                new_name = f"ticket-{original_username}-{user_id}"
+                            else:
+                                new_name = f"ticket-user-{user_id}"
+                        except:
+                            new_name = f"ticket-user-{user_id}"
                     else:
-                        # Fallback to generic name
-                        new_name = f"ticket-{clean_claimer}"
-                except:
-                    new_name = f"ticket-{clean_claimer}"
+                        # Fallback if no user ID found
+                        new_name = "ticket-unclaimed"
+                except Exception as e:
+                    print(f"Error reverting ticket name: {e}")
+                    new_name = "ticket-unclaimed"
                 
                 try:
                     await channel.edit(name=new_name)
-                except:
+                except Exception as e:
+                    print(f"Error editing channel name: {e}")
                     pass
             
             # Update topic to remove claim info
