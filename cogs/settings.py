@@ -137,10 +137,19 @@ class Settings(commands.Cog):
                 ticket_settings = db.get_server_settings(guild_id)
                 support_roles = ticket_settings.get('ticket_support_roles', []) if ticket_settings else []
                 
+                # Get role names for display
+                role_names = []
+                for role_id in support_roles:
+                    role = interaction.guild.get_role(role_id)
+                    if role:
+                        role_names.append(role.name)
+                    else:
+                        role_names.append("Deleted Role")
+                
                 ticket_info = [
-                    f"**Category:** {'✅ Configured' if ticket_settings and ticket_settings.get('ticket_category') else '❌ Not set'}",
                     f"**Support Roles:** {len(support_roles)} configured",
-                    f"**Status:** {'🟢 Active' if ticket_settings and ticket_settings.get('ticket_category') else '🔴 Inactive'}"
+                    f"**Role Names:** {', '.join(role_names[:3])}{'...' if len(role_names) > 3 else ''}" if role_names else "No roles configured",
+                    f"**Status:** {'🟢 Active' if support_roles else '🔴 Inactive'}"
                 ]
                 
                 embed.add_field(name="🎫 **Ticket System**", value="\n".join(ticket_info), inline=False)
@@ -153,10 +162,10 @@ class Settings(commands.Cog):
                 if key == "ticket_category":
                     try:
                         ticket_config = db.get_server_settings(guild_id)
-                        if not (ticket_config and ticket_config.get('ticket_category')):
-                            not_configured.append(name)
+                        if not (ticket_config and ticket_config.get('ticket_support_roles')):
+                            not_configured.append("🎫 Ticket Support Roles")
                     except:
-                        not_configured.append(name)
+                        not_configured.append("🎫 Ticket Support Roles")
                 else:
                     if not db.get_guild_setting(guild_id, f"{key}_channel", None):
                         not_configured.append(name)
@@ -164,7 +173,7 @@ class Settings(commands.Cog):
             if not_configured:
                 embed.add_field(
                     name="💡 **Setup Suggestions**",
-                    value=f"Consider configuring: {', '.join(not_configured)}\nUse `/quicksetup` to configure them quickly!",
+                    value=f"Consider configuring: {', '.join(not_configured)}\nUse `/quicksetup` for channels and `/giveticketroleperms` for ticket roles!",
                     inline=False
                 )
             
@@ -190,7 +199,7 @@ class Settings(commands.Cog):
                        "💡 **Suggestions** - Community feedback system\n\n" +
                        "**⭐ Optional Functions:**\n" +
                        "🎉 Level Up • 👋 Welcome • ⭐ Starboard\n\n" +
-                       "**� Ticket System:** Use `/setupticket` separately",
+                       "**� Ticket System:** Use `/giveticketroleperms` to configure ticket roles",
             color=0x7c3aed,
             timestamp=datetime.now()
         )
