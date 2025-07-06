@@ -37,23 +37,126 @@ class GiveawayView(View):
             await interaction.response.send_message("✅ You've entered the giveaway! Good luck!", ephemeral=True)
 
 class ShoutView(View):
-    def __init__(self, shout_data):
+    def __init__(self, shout_data, original_message=None):
         super().__init__(timeout=None)
         self.shout_data = shout_data
         self.participants = set()
+        self.original_message = original_message
+        self.start_time = datetime.now()
+
+    def set_message(self, message):
+        """Set the original message object for editing"""
+        self.original_message = message
+
+    def parse_time_string(self, time_str):
+        """Parse time strings like '5m', '1h', '2h30m', '1d' etc."""
+        if not time_str:
+            return None
+            
+        time_str = time_str.lower().strip()
+        total_seconds = 0
+        
+        # Extract days
+        if 'd' in time_str:
+            days_part = time_str.split('d')[0]
+            if days_part.isdigit():
+                total_seconds += int(days_part) * 86400
+            time_str = time_str.split('d', 1)[1] if 'd' in time_str else ''
+        
+        # Extract hours  
+        if 'h' in time_str:
+            hours_part = time_str.split('h')[0]
+            if hours_part.isdigit():
+                total_seconds += int(hours_part) * 3600
+            time_str = time_str.split('h', 1)[1] if 'h' in time_str else ''
+            
+        # Extract minutes
+        if 'm' in time_str:
+            minutes_part = time_str.split('m')[0]
+            if minutes_part.isdigit():
+                total_seconds += int(minutes_part) * 60
+                
+        return total_seconds if total_seconds > 0 else None
 
     @discord.ui.button(label="🔥 Join Event", style=discord.ButtonStyle.primary, emoji="🚀")
     async def join_event(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = interaction.user.id
         if user_id in self.participants:
             await interaction.response.send_message("❌ You're already participating in this event!", ephemeral=True)
-        else:
-            self.participants.add(user_id)
-            await interaction.response.send_message(f"✅ You've joined **{self.shout_data['title']}**! Get ready!", ephemeral=True)
+            return
+        
+        self.participants.add(user_id)
+        await interaction.response.send_message(f"✅ You've joined **{self.shout_data['title']}**! Get ready! 🎉", ephemeral=True)
+        
+        # Update the embed with live participants visible to everyone
+        await self.update_message_with_participants(interaction)
+
+    @discord.ui.button(label="❌ Leave Event", style=discord.ButtonStyle.secondary, emoji="👋")
+    async def leave_event(self, interaction: discord.Interaction, button: discord.ui.Button):
+        user_id = interaction.user.id
+        if user_id not in self.participants:
+            await interaction.response.send_message("❌ You're not participating in this event!", ephemeral=True)
+            return
+        
+        self.participants.discard(user_id)
+        await interaction.response.send_message(f"👋 You've left **{self.shout_data['title']}**. You can rejoin anytime!", ephemeral=True)
+        
+        # Update the embed with live participants visible to everyone
+        await self.update_message_with_participants(interaction)
+
+    @discord.ui.button(label="⏰ Set Time", style=discord.ButtonStyle.secondary, emoji="⏰")
+    async def set_event_time(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Only allow event organizers to set time
+        user_roles = [role.name for role in interaction.user.roles]
+        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+            await interaction.response.send_message("❌ Only event organizers can set event times!", ephemeral=True)
+            return
+        
+        class TimeModal(discord.ui.Modal):
+            def __init__(self, shout_view):
+                super().__init__(title="⏰ Set Event Time")
+                self.shout_view = shout_view
+                
+            time_input = discord.ui.TextInput(
+                label="Event Time",
+                placeholder="Examples: '1h', '30m', '2h30m', '1d', 'now'",
+                max_length=50,
+                required=True
+            )
             
-            # Update the embed with new participant names (live update)
+            async def on_submit(self, modal_interaction):
+                time_str = self.time_input.value.strip().lower()
+                
+                if time_str == "now":
+                    event_time = datetime.now()
+                    time_display = "🔴 **LIVE NOW**"
+                else:
+                    duration = self.shout_view.parse_time_string(time_str)
+                    if not duration:
+                        await modal_interaction.response.send_message("❌ Invalid time format! Use examples like: 1h, 30m, 2h30m, 1d", ephemeral=True)
+                        return
+                    
+                    event_time = datetime.now() + timedelta(seconds=duration)
+                    time_display = f"⏰ <t:{int(event_time.timestamp())}:F>\n🕐 <t:{int(event_time.timestamp())}:R>"
+                
+                self.shout_view.shout_data['event_time'] = event_time
+                self.shout_view.shout_data['time_display'] = time_display
+                
+                await modal_interaction.response.send_message(f"✅ Event time set to: {time_display}", ephemeral=True)
+                await self.shout_view.update_message_with_participants(modal_interaction)
+        
+        modal = TimeModal(self)
+        await interaction.response.send_modal(modal)
+
+    async def update_message_with_participants(self, interaction):
+        """Update the original message with current participants - visible to everyone"""
+        if not self.original_message:
+            return
+        
+        try:
+            # Get participant names (show more participants with better formatting)
             participant_names = []
-            for p_id in list(self.participants)[:10]:  # Show max 10 names to avoid embed limits
+            for p_id in list(self.participants):
                 try:
                     user = interaction.client.get_user(p_id)
                     if user:
@@ -63,31 +166,85 @@ class ShoutView(View):
                 except:
                     participant_names.append(f"User {p_id}")
             
-            if len(self.participants) > 10:
-                participant_display = ", ".join(participant_names) + f" and {len(self.participants) - 10} more..."
+            # Format participants display
+            if len(participant_names) == 0:
+                participant_display = "*No participants yet - be the first to join!*"
+            elif len(participant_names) <= 15:
+                participant_display = "• " + "\n• ".join(participant_names)
             else:
-                participant_display = ", ".join(participant_names) if participant_names else "None yet"
+                shown_names = participant_names[:15]
+                participant_display = "• " + "\n• ".join(shown_names) + f"\n*...and {len(participant_names) - 15} more participants*"
             
+            # Create updated embed with modern design
             embed = discord.Embed(
-                title=f"📢 {self.shout_data['title']}",
+                title=f"📢 **{self.shout_data['title']}**",
                 description=self.shout_data['description'],
-                color=0xff6b6b,
+                color=0x00d4aa,  # Modern teal color
                 timestamp=datetime.now()
             )
-            embed.add_field(name="🎯 Host", value=self.shout_data.get('host', 'Unknown'), inline=True)
-            embed.add_field(name="🤝 Co-Host", value=self.shout_data.get('co_host', 'None'), inline=True)
-            embed.add_field(name="⚕️ Medic", value=self.shout_data.get('medic', 'None'), inline=True)
-            embed.add_field(name="🗺️ Guide", value=self.shout_data.get('guide', 'None'), inline=True)
-            embed.add_field(name="👥 Participants", value=f"**{len(self.participants)} joined**", inline=True)
-            embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
-            embed.add_field(name="🔥 Live Participants", value=participant_display, inline=False)
-            embed.set_footer(text="Click the button below to join!")
             
-            # Update the message
-            try:
-                await interaction.edit_original_response(embed=embed, view=self)
-            except:
-                pass
+            # Event details with better formatting
+            event_info = []
+            if self.shout_data.get('host') != 'None':
+                event_info.append(f"🎯 **Host:** {self.shout_data['host']}")
+            if self.shout_data.get('co_host') != 'None':
+                event_info.append(f"🤝 **Co-Host:** {self.shout_data['co_host']}")
+            if self.shout_data.get('medic') != 'None':
+                event_info.append(f"⚕️ **Medic:** {self.shout_data['medic']}")
+            if self.shout_data.get('guide') != 'None':
+                event_info.append(f"🗺️ **Guide:** {self.shout_data['guide']}")
+                
+            if event_info:
+                embed.add_field(
+                    name="👥 **Event Team**",
+                    value="\n".join(event_info),
+                    inline=True
+                )
+            
+            # Time information
+            time_info = []
+            if 'time_display' in self.shout_data:
+                time_info.append(self.shout_data['time_display'])
+            else:
+                time_info.append(f"📅 Created: <t:{int(self.start_time.timestamp())}:R>")
+                
+            embed.add_field(
+                name="⏰ **Event Time**",
+                value="\n".join(time_info),
+                inline=True
+            )
+            
+            # Participants count with icon
+            embed.add_field(
+                name="� **Participation**",
+                value=f"👥 **{len(self.participants)}** joined\n🎯 Ready for action!",
+                inline=True
+            )
+            
+            # Live participants list - visible to everyone
+            embed.add_field(
+                name="🔥 **Live Participants**",
+                value=participant_display,
+                inline=False
+            )
+            
+            # Add motivational footer
+            if len(self.participants) == 0:
+                footer_text = "🚀 Be the first to join this epic event!"
+            elif len(self.participants) < 5:
+                footer_text = f"🎉 {len(self.participants)} brave souls have joined! Who's next?"
+            else:
+                footer_text = f"🔥 {len(self.participants)} participants and counting! The hype is real!"
+                
+            embed.set_footer(text=footer_text)
+            
+            # Update the original message visible to everyone
+            await self.original_message.edit(embed=embed, view=self)
+            
+        except Exception as e:
+            print(f"Error updating shout message: {e}")
+            # Fallback - try to send a new message if editing fails
+            pass
 
 GUILD_ID = 1370009417726169250
 
@@ -552,8 +709,6 @@ class Community(commands.Cog):
             error_embed.set_footer(text="💫 If this persists, contact an administrator")
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-
-
     @app_commands.command(name="shout", description="Create a detailed event announcement with live participant tracking")
     @app_commands.describe(
         title="Event title",
@@ -581,24 +736,60 @@ class Community(commands.Cog):
                 'guide': guide or 'None'
             }
             
+            # Create initial embed with modern design
             embed = discord.Embed(
-                title=f"📢 {title}",
+                title=f"📢 **{title}**",
                 description=description,
-                color=0xff6b6b,
+                color=0x00d4aa,  # Modern teal color
                 timestamp=datetime.now()
             )
-            embed.add_field(name="🎯 Host", value=host, inline=True)
-            embed.add_field(name="🤝 Co-Host", value=co_host or 'None', inline=True)
-            embed.add_field(name="⚕️ Medic", value=medic or 'None', inline=True)
-            embed.add_field(name="🗺️ Guide", value=guide or 'None', inline=True)
-            embed.add_field(name="👥 Participants", value="**0 joined**", inline=True)
-            embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
-            embed.add_field(name="🔥 Live Participants", value="None yet - be the first to join!", inline=False)
-            embed.set_author(name=f"Event by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="Click the button below to join!")
             
+            # Event details
+            event_info = []
+            if host != 'None':
+                event_info.append(f"🎯 **Host:** {host}")
+            if co_host and co_host != 'None':
+                event_info.append(f"🤝 **Co-Host:** {co_host}")
+            if medic and medic != 'None':
+                event_info.append(f"⚕️ **Medic:** {medic}")
+            if guide and guide != 'None':
+                event_info.append(f"🗺️ **Guide:** {guide}")
+                
+            if event_info:
+                embed.add_field(
+                    name="👥 **Event Team**",
+                    value="\n".join(event_info),
+                    inline=True
+                )
+            
+            embed.add_field(
+                name="⏰ **Event Time**",
+                value=f"📅 Created: <t:{int(datetime.now().timestamp())}:R>",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="� **Participation**",
+                value=f"👥 **0** joined\n🎯 Ready for action!",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="�🔥 **Live Participants**",
+                value="*No participants yet - be the first to join!*",
+                inline=False
+            )
+            
+            embed.set_author(name=f"Event by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="🚀 Be the first to join this epic event!")
+            
+            # Create view and send message
             view = ShoutView(shout_data)
-            await interaction.response.send_message(embed=embed, view=view)
+            message = await interaction.response.send_message(embed=embed, view=view)
+            
+            # Get the message object and set it in the view for editing
+            msg = await interaction.original_response()
+            view.set_message(msg)
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error creating shout: {str(e)}", ephemeral=True)

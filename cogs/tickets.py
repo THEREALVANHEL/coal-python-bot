@@ -216,23 +216,23 @@ class TicketSubcategorySelect(Select):
 
 class TicketCreationModal(Modal):
     def __init__(self, category_key: str, category_info: dict, subcategory: str):
-        super().__init__(title=f"🎫 Create {category_info['name']} Ticket")
+        super().__init__(title=f"✨ Create {category_info['name']} Ticket")
         self.category_key = category_key
         self.category_info = category_info
         self.subcategory = subcategory
         
         self.title_input = TextInput(
-            label="🏷️ Ticket Title",
-            placeholder="Brief, descriptive title for your ticket",
+            label="✨ Ticket Title",
+            placeholder="Brief, descriptive title for your request",
             max_length=100,
             required=True
         )
         
         self.description_input = TextInput(
-            label="📝 Detailed Description",
-            placeholder="Please provide as much detail as possible...",
+            label="� Detailed Description",
+            placeholder="Provide clear details about your request. The more specific, the better we can help!",
             style=discord.TextStyle.paragraph,
-            max_length=1000,
+            max_length=1500,
             required=True
         )
         
@@ -271,25 +271,28 @@ class TicketCreationModal(Modal):
                     value="Please close your existing ticket first or continue the conversation there.",
                     inline=False
                 )
+                embed.set_footer(text="✨ One ticket at a time for better organization")
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             # Create category if it doesn't exist
-            category_name = "🎫 Active Tickets"
+            category_name = "✨ Support Hub"
             category = discord.utils.get(guild.categories, name=category_name)
             if not category:
                 try:
-                    category = await guild.create_category(category_name)
+                    overwrites = {
+                        guild.default_role: discord.PermissionOverwrite(read_messages=False)
+                    }
+                    category = await guild.create_category(category_name, overwrites=overwrites)
                 except discord.Forbidden:
-                    # If can't create category, create in general
                     category = None
             
-            # Create unique channel name
+            # Create unique channel name with elegant formatting
             safe_title = "".join(c for c in self.title_input.value if c.isalnum() or c in (' ', '-')).strip()
-            safe_title = safe_title.replace(' ', '-')[:20]  # Limit length
+            safe_title = safe_title.replace(' ', '-')[:25]  # Slightly longer for clarity
             channel_name = f"ticket-{user.display_name.lower().replace(' ', '-')}-{safe_title}-{user.id}"
             
-            # Set up permissions
+            # Enhanced permissions with proper hierarchy
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),
                 user: discord.PermissionOverwrite(
@@ -297,7 +300,8 @@ class TicketCreationModal(Modal):
                     send_messages=True,
                     embed_links=True,
                     attach_files=True,
-                    read_message_history=True
+                    read_message_history=True,
+                    use_external_emojis=True
                 ),
                 guild.me: discord.PermissionOverwrite(
                     read_messages=True,
@@ -306,7 +310,8 @@ class TicketCreationModal(Modal):
                     embed_links=True,
                     attach_files=True,
                     read_message_history=True,
-                    manage_channels=True
+                    manage_channels=True,
+                    use_external_emojis=True
                 )
             }
             
@@ -324,10 +329,12 @@ class TicketCreationModal(Modal):
                         manage_messages=True,
                         embed_links=True,
                         attach_files=True,
-                        read_message_history=True
+                        read_message_history=True,
+                        use_external_emojis=True,
+                        mention_everyone=True
                     )
             
-            # Also add admin roles as fallback
+            # Also add admin roles as fallback with premium perms
             for role in guild.roles:
                 if any(name in role.name.lower() for name in ["admin", "mod", "staff", "support", "helper"]):
                     overwrites[role] = discord.PermissionOverwrite(
@@ -336,80 +343,130 @@ class TicketCreationModal(Modal):
                         manage_messages=True,
                         embed_links=True,
                         attach_files=True,
-                        read_message_history=True
+                        read_message_history=True,
+                        use_external_emojis=True,
+                        mention_everyone=True
                     )
             
-            # Create ticket channel
+            # Create ticket channel with elegant topic
             ticket_channel = await guild.create_text_channel(
                 name=channel_name,
                 category=category,
                 overwrites=overwrites,
-                topic=f"{self.category_info['emoji']} {self.category_info['name']} - {self.subcategory} | {user.display_name} | {self.title_input.value}"
+                topic=f"✨ {self.category_info['emoji']} {self.category_info['name']} • {self.subcategory} • {user.display_name} • {self.title_input.value} • Created: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             )
             
-            # Get priority color
+            # Get priority color with elegant scheme
             priority = self.priority_input.value.lower() if self.priority_input.value else "low"
             priority_colors = {
-                "low": 0x28a745,
-                "medium": 0xffc107,
-                "high": 0xff6b6b,
-                "urgent": 0xdc3545
+                "low": 0x28a745,     # Elegant green
+                "medium": 0xffc107,  # Professional yellow  
+                "high": 0xff6b6b,    # Attention orange-red
+                "urgent": 0xe74c3c   # Critical red
             }
             priority_color = priority_colors.get(priority, 0x28a745)
             
-            # Create welcome embed
+            # Priority emoji mapping
+            priority_emojis = {
+                "low": "🟢",
+                "medium": "🟡", 
+                "high": "🟠",
+                "urgent": "🔴"
+            }
+            priority_emoji = priority_emojis.get(priority, "🟢")
+            
+            # Create premium welcome embed with sophisticated design
             welcome_embed = discord.Embed(
-                title=f"🎫 **{self.category_info['name']} Ticket Created**",
-                description=f"**📋 Title:** {self.title_input.value}\n**📂 Category:** {self.category_info['name']}\n**🏷️ Subcategory:** {self.subcategory}\n**⚡ Priority:** {priority.title()}",
+                title=f"✨ **{self.category_info['name']} Ticket**",
+                description=f"**{self.title_input.value}**\n\n{self.description_input.value}",
                 color=priority_color,
                 timestamp=datetime.now()
             )
             
-            welcome_embed.add_field(
-                name="📝 **Description**",
-                value=self.description_input.value,
-                inline=False
-            )
+            # Elegant ticket information panel
+            ticket_info = []
+            ticket_info.append(f"**📂 Category:** {self.category_info['name']}")
+            ticket_info.append(f"**🏷️ Type:** {self.subcategory}")
+            ticket_info.append(f"**{priority_emoji} Priority:** {priority.title()}")
+            ticket_info.append(f"**📊 Status:** 🟢 **Open & Active**")
             
             welcome_embed.add_field(
-                name="👤 **Created by**",
-                value=f"{user.mention} ({user.display_name})",
+                name="📋 **Ticket Information**",
+                value="\n".join(ticket_info),
                 inline=True
             )
             
+            # User information with style
+            user_info = []
+            user_info.append(f"**� Creator:** {user.mention}")
+            user_info.append(f"**🎯 Display Name:** {user.display_name}")
+            user_info.append(f"**🆔 User ID:** `{user.id}`")
+            if user.joined_at:
+                user_info.append(f"**📅 Joined:** <t:{int(user.joined_at.timestamp())}:R>")
+            
             welcome_embed.add_field(
-                name="📊 **Status**",
-                value="🟢 **Open**",
+                name="� **User Details**",
+                value="\n".join(user_info),
                 inline=True
             )
             
+            # Response time expectations with professional touch
+            response_times = {
+                "urgent": "⚡ Within 1 hour",
+                "high": "🔥 Within 4 hours", 
+                "medium": "⏰ Within 24 hours",
+                "low": "📅 Within 48 hours"
+            }
+            
             welcome_embed.add_field(
-                name="💡 **Tips for faster support**",
-                value="• Be specific about your issue\n• Provide screenshots if helpful\n• Stay patient and respectful\n• Check back regularly for updates",
+                name="⏱️ **Expected Response**",
+                value=response_times.get(priority, "� Within 48 hours"),
+                inline=True
+            )
+            
+            # Professional tips section
+            welcome_embed.add_field(
+                name="� **Pro Tips for Faster Support**",
+                value="• Be specific and detailed about your issue\n• Include screenshots or examples when helpful\n• Stay patient and check back regularly\n• Use ticket controls below to manage your request",
                 inline=False
             )
             
             welcome_embed.set_thumbnail(url=user.display_avatar.url)
-            welcome_embed.set_footer(text=f"Ticket ID: {ticket_channel.id} • Priority: {priority.title()}")
+            welcome_embed.set_footer(text=f"✨ Ticket ID: {ticket_channel.id} • Premium Support Experience")
             
-            # Create ticket controls
+            # Create enhanced ticket controls with better organization
             control_view = TicketControlView(user.id, self.category_key, self.subcategory)
             
-            # Send welcome message
+            # Professional welcome message with role pings
             support_role_mentions = []
             for role_id in ticket_support_roles:
                 role = guild.get_role(role_id)
                 if role:
                     support_role_mentions.append(role.mention)
             
+            # Elegant welcome message
+            welcome_content = f"""
+� **Welcome to Premium Support, {user.mention}!**
+
+Your **{self.category_info['name']}** ticket has been created with **{priority.title()}** priority.
+Our expert support team will assist you with your **{self.subcategory}** request shortly.
+
+{'🔔 **Staff Alert:** ' + ' '.join(support_role_mentions) if support_role_mentions else '🔔 **Our support team has been notified about your ticket.**'}
+
+✨ *Thank you for choosing our premium support experience!*
+            """.strip()
+            
             welcome_msg = await ticket_channel.send(
-                content=f"🎉 **Welcome {user.mention}!**\n\nYour **{self.category_info['name']}** ticket has been created successfully!\nOur support team will be with you shortly to assist with your **{self.subcategory}** request.\n\n**🔔 Staff Notification:** {' '.join(support_role_mentions) if support_role_mentions else 'Staff have been notified about your ticket.'}",
+                content=welcome_content,
                 embed=welcome_embed,
                 view=control_view
             )
             
-            # Pin the message
-            await welcome_msg.pin()
+            # Pin the message for easy access
+            try:
+                await welcome_msg.pin()
+            except:
+                pass
             
             # Log ticket creation
             try:
@@ -417,42 +474,46 @@ class TicketCreationModal(Modal):
             except:
                 pass
             
-            # Success response
+            # Elegant success response
             success_embed = discord.Embed(
-                title="✅ **Ticket Created Successfully!**",
-                description=f"Your **{self.category_info['name']}** ticket has been created with **{priority.title()}** priority.",
+                title="✨ **Ticket Created Successfully!**",
+                description=f"Your premium **{self.category_info['name']}** ticket is now active.",
                 color=0x00d4aa
             )
+            
             success_embed.add_field(
-                name="🎫 **Your Ticket**",
-                value=f"**Channel:** {ticket_channel.mention}\n**Title:** {self.title_input.value}\n**Category:** {self.subcategory}",
+                name="🎫 **Your Ticket Details**",
+                value=f"**Channel:** {ticket_channel.mention}\n**Title:** {self.title_input.value}\n**Category:** {self.subcategory}\n**Priority:** {priority_emoji} {priority.title()}",
                 inline=False
             )
+            
             success_embed.add_field(
-                name="⏱️ **Expected Response Time**",
-                value=f"**{priority.title()} Priority:** {'Within 1 hour' if priority == 'urgent' else 'Within 4 hours' if priority == 'high' else 'Within 24 hours' if priority == 'medium' else 'Within 48 hours'}",
+                name="⏱️ **What Happens Next**",
+                value=f"• Our team will respond within the expected timeframe\n• You'll receive expert assistance for your request\n• Use the ticket controls to manage your ticket\n• Check {ticket_channel.mention} for updates",
                 inline=False
             )
-            success_embed.set_footer(text="💫 Thank you for using our support system!")
+            
+            success_embed.set_footer(text="✨ Premium Support • We're here to help!")
             
             await interaction.response.send_message(embed=success_embed, ephemeral=True)
             
         except Exception as e:
             error_embed = discord.Embed(
                 title="❌ **Ticket Creation Failed**",
-                description="Sorry, we couldn't create your ticket. Please try again or contact staff directly.",
+                description="We encountered an issue creating your ticket. Please try again.",
                 color=0xff6b6b
             )
             error_embed.add_field(
-                name="🔧 **Troubleshooting**",
-                value="• Check that you don't already have an open ticket\n• Ensure the bot has proper permissions\n• Try again in a few moments",
+                name="🔧 **Troubleshooting Steps**",
+                value="• Ensure you don't have an existing open ticket\n• Verify the bot has proper permissions\n• Try again in a few moments\n• Contact staff directly if the issue persists",
                 inline=False
             )
             error_embed.add_field(
                 name="🔍 **Error Details**",
-                value=f"```{str(e)[:100]}```",
+                value=f"```{str(e)[:150]}...```",
                 inline=False
             )
+            error_embed.set_footer(text="🛠️ Technical Support")
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
 class TicketControlView(View):
@@ -484,7 +545,7 @@ class TicketControlView(View):
         
         return False
 
-    @discord.ui.button(label="� Claim Ticket", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="👤 Claim Ticket", style=discord.ButtonStyle.success)
     async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             embed = discord.Embed(
@@ -564,7 +625,7 @@ class TicketControlView(View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
 
-    @discord.ui.button(label="�� Close Ticket", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🟢 Close Ticket", style=discord.ButtonStyle.danger)
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             embed = discord.Embed(
