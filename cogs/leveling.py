@@ -540,22 +540,34 @@ class Leveling(commands.Cog):
                 
                 # Add promotion progress if not at max tier
                 if job_tier != "legendary":
-                    # Import the job tiers from economy
-                    from cogs.economy import JOB_TIERS
-                    if job_tier in JOB_TIERS:
-                        promotion_requirement = JOB_TIERS[job_tier]["promotion_requirement"]
-                        works_needed = max(0, promotion_requirement - successful_works)
+                    try:
+                        # Define job tiers locally to avoid circular import
+                        JOB_TIERS = {
+                            "entry": {"promotion_requirement": 10},
+                            "junior": {"promotion_requirement": 25},
+                            "mid": {"promotion_requirement": 60},
+                            "senior": {"promotion_requirement": 150},
+                            "executive": {"promotion_requirement": 500},
+                            "legendary": {"promotion_requirement": 9999}
+                        }
                         
-                        if works_needed == 0:
-                            promotion_status = "🎉 **PROMOTION READY!**"
-                        else:
-                            promotion_status = f"📈 {works_needed} more successful works needed"
-                        
-                        embed.add_field(
-                            name="🎯 Next Promotion",
-                            value=promotion_status,
-                            inline=True
-                        )
+                        if job_tier in JOB_TIERS:
+                            promotion_requirement = JOB_TIERS[job_tier]["promotion_requirement"]
+                            works_needed = max(0, promotion_requirement - successful_works)
+                            
+                            if works_needed == 0:
+                                promotion_status = "🎉 **PROMOTION READY!**"
+                            else:
+                                promotion_status = f"📈 {works_needed} more successful works needed"
+                            
+                            embed.add_field(
+                                name="🎯 Next Promotion",
+                                value=promotion_status,
+                                inline=True
+                            )
+                    except Exception as e:
+                        print(f"Error calculating promotion status: {e}")
+                        # Continue without promotion info
             else:
                 embed.add_field(
                     name="💼 Career Status",
