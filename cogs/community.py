@@ -696,9 +696,11 @@ class Community(commands.Cog):
 
             # Check for URLs and add buttons if found
             urls = extract_urls(response.text)
-            view = LinkView(urls) if urls else None
-
-            await interaction.followup.send(embed=embed, view=view)
+            if urls:
+                view = LinkView(urls)
+                await interaction.followup.send(embed=embed, view=view)
+            else:
+                await interaction.followup.send(embed=embed)
 
         except Exception as e:
             error_embed = discord.Embed(

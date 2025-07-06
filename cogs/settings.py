@@ -176,13 +176,13 @@ class Settings(commands.Cog):
         # Respond immediately to prevent timeout
         embed = discord.Embed(
             title="🚀 **Enhanced Quick Setup Wizard**",
-            description="Configure all essential bot functions with just a few clicks!\n\n" +
+            description="Configure essential bot functions with just a few clicks!\n\n" +
                        "**🎯 Essential Functions:**\n" +
                        "📋 **Mod Logs** - Complete server activity tracking\n" +
-                       "💡 **Suggestions** - Community feedback system\n" +
-                       "🎫 **Ticket System** - Professional support center\n\n" +
+                       "💡 **Suggestions** - Community feedback system\n\n" +
                        "**⭐ Optional Functions:**\n" +
-                       "🎉 Level Up • 👋 Welcome • ⭐ Starboard",
+                       "🎉 Level Up • 👋 Welcome • ⭐ Starboard\n\n" +
+                       "**� Ticket System:** Use `/setupticket` separately",
             color=0x7c3aed,
             timestamp=datetime.now()
         )
@@ -207,9 +207,7 @@ class Settings(commands.Cog):
             async def setup_suggest(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.send_modal(ChannelModal("suggest", "Suggestions"))
 
-            @discord.ui.button(label="🎫 Ticket Category", style=discord.ButtonStyle.primary, emoji="🎫")
-            async def setup_tickets(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.response.send_modal(TicketCategoryModal())
+
 
             @discord.ui.button(label="🎉 Level Up", style=discord.ButtonStyle.secondary, emoji="🎉")
             async def setup_levelup(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -284,81 +282,7 @@ class Settings(commands.Cog):
                 except Exception as e:
                     await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
 
-        class TicketCategoryModal(discord.ui.Modal):
-            def __init__(self):
-                super().__init__(title="🎫 Setup Ticket System")
 
-            category_input = discord.ui.TextInput(
-                label="📂 Category ID or Name",
-                placeholder="Enter category ID or name where ticket channels will be created",
-                min_length=1,
-                max_length=100
-            )
-
-            support_roles_input = discord.ui.TextInput(
-                label="👥 Support Role IDs (Optional)",
-                placeholder="Enter role IDs separated by commas (e.g., 123456789, 987654321)",
-                required=False,
-                max_length=500
-            )
-
-            async def on_submit(self, interaction: discord.Interaction):
-                try:
-                    category_text = self.category_input.value.strip()
-                    
-                    # Find category
-                    category = None
-                    if category_text.isdigit():
-                        category = interaction.guild.get_channel(int(category_text))
-                    else:
-                        category = discord.utils.get(interaction.guild.categories, name=category_text)
-                    
-                    if not category or not isinstance(category, discord.CategoryChannel):
-                        await interaction.response.send_message("❌ Category not found! Please provide a valid category channel.", ephemeral=True)
-                        return
-                    
-                    # Parse support roles
-                    support_role_ids = []
-                    if self.support_roles_input.value:
-                        for role_id_str in self.support_roles_input.value.split(','):
-                            role_id_str = role_id_str.strip()
-                            if role_id_str.isdigit():
-                                role_id = int(role_id_str)
-                                role = interaction.guild.get_role(role_id)
-                                if role:
-                                    support_role_ids.append(role_id)
-                    
-                    # Save settings
-                    db.update_server_setting(interaction.guild.id, 'ticket_category', category.id)
-                    db.update_server_setting(interaction.guild.id, 'ticket_support_roles', support_role_ids)
-                    
-                    embed = discord.Embed(
-                        title="✅ **Ticket System Configured!**",
-                        description=f"Ticket system has been set up successfully!",
-                        color=0x00d4aa,
-                        timestamp=datetime.now()
-                    )
-                    embed.add_field(
-                        name="🎫 Ticket Category",
-                        value=f"{category.mention} ({category.name})",
-                        inline=False
-                    )
-                    embed.add_field(
-                        name="👥 Support Roles",
-                        value=f"{len(support_role_ids)} role(s) configured" if support_role_ids else "None configured",
-                        inline=False
-                    )
-                    embed.add_field(
-                        name="🚀 Next Step",
-                        value="Use `/setuptickets` to create the ticket interface!",
-                        inline=False
-                    )
-                    embed.set_footer(text="🎫 Ticket system ready to use!")
-                    
-                    await interaction.response.send_message(embed=embed, ephemeral=True)
-                    
-                except Exception as e:
-                    await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
 
         view = QuickSetupView(self.bot)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
