@@ -60,38 +60,7 @@ class Cookies(commands.Cog):
         except Exception as e:
             print(f"Error updating cookie roles for {user}: {e}")
 
-    async def create_cookie_leaderboard_embed(self, page: int, members: int = 10):
-        # Use paginated leaderboard for proper pagination
-        leaderboard_data = db.get_paginated_leaderboard('cookies', page, members)
-        page_users = leaderboard_data['users']
-        total_pages = leaderboard_data['total_pages']
-        total_users = leaderboard_data['total_users']
-        
-        skip = (page - 1) * members
 
-        embed = discord.Embed(
-            title="🍪 Cookie Leaderboard",
-            color=0xdaa520,
-            timestamp=datetime.now()
-        )
-
-        leaderboard_text = []
-        for i, user_data in enumerate(page_users, start=skip + 1):
-            user_id = user_data['user_id']
-            cookies = user_data.get('cookies', 0)
-            
-            try:
-                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                username = user.display_name if hasattr(user, 'display_name') else user.name
-            except:
-                username = f"User {user_id}"
-
-            leaderboard_text.append(f"**#{i}** {username} - **{cookies:,} cookies**")
-
-        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No cookie data available!"
-        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(page_users)} of {total_users} users")
-        
-        return embed
 
     @app_commands.command(name="cookies", description="💰 Check your delicious cookie balance")
     @app_commands.describe(user="User to check cookies for")

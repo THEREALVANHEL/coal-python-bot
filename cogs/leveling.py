@@ -1,18 +1,13 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import matplotlib.pyplot as plt
-import numpy as np
-from datetime import datetime
+from discord.ui import View
 import os, sys
-import io
-from discord.ui import Button, View
+from datetime import datetime
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
-
-GUILD_ID = 1370009417726169250
 
 # XP Roles based on levels
 XP_ROLES = {
@@ -48,134 +43,77 @@ JOB_TITLES = [
     {"name": "Tech Legend", "min_level": 1000, "max_level": 9999, "promotion_bonus": 2000}
 ]
 
-class PaginationView(View):
-    def __init__(self, leaderboard_type, total_pages, current_page, bot):
+class LeaderboardView(View):
+    def __init__(self, cog, leaderboard_type, current_page=1):
         super().__init__(timeout=300)
+        self.cog = cog
         self.leaderboard_type = leaderboard_type
-        self.total_pages = total_pages
         self.current_page = current_page
-        self.bot = bot
+        self.members_per_page = 10
+        
+        # Get total pages
+        self.total_pages = self.get_total_pages()
         
         # Update button states
-        self.first_page.disabled = current_page == 1
-        self.previous_page.disabled = current_page == 1
-        self.next_page.disabled = current_page == total_pages
-        self.last_page.disabled = current_page == total_pages
+        self.update_buttons()
+
+    def get_total_pages(self):
+        """Get total number of pages for the leaderboard"""
+        try:
+            if self.leaderboard_type == "streak":
+                data = db.get_streak_leaderboard(1, self.members_per_page)
+                return data.get('total_pages', 1)
+            else:
+                # Get total count with greater than 0 for the field
+                data = db.get_paginated_leaderboard(self.leaderboard_type, 1, self.members_per_page)
+                return data.get('total_pages', 1)
+        except:
+            return 1
+
+    def update_buttons(self):
+        """Update button states based on current page"""
+        self.first_page.disabled = (self.current_page == 1)
+        self.previous_page.disabled = (self.current_page == 1)
+        self.next_page.disabled = (self.current_page >= self.total_pages)
+        self.last_page.disabled = (self.current_page >= self.total_pages)
 
     @discord.ui.button(label="⏪ First", style=discord.ButtonStyle.secondary)
     async def first_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.update_leaderboard(interaction, 1)
+        await self.change_page(interaction, 1)
 
     @discord.ui.button(label="◀️ Previous", style=discord.ButtonStyle.secondary)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.update_leaderboard(interaction, max(1, self.current_page - 1))
+        await self.change_page(interaction, max(1, self.current_page - 1))
 
     @discord.ui.button(label="▶️ Next", style=discord.ButtonStyle.secondary)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.update_leaderboard(interaction, min(self.total_pages, self.current_page + 1))
+        await self.change_page(interaction, min(self.total_pages, self.current_page + 1))
 
     @discord.ui.button(label="⏩ Last", style=discord.ButtonStyle.secondary)
     async def last_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.update_leaderboard(interaction, self.total_pages)
+        await self.change_page(interaction, self.total_pages)
 
-    async def update_leaderboard(self, interaction: discord.Interaction, page: int):
-        self.current_page = page
-        
-        # Update button states
-        self.first_page.disabled = page == 1
-        self.previous_page.disabled = page == 1
-        self.next_page.disabled = page == self.total_pages
-        self.last_page.disabled = page == self.total_pages
-
-        # Get the appropriate cog and call the leaderboard function with 10 members per page
+    async def change_page(self, interaction: discord.Interaction, new_page: int):
+        """Change to a new page"""
         try:
-            if self.leaderboard_type == "xp":
-                leveling_cog = self.bot.get_cog('Leveling')
-                embed = await leveling_cog.create_level_leaderboard_embed(page, 10)
-            elif self.leaderboard_type == "cookies":
-                cookies_cog = self.bot.get_cog('Cookies')
-                embed = await cookies_cog.create_cookie_leaderboard_embed(page, 10)
-            elif self.leaderboard_type == "coins":
-                economy_cog = self.bot.get_cog('Economy')
-                embed = await economy_cog.create_coin_leaderboard_embed(page, 10)
-            elif self.leaderboard_type == "streak":
-                leveling_cog = self.bot.get_cog('Leveling')
-                embed = await leveling_cog.create_streak_leaderboard_embed(page, 10)
-
+            self.current_page = new_page
+            self.update_buttons()
+            
+            # Get new embed
+            embed = await self.cog.create_leaderboard_embed(self.leaderboard_type, new_page, self.members_per_page)
+            
             await interaction.response.edit_message(embed=embed, view=self)
         except Exception as e:
+            print(f"Error changing page: {e}")
             error_embed = discord.Embed(
                 title="❌ Error",
                 description="Failed to update leaderboard page.",
                 color=0xff6b6b
             )
-            await interaction.response.edit_message(embed=error_embed, view=self)
-
-    async def create_level_leaderboard_embed(self, page: int, members: int = 10):
-        # Use paginated leaderboard for proper pagination
-        leaderboard_data = db.get_paginated_leaderboard('xp', page, members)
-        page_users = leaderboard_data['users']
-        total_pages = leaderboard_data['total_pages']
-        total_users = leaderboard_data['total_users']
-        
-        skip = (page - 1) * members
-
-        embed = discord.Embed(
-            title="🏆 XP Leaderboard",
-            color=0x7c3aed,
-            timestamp=datetime.now()
-        )
-
-        leaderboard_text = []
-        for i, user_data in enumerate(page_users, start=skip + 1):
-            user_id = user_data['user_id']
-            xp = user_data.get('xp', 0)
-            
             try:
-                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                username = user.display_name if hasattr(user, 'display_name') else user.name
+                await interaction.response.edit_message(embed=error_embed, view=self)
             except:
-                username = f"User {user_id}"
-
-            level = self.calculate_level_from_xp(xp)
-            leaderboard_text.append(f"**#{i}** {username} - **{xp:,} XP** (Level {level})")
-
-        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No XP data available!"
-        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(page_users)} of {total_users} users")
-        
-        return embed
-
-    async def create_streak_leaderboard_embed(self, page: int, members: int = 10):
-        items_per_page = members
-        skip = (page - 1) * items_per_page
-        
-        streak_data = db.get_streak_leaderboard(page, items_per_page)
-        page_users = streak_data['users']
-        total_pages = streak_data['total_pages']
-
-        embed = discord.Embed(
-            title="🔥 Streak Leaderboard",
-            color=0xff4500,
-            timestamp=datetime.now()
-        )
-
-        leaderboard_text = []
-        for i, user_data in enumerate(page_users, start=skip + 1):
-            user_id = user_data['user_id']
-            streak = user_data.get('daily_streak', 0)
-            
-            try:
-                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                username = user.display_name if hasattr(user, 'display_name') else user.name
-            except:
-                username = f"User {user_id}"
-
-            leaderboard_text.append(f"**#{i}** {username} - **{streak} days**")
-
-        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No streak data available!"
-        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(page_users)} users")
-        
-        return embed
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
 
 class Leveling(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -255,7 +193,181 @@ class Leveling(commands.Cog):
         except Exception as e:
             print(f"Error updating cookie roles for {member}: {e}")
 
-    @app_commands.command(name="leaderboard", description="🏆 View all server leaderboards with elegant pagination")
+    async def create_leaderboard_embed(self, leaderboard_type: str, page: int, members_per_page: int = 10):
+        """Create leaderboard embed for any type"""
+        try:
+            if leaderboard_type == "xp":
+                return await self.create_xp_leaderboard_embed(page, members_per_page)
+            elif leaderboard_type == "cookies":
+                return await self.create_cookies_leaderboard_embed(page, members_per_page)
+            elif leaderboard_type == "coins":
+                return await self.create_coins_leaderboard_embed(page, members_per_page)
+            elif leaderboard_type == "streak":
+                return await self.create_streak_leaderboard_embed(page, members_per_page)
+            else:
+                raise ValueError(f"Unknown leaderboard type: {leaderboard_type}")
+        except Exception as e:
+            print(f"Error creating leaderboard embed: {e}")
+            return discord.Embed(
+                title="❌ Error",
+                description="Failed to load leaderboard data.",
+                color=0xff6b6b
+            )
+
+    async def create_xp_leaderboard_embed(self, page: int, members_per_page: int = 10):
+        """Create XP leaderboard embed"""
+        leaderboard_data = db.get_paginated_leaderboard('xp', page, members_per_page)
+        users = leaderboard_data.get('users', [])
+        total_pages = leaderboard_data.get('total_pages', 1)
+        total_users = leaderboard_data.get('total_users', 0)
+        
+        embed = discord.Embed(
+            title="🏆 XP Leaderboard",
+            color=0x7c3aed,
+            timestamp=datetime.now()
+        )
+
+        if not users:
+            embed.description = "❌ No XP data available! Start chatting to appear on the leaderboard."
+            return embed
+
+        leaderboard_text = []
+        start_rank = (page - 1) * members_per_page + 1
+
+        for i, user_data in enumerate(users):
+            rank = start_rank + i
+            user_id = user_data.get('user_id')
+            xp = user_data.get('xp', 0)
+            
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.display_name if hasattr(user, 'display_name') else user.name
+            except:
+                username = f"User {user_id}"
+
+            level = self.calculate_level_from_xp(xp)
+            leaderboard_text.append(f"**#{rank}** {username} - **{xp:,} XP** (Level {level})")
+
+        embed.description = "\n".join(leaderboard_text)
+        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(users)} of {total_users} users")
+        
+        return embed
+
+    async def create_cookies_leaderboard_embed(self, page: int, members_per_page: int = 10):
+        """Create cookies leaderboard embed"""
+        leaderboard_data = db.get_paginated_leaderboard('cookies', page, members_per_page)
+        users = leaderboard_data.get('users', [])
+        total_pages = leaderboard_data.get('total_pages', 1)
+        total_users = leaderboard_data.get('total_users', 0)
+        
+        embed = discord.Embed(
+            title="🍪 Cookie Leaderboard",
+            color=0xdaa520,
+            timestamp=datetime.now()
+        )
+
+        if not users:
+            embed.description = "❌ No cookie data available! Start collecting cookies to appear here."
+            return embed
+
+        leaderboard_text = []
+        start_rank = (page - 1) * members_per_page + 1
+
+        for i, user_data in enumerate(users):
+            rank = start_rank + i
+            user_id = user_data.get('user_id')
+            cookies = user_data.get('cookies', 0)
+            
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.display_name if hasattr(user, 'display_name') else user.name
+            except:
+                username = f"User {user_id}"
+
+            leaderboard_text.append(f"**#{rank}** {username} - **{cookies:,} 🍪**")
+
+        embed.description = "\n".join(leaderboard_text)
+        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(users)} of {total_users} users")
+        
+        return embed
+
+    async def create_coins_leaderboard_embed(self, page: int, members_per_page: int = 10):
+        """Create coins leaderboard embed"""
+        leaderboard_data = db.get_paginated_leaderboard('coins', page, members_per_page)
+        users = leaderboard_data.get('users', [])
+        total_pages = leaderboard_data.get('total_pages', 1)
+        total_users = leaderboard_data.get('total_users', 0)
+        
+        embed = discord.Embed(
+            title="🪙 Coin Leaderboard",
+            color=0xffd700,
+            timestamp=datetime.now()
+        )
+
+        if not users:
+            embed.description = "❌ No coin data available! Use `/work` to start earning coins."
+            return embed
+
+        leaderboard_text = []
+        start_rank = (page - 1) * members_per_page + 1
+
+        for i, user_data in enumerate(users):
+            rank = start_rank + i
+            user_id = user_data.get('user_id')
+            coins = user_data.get('coins', 0)
+            
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.display_name if hasattr(user, 'display_name') else user.name
+            except:
+                username = f"User {user_id}"
+
+            leaderboard_text.append(f"**#{rank}** {username} - **{coins:,} 🪙**")
+
+        embed.description = "\n".join(leaderboard_text)
+        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(users)} of {total_users} users")
+        
+        return embed
+
+    async def create_streak_leaderboard_embed(self, page: int, members_per_page: int = 10):
+        """Create streak leaderboard embed"""
+        streak_data = db.get_streak_leaderboard(page, members_per_page)
+        users = streak_data.get('users', [])
+        total_pages = streak_data.get('total_pages', 1)
+        
+        embed = discord.Embed(
+            title="� Daily Streak Leaderboard",
+            color=0xff4500,
+            timestamp=datetime.now()
+        )
+
+        if not users:
+            embed.description = "❌ No streak data available! Use `/daily` to start your streak."
+            return embed
+
+        leaderboard_text = []
+        start_rank = (page - 1) * members_per_page + 1
+
+        for i, user_data in enumerate(users):
+            rank = start_rank + i
+            user_id = user_data.get('user_id')
+            streak = user_data.get('daily_streak', 0)
+            
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                username = user.display_name if hasattr(user, 'display_name') else user.name
+            except:
+                username = f"User {user_id}"
+
+            streak_emoji = "🔥" * min(streak // 7, 5)  # Fire emoji for every 7 days
+            leaderboard_text.append(f"**#{rank}** {username} - **{streak} days** {streak_emoji}")
+
+        embed.description = "\n".join(leaderboard_text)
+        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(users)} users")
+        
+        return embed
+
+    @app_commands.command(name="leaderboard", description="🏆 View all server leaderboards with working pagination")
     @app_commands.describe(
         type="Choose leaderboard type",
         page="Page number (default: 1)"
@@ -266,95 +378,27 @@ class Leveling(commands.Cog):
         app_commands.Choice(name="🪙 Coins", value="coins"),
         app_commands.Choice(name="🔥 Daily Streaks", value="streak")
     ])
-    async def unified_leaderboard(self, interaction: discord.Interaction, 
-                                type: str = "xp", page: int = 1):
+    async def leaderboard(self, interaction: discord.Interaction, type: str = "xp", page: int = 1):
+        """Fixed leaderboard command with proper pagination"""
         try:
             if page < 1:
                 page = 1
                 
-            members = 10  # Fixed to 10 members per page
-
-            # Get leaderboard data based on type
-            if type == "xp":
-                leaderboard_data = db.get_paginated_leaderboard('xp', page, members)
-                all_users = leaderboard_data['users']
-                total_pages = leaderboard_data['total_pages']
-                embed_func = self.create_level_leaderboard_embed
-                no_data_msg = "❌ No XP data available! Start chatting to appear on the leaderboard."
-            elif type == "cookies":
-                leaderboard_data = db.get_paginated_leaderboard('cookies', page, members)
-                all_users = leaderboard_data['users']
-                total_pages = leaderboard_data['total_pages']
-                from cogs.cookies import Cookies
-                cookies_cog = self.bot.get_cog('Cookies')
-                embed_func = cookies_cog.create_cookie_leaderboard_embed if cookies_cog else None
-                no_data_msg = "❌ No cookie data available! Start collecting cookies to appear here."
-            elif type == "coins":
-                leaderboard_data = db.get_paginated_leaderboard('coins', page, members)
-                all_users = leaderboard_data['users']
-                total_pages = leaderboard_data['total_pages']
-                from cogs.economy import Economy
-                economy_cog = self.bot.get_cog('Economy')
-                embed_func = economy_cog.create_coin_leaderboard_embed if economy_cog else None
-                no_data_msg = "❌ No coin data available! Use `/work` to start earning coins."
-            elif type == "streak":
-                streak_data = db.get_streak_leaderboard(page, members)
-                total_pages = streak_data['total_pages']
-                embed_func = self.create_streak_leaderboard_embed
-                no_data_msg = "❌ No streak data available! Use `/daily` to start your streak."
-                all_users = streak_data['users']
-
-            # Validate page number
-            if page > total_pages and total_pages > 0:
-                error_embed = discord.Embed(
-                    title="❌ Page Not Found",
-                    description=f"Page **{page}** doesn't exist! Maximum page: **{total_pages}**",
-                    color=0xff6b6b
-                )
-                await interaction.response.send_message(embed=error_embed, ephemeral=True)
-                return
-
-            # Check if data exists
-            if not all_users:
-                error_embed = discord.Embed(
-                    title="📊 No Data Available",
-                    description=no_data_msg,
-                    color=0xff9966
-                )
-                error_embed.add_field(
-                    name="💡 Get Started",
-                    value="Be the first to appear on this leaderboard!",
-                    inline=False
-                )
-                await interaction.response.send_message(embed=error_embed, ephemeral=True)
-                return
-
-            # Create embed
-            if embed_func:
-                embed = await embed_func(page, members)
-            else:
-                error_embed = discord.Embed(
-                    title="❌ System Error",
-                    description="Leaderboard system temporarily unavailable.",
-                    color=0xff6b6b
-                )
-                await interaction.response.send_message(embed=error_embed, ephemeral=True)
-                return
-
-            # Add elegant branding
-            embed.set_footer(text="💫 Unified Leaderboard System • Use buttons to navigate pages")
+            # Create the leaderboard embed
+            embed = await self.create_leaderboard_embed(type, page, 10)
             
             # Create pagination view
-            view = PaginationView(type, total_pages, page, self.bot)
+            view = LeaderboardView(self, type, page)
+            
             await interaction.response.send_message(embed=embed, view=view)
 
         except Exception as e:
+            print(f"Leaderboard error: {e}")
             error_embed = discord.Embed(
-                title="❌ Oops!",
-                description="Something went wrong while loading the leaderboard. Please try again.",
+                title="❌ Leaderboard Error",
+                description="Something went wrong loading the leaderboard. Please try again.",
                 color=0xff6b6b
             )
-            error_embed.set_footer(text="If this persists, contact an administrator")
             
             if not interaction.response.is_done():
                 await interaction.response.send_message(embed=error_embed, ephemeral=True)

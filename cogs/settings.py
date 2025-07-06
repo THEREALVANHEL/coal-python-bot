@@ -173,6 +173,27 @@ class Settings(commands.Cog):
             await interaction.response.send_message("❌ You need 'Manage Server' permission to use this command!", ephemeral=True)
             return
 
+        # Respond immediately to prevent timeout
+        embed = discord.Embed(
+            title="🚀 **Enhanced Quick Setup Wizard**",
+            description="Configure all essential bot functions with just a few clicks!\n\n" +
+                       "**🎯 Essential Functions:**\n" +
+                       "📋 **Mod Logs** - Complete server activity tracking\n" +
+                       "💡 **Suggestions** - Community feedback system\n" +
+                       "🎫 **Ticket System** - Professional support center\n\n" +
+                       "**⭐ Optional Functions:**\n" +
+                       "🎉 Level Up • 👋 Welcome • ⭐ Starboard",
+            color=0x7c3aed,
+            timestamp=datetime.now()
+        )
+        embed.add_field(
+            name="💡 **Pro Tip**",
+            value="Configure essential functions first, then add optional ones based on your community needs!",
+            inline=False
+        )
+        embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed.set_footer(text="🔧 Click any button below to configure that function")
+
         class QuickSetupView(discord.ui.View):
             def __init__(self, bot):
                 super().__init__(timeout=300)
@@ -339,28 +360,111 @@ class Settings(commands.Cog):
                 except Exception as e:
                     await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
 
-        embed = discord.Embed(
-            title="🚀 **Enhanced Quick Setup Wizard**",
-            description="Configure all essential bot functions with just a few clicks!\n\n" +
-                       "**🎯 Essential Functions:**\n" +
-                       "📋 **Mod Logs** - Complete server activity tracking\n" +
-                       "💡 **Suggestions** - Community feedback system\n" +
-                       "🎫 **Ticket System** - Professional support center\n\n" +
-                       "**⭐ Optional Functions:**\n" +
-                       "🎉 Level Up • 👋 Welcome • ⭐ Starboard",
-            color=0x7c3aed,
-            timestamp=datetime.now()
-        )
-        embed.add_field(
-            name="💡 **Pro Tip**",
-            value="Configure essential functions first, then add optional ones based on your community needs!",
-            inline=False
-        )
-        embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
-        embed.set_footer(text="🔧 Click any button below to configure that function")
-        
         view = QuickSetupView(self.bot)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    @app_commands.command(name="ticketzonesetup", description="🎫 Easy setup for ticketzone channels and categories")
+    @app_commands.describe(
+        channels="List of channel IDs or names separated by commas",
+        categories="List of category IDs or names separated by commas"
+    )
+    async def ticketzonesetup(self, interaction: discord.Interaction, channels: str = None, categories: str = None):
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message("❌ You need 'Manage Server' permission to use this command!", ephemeral=True)
+            return
+
+        try:
+            ticketzone_channels = []
+            ticketzone_categories = []
+
+            # Process channels
+            if channels:
+                for channel_str in channels.split(','):
+                    channel_str = channel_str.strip()
+                    channel = None
+                    
+                    # Try to find channel by ID or name
+                    if channel_str.isdigit():
+                        channel = interaction.guild.get_channel(int(channel_str))
+                    elif channel_str.startswith('#'):
+                        channel_name = channel_str[1:]
+                        channel = discord.utils.get(interaction.guild.channels, name=channel_name)
+                    else:
+                        channel = discord.utils.get(interaction.guild.channels, name=channel_str)
+                    
+                    if channel and isinstance(channel, discord.TextChannel):
+                        ticketzone_channels.append(channel.id)
+
+            # Process categories
+            if categories:
+                for category_str in categories.split(','):
+                    category_str = category_str.strip()
+                    category = None
+                    
+                    # Try to find category by ID or name
+                    if category_str.isdigit():
+                        category = interaction.guild.get_channel(int(category_str))
+                    else:
+                        category = discord.utils.get(interaction.guild.categories, name=category_str)
+                    
+                    if category and isinstance(category, discord.CategoryChannel):
+                        ticketzone_categories.append(category.id)
+
+            # Save to database
+            if ticketzone_channels:
+                db.set_ticketzone_channels(interaction.guild.id, ticketzone_channels)
+            if ticketzone_categories:
+                db.set_ticketzone_categories(interaction.guild.id, ticketzone_categories)
+
+            # Create response embed
+            embed = discord.Embed(
+                title="� **Ticketzone Setup Complete!**",
+                description="Successfully configured ticketzone settings",
+                color=0x00d4aa,
+                timestamp=datetime.now()
+            )
+
+            if ticketzone_channels:
+                channel_mentions = []
+                for channel_id in ticketzone_channels:
+                    channel = interaction.guild.get_channel(channel_id)
+                    if channel:
+                        channel_mentions.append(channel.mention)
+                embed.add_field(
+                    name="� **Ticketzone Channels**",
+                    value=", ".join(channel_mentions),
+                    inline=False
+                )
+
+            if ticketzone_categories:
+                category_mentions = []
+                for category_id in ticketzone_categories:
+                    category = interaction.guild.get_channel(category_id)
+                    if category:
+                        category_mentions.append(f"📂 {category.name}")
+                embed.add_field(
+                    name="📂 **Ticketzone Categories**",
+                    value=", ".join(category_mentions),
+                    inline=False
+                )
+
+            if not ticketzone_channels and not ticketzone_categories:
+                embed = discord.Embed(
+                    title="ℹ️ **Ticketzone Setup**",
+                    description="No valid channels or categories were provided.",
+                    color=0xff9966
+                )
+                embed.add_field(
+                    name="� **Usage Examples**",
+                    value="**Channels:** `general, support, #help`\n**Categories:** `Support, Tickets`",
+                    inline=False
+                )
+
+            embed.set_footer(text="✨ Ticketzone configuration saved!")
+            await interaction.response.send_message(embed=embed)
+
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error setting up ticketzone: {str(e)}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Settings(bot))

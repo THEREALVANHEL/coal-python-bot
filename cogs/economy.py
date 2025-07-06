@@ -103,38 +103,7 @@ class Economy(commands.Cog):
     async def cog_load(self):
         print("[Economy] Loaded successfully.")
 
-    async def create_coin_leaderboard_embed(self, page: int, members: int = 10):
-        # Use paginated leaderboard for proper pagination
-        leaderboard_data = db.get_paginated_leaderboard('coins', page, members)
-        page_users = leaderboard_data['users']
-        total_pages = leaderboard_data['total_pages']
-        total_users = leaderboard_data['total_users']
-        
-        skip = (page - 1) * members
 
-        embed = discord.Embed(
-            title="🪙 Coin Leaderboard",
-            color=0xffd700,
-            timestamp=datetime.now()
-        )
-
-        leaderboard_text = []
-        for i, user_data in enumerate(page_users, start=skip + 1):
-            user_id = user_data['user_id']
-            coins = user_data.get('coins', 0)
-            
-            try:
-                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
-                username = user.display_name if hasattr(user, 'display_name') else user.name
-            except:
-                username = f"User {user_id}"
-
-            leaderboard_text.append(f"**#{i}** {username} - **{coins:,} coins**")
-
-        embed.description = "\n".join(leaderboard_text) if leaderboard_text else "No coin data available!"
-        embed.set_footer(text=f"Page {page}/{total_pages} • Showing {len(page_users)} of {total_users} users")
-        
-        return embed
 
     @app_commands.command(name="balance", description="💰 Check your shiny coin balance")
     @app_commands.describe(user="User to check balance for")
