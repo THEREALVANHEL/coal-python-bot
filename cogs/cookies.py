@@ -31,6 +31,91 @@ def has_admin_role(interaction: discord.Interaction) -> bool:
     user_roles = [role.name for role in interaction.user.roles]
     return any(role in ADMIN_ROLES for role in user_roles)
 
+class CustomRemovalModal(discord.ui.Modal):
+    def __init__(self, user: discord.Member, max_cookies: int):
+        super().__init__(title="🔢 Custom Cookie Removal")
+        self.user = user
+        self.max_cookies = max_cookies
+        
+        self.amount_input = discord.ui.TextInput(
+            label="Amount to Remove",
+            placeholder=f"Enter amount (1 - {max_cookies:,})",
+            max_length=10,
+            required=True
+        )
+        
+        self.reason_input = discord.ui.TextInput(
+            label="Reason (Optional)",
+            placeholder="Why are you removing these cookies?",
+            style=discord.TextStyle.paragraph,
+            max_length=200,
+            required=False
+        )
+        
+        self.add_item(self.amount_input)
+        self.add_item(self.reason_input)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            amount = int(self.amount_input.value)
+            
+            if amount <= 0 or amount > self.max_cookies:
+                embed = discord.Embed(
+                    title="❌ **Invalid Amount**",
+                    description=f"Amount must be between 1 and {self.max_cookies:,}!",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Remove the cookies
+            db.remove_cookies(self.user.id, amount)
+            new_cookies = self.max_cookies - amount
+            
+            # Update roles
+            cookies_cog = interaction.client.get_cog("Cookies")
+            if cookies_cog:
+                await cookies_cog.update_cookie_roles(self.user, new_cookies)
+            
+            # Check for role downgrades
+            role_lost = ""
+            for threshold in sorted(COOKIE_ROLES.keys(), reverse=True):
+                if new_cookies < threshold <= self.max_cookies:
+                    role_lost = f"\n💔 **Role Lost:** Below {threshold:,} cookies threshold"
+                    break
+            
+            embed = discord.Embed(
+                title="🗑️ **Custom Cookie Removal Complete**",
+                description=f"Removed **{amount:,}** cookies from {self.user.mention} 📉{role_lost}",
+                color=0xff6b6b,
+                timestamp=datetime.now()
+            )
+            embed.add_field(name="📊 Previous Balance", value=f"🍪 {self.max_cookies:,}", inline=True)
+            embed.add_field(name="➖ Amount Removed", value=f"🗑️ {amount:,}", inline=True)
+            embed.add_field(name="💰 New Balance", value=f"📉 {new_cookies:,}", inline=True)
+            
+            # Add percentage decrease
+            percentage = (amount / self.max_cookies) * 100
+            embed.add_field(name="📉 Decrease", value=f"📊 -{percentage:.1f}%", inline=True)
+            
+            if self.reason_input.value:
+                embed.add_field(name="📋 Reason", value=f"💭 {self.reason_input.value}", inline=False)
+            
+            embed.set_author(name=f"Custom removal by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="🍪 Cookie Management System • Custom action")
+            
+            await interaction.response.send_message(embed=embed)
+            
+        except ValueError:
+            embed = discord.Embed(
+                title="❌ **Invalid Input**",
+                description="Please enter a valid number!",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+
 class Cookies(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -169,51 +254,107 @@ class Cookies(commands.Cog):
             
             await self.update_cookie_roles(user, new_cookies)
             
+            # Check for milestone achievements
+            milestone_achieved = ""
+            for threshold in COOKIE_ROLES.keys():
+                if old_cookies < threshold <= new_cookies:
+                    milestone_achieved = f"\n🎉 **Milestone Achieved!** Reached {threshold:,} cookies!"
+                    break
+            
             embed = discord.Embed(
-                title="🍪 Cookies Added",
-                description=f"Added **{amount:,}** cookies to {user.mention}",
-                color=0x00ff00
+                title="🍪 **Cookie Boost Delivered!**",
+                description=f"Successfully added **{amount:,}** delicious cookies to {user.mention}! 🎉{milestone_achieved}",
+                color=0x00d4aa,
+                timestamp=datetime.now()
             )
-            embed.add_field(name="Previous", value=f"{old_cookies:,}", inline=True)
-            embed.add_field(name="New Balance", value=f"{new_cookies:,}", inline=True)
-            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.add_field(name="📊 Previous Balance", value=f"🍪 {old_cookies:,}", inline=True)
+            embed.add_field(name="➕ Amount Added", value=f"🎁 {amount:,}", inline=True)
+            embed.add_field(name="💰 New Balance", value=f"✨ {new_cookies:,}", inline=True)
+            
+            # Add percentage increase
+            if old_cookies > 0:
+                percentage = ((new_cookies - old_cookies) / old_cookies) * 100
+                embed.add_field(name="📈 Increase", value=f"📊 +{percentage:.1f}%", inline=True)
+            
+            embed.set_author(name=f"Cookie boost by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="🍪 Cookie Management System • Sweet success!")
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
             await interaction.response.send_message(f"❌ Error adding cookies: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="removecookies", description="Removes cookies from a user (Manager only)")
-    @app_commands.describe(user="User to remove cookies from", amount="Amount of cookies to remove")
-    async def removecookies(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+    @app_commands.command(name="removecookies", description="Remove cookies from a user with selection options (Manager only)")
+    @app_commands.describe(user="User to remove cookies from", option="Select removal option")
+    @app_commands.choices(option=[
+        app_commands.Choice(name="💔 Remove All Cookies", value="all"),
+        app_commands.Choice(name="📉 Remove Half", value="half"),
+        app_commands.Choice(name="🔢 Custom Amount", value="custom")
+    ])
+    async def removecookies(self, interaction: discord.Interaction, user: discord.Member, option: str):
         if not has_manager_role(interaction):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
-        if amount <= 0:
-            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
             return
 
         try:
             old_data = db.get_user_data(user.id)
             old_cookies = old_data.get('cookies', 0)
             
-            if old_cookies < amount:
-                await interaction.response.send_message(f"❌ User only has {old_cookies:,} cookies!", ephemeral=True)
+            if old_cookies <= 0:
+                embed = discord.Embed(
+                    title="🍪 **No Cookies to Remove**",
+                    description=f"{user.mention} doesn't have any cookies to remove! 🤷‍♂️",
+                    color=0xff9966
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
+            
+            if option == "custom":
+                # Show modal for custom amount
+                modal = CustomRemovalModal(user, old_cookies)
+                await interaction.response.send_modal(modal)
+                return
+            elif option == "all":
+                amount = old_cookies
+            elif option == "half":
+                amount = old_cookies // 2
             
             db.remove_cookies(user.id, amount)
             new_cookies = old_cookies - amount
             
             await self.update_cookie_roles(user, new_cookies)
             
+            # Check for role downgrades
+            role_lost = ""
+            for threshold in sorted(COOKIE_ROLES.keys(), reverse=True):
+                if new_cookies < threshold <= old_cookies:
+                    role_lost = f"\n💔 **Role Lost:** Below {threshold:,} cookies threshold"
+                    break
+            
             embed = discord.Embed(
-                title="🍪 Cookies Removed",
-                description=f"Removed **{amount:,}** cookies from {user.mention}",
-                color=0xff6b6b
+                title="🗑️ **Cookies Removed Successfully**",
+                description=f"Removed **{amount:,}** cookies from {user.mention} 📉{role_lost}",
+                color=0xff6b6b,
+                timestamp=datetime.now()
             )
-            embed.add_field(name="Previous", value=f"{old_cookies:,}", inline=True)
-            embed.add_field(name="New Balance", value=f"{new_cookies:,}", inline=True)
-            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.add_field(name="📊 Previous Balance", value=f"🍪 {old_cookies:,}", inline=True)
+            embed.add_field(name="➖ Amount Removed", value=f"🗑️ {amount:,}", inline=True)
+            embed.add_field(name="💰 New Balance", value=f"📉 {new_cookies:,}", inline=True)
+            
+            # Add percentage decrease
+            if old_cookies > 0:
+                percentage = ((old_cookies - new_cookies) / old_cookies) * 100
+                embed.add_field(name="📉 Decrease", value=f"📊 -{percentage:.1f}%", inline=True)
+            
+            # Add removal reason
+            removal_reasons = {
+                "all": "🚨 Complete removal",
+                "half": "⚖️ 50% reduction",
+                "custom": "🎯 Custom amount"
+            }
+            embed.add_field(name="📋 Removal Type", value=removal_reasons[option], inline=True)
+            
+            embed.set_author(name=f"Cookie removal by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="🍪 Cookie Management System • Disciplinary action")
             
             await interaction.response.send_message(embed=embed)
 

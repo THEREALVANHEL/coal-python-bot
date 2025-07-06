@@ -132,22 +132,30 @@ class Settings(commands.Cog):
             
             embed.add_field(name="⭐ **Starboard Settings**", value="\n".join(starboard_info), inline=False)
             
-            # Ticket settings
-            ticket_settings = db.get_server_settings(guild_id)
-            support_roles = ticket_settings.get('ticket_support_roles', [])
-            
-            ticket_info = [
-                f"**Category:** {'✅ Configured' if ticket_settings.get('ticket_category') else '❌ Not set'}",
-                f"**Support Roles:** {len(support_roles)} configured"
-            ]
-            
-            embed.add_field(name="🎫 **Ticket System**", value="\n".join(ticket_info), inline=False)
+            # Ticket settings - Fixed to handle potential errors
+            try:
+                ticket_settings = db.get_server_settings(guild_id)
+                support_roles = ticket_settings.get('ticket_support_roles', []) if ticket_settings else []
+                
+                ticket_info = [
+                    f"**Category:** {'✅ Configured' if ticket_settings and ticket_settings.get('ticket_category') else '❌ Not set'}",
+                    f"**Support Roles:** {len(support_roles)} configured",
+                    f"**Status:** {'🟢 Active' if ticket_settings and ticket_settings.get('ticket_category') else '🔴 Inactive'}"
+                ]
+                
+                embed.add_field(name="🎫 **Ticket System**", value="\n".join(ticket_info), inline=False)
+            except Exception as e:
+                embed.add_field(name="🎫 **Ticket System**", value="❌ Error loading ticket settings", inline=False)
             
             # Setup tips
             not_configured = []
             for key, name in channels.items():
                 if key == "ticket_category":
-                    if not ticket_settings.get('ticket_category'):
+                    try:
+                        ticket_config = db.get_server_settings(guild_id)
+                        if not (ticket_config and ticket_config.get('ticket_category')):
+                            not_configured.append(name)
+                    except:
                         not_configured.append(name)
                 else:
                     if not db.get_guild_setting(guild_id, f"{key}_channel", None):

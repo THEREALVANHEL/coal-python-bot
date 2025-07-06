@@ -21,6 +21,49 @@ def has_moderator_role(interaction: discord.Interaction) -> bool:
     user_roles = [role.name for role in interaction.user.roles]
     return any(role in MODERATOR_ROLES for role in user_roles)
 
+class RoleplayView(discord.ui.View):
+    def __init__(self, character: str, style: str):
+        super().__init__(timeout=1800)  # 30 minutes
+        self.character = character
+        self.style = style
+
+    @discord.ui.button(label="🎲 Continue Adventure", style=discord.ButtonStyle.primary, emoji="🎲")
+    async def continue_adventure(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(
+            f"🎭 **{interaction.user.display_name}** is continuing their adventure as **{self.character}**!\n\n" +
+            "💬 Just type your next action or dialogue in the chat, and the AI will respond to continue the story! 🌟",
+            ephemeral=True
+        )
+
+    @discord.ui.button(label="📖 Story Tips", style=discord.ButtonStyle.secondary, emoji="📖")
+    async def story_tips(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="📖 **Roleplay Tips & Guide**",
+            description="Make your roleplay experience even better! 🌟",
+            color=0x7c3aed
+        )
+        
+        embed.add_field(
+            name="🎭 **Great Roleplay Actions**",
+            value="• Describe what your character does\n• Include dialogue in quotes\n• Ask questions to NPCs\n• Make choices about your path\n• React to the environment",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💡 **Example Responses**",
+            value='• "I approach the mysterious door and listen carefully"\n• "Hello there! Can you tell me about this place?"\n• "I choose to go left toward the forest"\n• "I cast a healing spell on the injured traveler"',
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🎯 **Pro Tips**",
+            value="• Be specific in your actions\n• Ask questions to learn more\n• Don't be afraid to be creative\n• The AI remembers your choices!",
+            inline=False
+        )
+        
+        embed.set_footer(text="🎲 Ready to continue your adventure?")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class Moderation(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -279,59 +322,116 @@ class Moderation(commands.Cog):
 
             # Create response embed
             embed = discord.Embed(
-                title="🔄 Roles Updated",
-                description=f"**User:** {user.mention}\n**Level:** {level}\n**Cookies:** {cookies}",
-                color=0x00ff00,
+                title="🔄 **Role Update Complete!**",
+                description=f"**User:** {user.mention}\n**Level:** {level} 🎯\n**Cookies:** {cookies:,} 🍪",
+                color=0x00d4aa if roles_added or roles_removed else 0x7289da,
                 timestamp=datetime.now()
             )
+            
             if roles_added:
-                embed.add_field(name="➕ Roles Added", value="\n".join(roles_added), inline=False)
+                embed.add_field(
+                    name="➕ **Roles Added**", 
+                    value="🎉 " + "\n🎉 ".join(roles_added), 
+                    inline=False
+                )
             if roles_removed:
-                embed.add_field(name="➖ Roles Removed", value="\n".join(roles_removed), inline=False)
+                embed.add_field(
+                    name="➖ **Roles Removed**", 
+                    value="🗑️ " + "\n🗑️ ".join(roles_removed), 
+                    inline=False
+                )
             if not roles_added and not roles_removed:
-                embed.add_field(name="ℹ️ No Changes", value="User already has appropriate roles", inline=False)
-
-            embed.set_footer(text=FOOTER_TXT)
+                embed.add_field(
+                    name="✅ **Perfect Match!**", 
+                    value="🎯 User already has all the appropriate roles for their level and cookies!", 
+                    inline=False
+                )
+            
+            # Add stats
+            embed.add_field(
+                name="📊 **Update Summary**",
+                value=f"➕ Added: **{len(roles_added)}** roles\n➖ Removed: **{len(roles_removed)}** roles",
+                inline=True
+            )
+            
+            embed.set_author(name=f"Updated by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text=f"✨ {FOOTER_TXT} • Role management system")
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
             await interaction.followup.send(f"❌ Error updating roles: {str(e)}", ephemeral=True)
 
-    # AI-Powered Roleplay Command
-    @app_commands.command(name="roleplay", description="🎭 Generate AI-powered roleplay scenarios using Gemini AI")
+    # Enhanced Interactive Roleplay Command
+    @app_commands.command(name="roleplay", description="🎭 Interactive AI roleplay with chat history and character persistence")
     @app_commands.describe(
-        scenario="Type of roleplay scenario",
-        character="Character or role to play",
-        setting="Setting or environment"
+        character="Character you want to roleplay as (e.g., 'wise wizard', 'space pirate')",
+        scenario="Starting scenario or situation",
+        style="Roleplay style (optional)"
     )
-    async def roleplay(self, interaction: discord.Interaction, scenario: str, character: str = None, setting: str = None):
-        # Check permissions - only admins can use this
-        if not interaction.user.guild_permissions.administrator:
-            embed = discord.Embed(
-                title="❌ Access Denied",
-                description="This command is restricted to administrators only.",
-                color=0xff6b6b
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-
+    @app_commands.choices(style=[
+        app_commands.Choice(name="🏰 Fantasy Adventure", value="fantasy"),
+        app_commands.Choice(name="🚀 Sci-Fi Space", value="scifi"),
+        app_commands.Choice(name="🏫 Modern Day", value="modern"),
+        app_commands.Choice(name="🕵️ Mystery/Detective", value="mystery"),
+        app_commands.Choice(name="😄 Comedy/Funny", value="comedy"),
+        app_commands.Choice(name="🎨 Creative/Artistic", value="creative")
+    ])
+    async def roleplay(self, interaction: discord.Interaction, character: str, scenario: str, style: str = "fantasy"):
         await interaction.response.defer()
 
         try:
-            # Build prompt for Gemini AI
-            prompt = f"Create an engaging roleplay scenario for Discord. Scenario: {scenario}"
-            if character:
-                prompt += f", Character: {character}"
-            if setting:
-                prompt += f", Setting: {setting}"
-            prompt += ". Keep it appropriate for all ages and under 1500 characters. Make it immersive and fun."
+            # Get recent channel messages for context
+            channel_history = []
+            try:
+                async for message in interaction.channel.history(limit=10):
+                    if not message.author.bot and len(message.content) > 0:
+                        channel_history.append(f"{message.author.display_name}: {message.content[:100]}")
+            except:
+                pass
+
+            # Build enhanced prompt with context
+            style_prompts = {
+                "fantasy": "magical medieval fantasy world with dragons, magic, and kingdoms",
+                "scifi": "futuristic space setting with advanced technology and alien worlds", 
+                "modern": "contemporary modern-day setting with realistic scenarios",
+                "mystery": "mysterious detective story with clues and puzzles to solve",
+                "comedy": "humorous and funny situation with light-hearted comedy",
+                "creative": "unique and artistic scenario that breaks traditional boundaries"
+            }
+
+            context_text = ""
+            if channel_history:
+                context_text = f"\n\nRecent channel context (for reference): {' | '.join(reversed(channel_history[-3:]))}"
+
+            prompt = f"""You are an interactive roleplay AI assistant. Create an engaging roleplay scenario and respond as both narrator and NPCs.
+
+ROLEPLAY SETUP:
+- User's Character: {character}
+- Scenario: {scenario}
+- Style: {style_prompts.get(style, 'fantasy adventure')}
+- Setting: {style_prompts[style]}
+
+INSTRUCTIONS:
+- Start the scenario by setting the scene and describing what {character} sees/encounters
+- Include 2-3 interactive choices or questions for the user to respond to
+- Keep responses engaging, descriptive but not too long (under 1500 chars)
+- Make it feel like a real interactive story where the user's choices matter
+- Include some NPCs or characters they can interact with
+- End with a clear prompt for what the user should do next{context_text}
+
+Create an immersive opening scene:"""
 
             # Call Gemini AI
             import google.generativeai as genai
             
             gemini_api_key = os.getenv("GEMINI_API_KEY")
             if not gemini_api_key:
-                await interaction.followup.send("❌ Gemini AI service not configured. Please contact an administrator.", ephemeral=True)
+                embed = discord.Embed(
+                    title="❌ **AI Service Unavailable**",
+                    description="🤖 The roleplay AI is currently offline. Please contact an administrator!",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
                 return
                 
             genai.configure(api_key=gemini_api_key)
@@ -340,27 +440,45 @@ class Moderation(commands.Cog):
             response = model.generate_content(prompt)
             
             if response.text:
+                # Create interactive roleplay embed
                 embed = discord.Embed(
-                    title="🎭 AI Roleplay Scenario",
+                    title=f"🎭 **Interactive Roleplay Started!**",
                     description=response.text,
                     color=0x7c3aed,
                     timestamp=datetime.now()
                 )
-                embed.add_field(name="📝 Scenario", value=scenario, inline=True)
-                if character:
-                    embed.add_field(name="👤 Character", value=character, inline=True)
-                if setting:
-                    embed.add_field(name="🏛️ Setting", value=setting, inline=True)
                 
-                embed.set_author(name=f"Generated for {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-                embed.set_footer(text="✨ Powered by Gemini AI • Be creative and have fun!")
+                embed.add_field(name="� **Your Character**", value=f"🎭 {character}", inline=True)
+                embed.add_field(name="🌍 **Setting**", value=f"📍 {style_prompts[style].title()}", inline=True)
+                embed.add_field(name="� **Scenario**", value=f"🎯 {scenario}", inline=True)
                 
-                await interaction.followup.send(embed=embed)
+                embed.add_field(
+                    name="� **How to Continue**",
+                    value="💬 Simply type your response in this channel as your character!\n🎭 The AI will respond to your actions and continue the story.\n🔄 Use `/roleplay` again anytime to start a new adventure!",
+                    inline=False
+                )
+                
+                embed.set_author(name=f"Roleplay Master for {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+                embed.set_footer(text="✨ Interactive AI Roleplay • Your choices shape the story!")
+                
+                # Add continue button for easy interaction
+                view = RoleplayView(character, style)
+                await interaction.followup.send(embed=embed, view=view)
             else:
-                await interaction.followup.send("❌ Failed to generate roleplay scenario. Please try again with different parameters.", ephemeral=True)
+                embed = discord.Embed(
+                    title="❌ **Roleplay Creation Failed**",
+                    description="🎭 Couldn't generate your roleplay scenario. Try different parameters!",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
 
         except Exception as e:
-            await interaction.followup.send(f"❌ Error generating roleplay: {str(e)}", ephemeral=True)
+            error_embed = discord.Embed(
+                title="❌ **Roleplay Error**",
+                description=f"🤖 Something went wrong: {str(e)[:200]}",
+                color=0xff6b6b
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Moderation(bot))
