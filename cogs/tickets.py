@@ -288,10 +288,21 @@ class TicketCreationModal(Modal):
                 except discord.Forbidden:
                     category = None
             
-            # Create unique channel name with elegant formatting
+            # Create unique channel name with elegant formatting and priority indicator
             safe_title = "".join(c for c in self.title_input.value if c.isalnum() or c in (' ', '-')).strip()
             safe_title = safe_title.replace(' ', '-')[:25]  # Slightly longer for clarity
-            channel_name = f"ticket-{user.display_name.lower().replace(' ', '-')}-{safe_title}-{user.id}"
+            
+            # Add priority prefix to channel name
+            priority = self.priority_input.value.lower() if self.priority_input.value else "low"
+            priority_prefixes = {
+                "low": "🟢",
+                "medium": "🟡", 
+                "high": "🟠",
+                "urgent": "🔴"
+            }
+            priority_prefix = priority_prefixes.get(priority, "🟢")
+            
+            channel_name = f"{priority_prefix}ticket-{user.display_name.lower().replace(' ', '-')}-{safe_title}-{user.id}"
             
             # Enhanced permissions with proper hierarchy
             overwrites = {
@@ -498,63 +509,118 @@ class TicketControlView(View):
         channel = interaction.channel
         topic = channel.topic or ""
         
-        # Handle unclaim if already claimed
-        if "| Claimed by:" in topic:
-            current_claimer = topic.split("| Claimed by:")[-1].strip()
-            
-            # Only allow the claimer or higher permissions to unclaim
-            if current_claimer != interaction.user.display_name and not interaction.user.guild_permissions.administrator:
+        # Check if ticket is already claimed
+        if "🔒 CLAIMED" in topic:
+            claimed_by_match = topic.split("🔒 CLAIMED by ")
+            if len(claimed_by_match) > 1:
+                claimed_by = claimed_by_match[1].split(" •")[0]
                 embed = discord.Embed(
-                    title="⚠️ **Cannot Unclaim**",
-                    description=f"This ticket is claimed by **{current_claimer}**. Only they or an administrator can unclaim it.",
+                    title="⚠️ **Ticket Already Claimed**",
+                    description=f"This ticket is already claimed by **{claimed_by}**",
                     color=0xff9966
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
-            
-            # Unclaim the ticket
-            try:
-                new_topic = topic.split("| Claimed by:")[0].strip()
-                await channel.edit(topic=new_topic)
-                
-                embed = discord.Embed(
-                    title="🔄 Ticket Unclaimed",
-                    description="This ticket is now available for any staff member to claim.",
-                    color=0x7c3aed
-                )
-                
-                await interaction.response.send_message(embed=embed)
-                
-                # Update button back to claim
-                button.label = "👤 Claim Ticket"
-                button.style = discord.ButtonStyle.success
-                await interaction.edit_original_response(view=self)
-                
-            except Exception as e:
-                await interaction.response.send_message(f"❌ Error unclaiming ticket: {str(e)}", ephemeral=True)
-            return
         
-        # Claim the ticket
-        try:
-            new_topic = f"{topic} | Claimed by: {interaction.user.display_name}"
-            await channel.edit(topic=new_topic)
+        # Update channel name to reflect claimed status
+        current_name = channel.name
+        if not current_name.startswith("🔒claimed-"):
+            # Change from "ticket-user-title-id" to "🔒claimed-user-title-id"
+            if current_name.startswith("ticket-"):
+                new_name = current_name.replace("ticket-", "🔒claimed-", 1)
+            else:
+                new_name = f"🔒claimed-{current_name}"
             
-            embed = discord.Embed(
-                title="👤 Ticket Claimed",
-                description=f"{interaction.user.mention} is now handling this ticket.",
-                color=0x00d4aa,
+            try:
+                await channel.edit(name=new_name)
+            except:
+                pass  # Ignore if can't rename
+        
+        # Update topic to show who claimed it
+        new_topic = f"🔒 CLAIMED by {interaction.user.display_name} • " + topic.replace("🔒 CLAIMED by ", "").replace("• • ", "• ")
+        try:
+            await channel.edit(topic=new_topic)
+        except:
+            pass
+        
+        # Create claim announcement embed
+        claim_embed = discord.Embed(
+            title="🎯 **Ticket Claimed!**",
+            description=f"**{interaction.user.display_name}** has claimed this ticket and will assist you.",
+            color=0x00d4aa,
+            timestamp=datetime.now()
+        )
+        
+        claim_embed.add_field(
+            name="👤 **Assigned Staff**",
+            value=f"{interaction.user.mention}\n*{interaction.user.display_name}*",
+            inline=True
+        )
+        
+        claim_embed.add_field(
+            name="⏰ **Response Time**",
+            value="You can expect a response soon!\nPlease be patient while we review your case.",
+            inline=True
+        )
+        
+        claim_embed.set_author(name="Support Team", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        claim_embed.set_footer(text="✨ Thank you for choosing our support!")
+        
+        # Update the button to show claimed status
+        button.label = f"✅ Claimed by {interaction.user.display_name}"
+        button.style = discord.ButtonStyle.secondary
+        button.disabled = True
+        
+        # Add unclaim button
+        unclaim_button = discord.ui.Button(label="🔓 Unclaim", style=discord.ButtonStyle.danger, custom_id="unclaim_ticket")
+        
+        async def unclaim_callback(unclaim_interaction):
+            if unclaim_interaction.user.id != interaction.user.id and not self.has_ticket_permissions(unclaim_interaction.user, unclaim_interaction.guild):
+                embed = discord.Embed(
+                    title="❌ **Permission Denied**",
+                    description="Only the staff member who claimed this ticket can unclaim it.",
+                    color=0xff6b6b
+                )
+                await unclaim_interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Revert channel name back to unclaimed
+            current_name = channel.name
+            if current_name.startswith("🔒claimed-"):
+                new_name = current_name.replace("🔒claimed-", "ticket-", 1)
+                try:
+                    await channel.edit(name=new_name)
+                except:
+                    pass
+            
+            # Update topic to remove claim info
+            original_topic = topic.replace(f"🔒 CLAIMED by {interaction.user.display_name} • ", "")
+            try:
+                await channel.edit(topic=original_topic)
+            except:
+                pass
+            
+            # Reset buttons
+            button.label = "👤 Claim Ticket"
+            button.style = discord.ButtonStyle.success
+            button.disabled = False
+            
+            # Remove unclaim button
+            self.remove_item(unclaim_button)
+            
+            unclaim_embed = discord.Embed(
+                title="🎯 **Ticket Unclaimed**",
+                description=f"**{unclaim_interaction.user.display_name}** has unclaimed this ticket.\nIt's now available for other staff members.",
+                color=0xff9966,
                 timestamp=datetime.now()
             )
             
-            await interaction.response.send_message(embed=embed)
-            
-            # Update button to show unclaim option
-            button.label = "🔄 Unclaim Ticket"
-            button.style = discord.ButtonStyle.secondary
-            await interaction.edit_original_response(view=self)
-            
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
+            await unclaim_interaction.response.edit_message(embed=unclaim_embed, view=self)
+        
+        unclaim_button.callback = unclaim_callback
+        self.add_item(unclaim_button)
+        
+        await interaction.response.edit_message(embed=claim_embed, view=self)
 
     @discord.ui.button(label="🟢 Close Ticket", style=discord.ButtonStyle.danger)
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1083,6 +1149,122 @@ class Tickets(commands.Cog):
         embed.set_footer(text=f"Action performed by {interaction.user.display_name}")
         
         await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="ticketdashboard", description="🎛️ View live ticket dashboard with real-time stats")
+    @app_commands.default_permissions(manage_channels=True)
+    async def ticket_dashboard(self, interaction: discord.Interaction):
+        """Display a supercool real-time ticket dashboard"""
+        guild = interaction.guild
+        
+        # Count different types of tickets
+        all_channels = guild.text_channels
+        
+        # Ticket counters
+        total_tickets = 0
+        claimed_tickets = 0
+        unclaimed_tickets = 0
+        urgent_tickets = 0
+        high_tickets = 0
+        medium_tickets = 0
+        low_tickets = 0
+        
+        ticket_details = []
+        
+        for channel in all_channels:
+            channel_name = channel.name.lower()
+            
+            # Check if it's a ticket channel
+            if any(prefix in channel_name for prefix in ["🟢ticket-", "🟡ticket-", "🟠ticket-", "🔴ticket-", "🔒claimed-", "ticket-"]):
+                total_tickets += 1
+                
+                # Check claim status
+                if channel_name.startswith("🔒claimed-") or (channel.topic and "🔒 CLAIMED" in channel.topic):
+                    claimed_tickets += 1
+                    status = "🔒 Claimed"
+                else:
+                    unclaimed_tickets += 1
+                    status = "⏳ Waiting"
+                
+                # Check priority
+                if channel_name.startswith("🔴"):
+                    urgent_tickets += 1
+                    priority = "🔴 Urgent"
+                elif channel_name.startswith("🟠"):
+                    high_tickets += 1
+                    priority = "🟠 High"
+                elif channel_name.startswith("🟡"):
+                    medium_tickets += 1
+                    priority = "🟡 Medium"
+                else:
+                    low_tickets += 1
+                    priority = "🟢 Low"
+                
+                # Extract user info from channel name
+                name_parts = channel_name.split("-")
+                if len(name_parts) >= 2:
+                    user_name = name_parts[1] if not channel_name.startswith("🔒claimed-") else name_parts[2]
+                    ticket_details.append({
+                        "channel": channel,
+                        "user": user_name.title(),
+                        "priority": priority,
+                        "status": status,
+                        "created": channel.created_at
+                    })
+        
+        # Create dashboard embed
+        embed = discord.Embed(
+            title="🎛️ **Live Ticket Dashboard**",
+            description=f"Real-time overview of all support tickets in **{guild.name}**",
+            color=0x7c3aed,
+            timestamp=datetime.now()
+        )
+        
+        # Statistics section
+        embed.add_field(
+            name="📊 **Ticket Statistics**",
+            value=f"**Total Active:** {total_tickets}\n**🔒 Claimed:** {claimed_tickets}\n**⏳ Waiting:** {unclaimed_tickets}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🎯 **Priority Breakdown**",
+            value=f"🔴 **Urgent:** {urgent_tickets}\n🟠 **High:** {high_tickets}\n🟡 **Medium:** {medium_tickets}\n🟢 **Low:** {low_tickets}",
+            inline=True
+        )
+        
+        # Response time estimate
+        avg_response = "< 30 minutes" if unclaimed_tickets < 3 else "< 1 hour" if unclaimed_tickets < 10 else "< 2 hours"
+        embed.add_field(
+            name="⏰ **Response Time**",
+            value=f"**Estimated:** {avg_response}\n**Load:** {'🟢 Normal' if total_tickets < 5 else '🟡 Busy' if total_tickets < 15 else '🔴 High'}",
+            inline=True
+        )
+        
+        # Recent tickets (last 5)
+        if ticket_details:
+            recent_tickets = sorted(ticket_details, key=lambda x: x["created"], reverse=True)[:5]
+            recent_text = ""
+            for ticket in recent_tickets:
+                time_ago = f"<t:{int(ticket['created'].timestamp())}:R>"
+                recent_text += f"{ticket['priority']} {ticket['status']} **{ticket['user']}** - {time_ago}\n"
+            
+            embed.add_field(
+                name="🕒 **Recent Tickets**",
+                value=recent_text or "No recent tickets",
+                inline=False
+            )
+        
+        # Action buttons for quick management
+        embed.add_field(
+            name="🛠️ **Quick Actions**",
+            value="• Use `/closealltickets` for emergency cleanup\n• Use `/ticketstats` for detailed analytics\n• Use `/giveticketroleperms` to manage staff access",
+            inline=False
+        )
+        
+        embed.set_footer(text="🎛️ Dashboard updates in real-time • Use /ticketdashboard to refresh")
+        embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+        
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Tickets(bot))

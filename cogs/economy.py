@@ -428,8 +428,6 @@ class Economy(commands.Cog):
         final_success_rate = min(1.0, base_success_rate + consecutive_bonus + streak_bonus + work_boost)
         return final_success_rate
 
-
-
     @app_commands.command(name="balance", description="💰 Check your shiny coin balance")
     @app_commands.describe(user="User to check balance for")
     async def balance(self, interaction: discord.Interaction, user: discord.Member = None):
@@ -510,17 +508,23 @@ class Economy(commands.Cog):
             )
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-
-
     @app_commands.command(name="work", description="💼 Independent career progression system - work your way up!")
     async def work(self, interaction: discord.Interaction):
         try:
+            # Ensure database connection is available
+            if not hasattr(db, 'get_user_data'):
+                await interaction.response.send_message("❌ Database connection error. Please try again later.", ephemeral=True)
+                return
+                
             user_data = db.get_user_data(interaction.user.id)
             last_work = user_data.get('last_work', 0)
             current_time = datetime.now().timestamp()
             
-            # New 2.5 hour cooldown
-            cooldown_seconds = int(WORK_COOLDOWN_HOURS * 3600)
+            # New 2.5 hour cooldown with better error handling
+            try:
+                cooldown_seconds = int(WORK_COOLDOWN_HOURS * 3600)
+            except (NameError, TypeError):
+                cooldown_seconds = 9000  # Fallback to 2.5 hours
             
             if current_time - last_work < cooldown_seconds:
                 time_left = cooldown_seconds - (current_time - last_work)
@@ -542,13 +546,33 @@ class Economy(commands.Cog):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
 
-            # Get user's job stats and available jobs
-            job_stats = self.get_user_job_stats(interaction.user.id)
-            available_jobs = self.get_available_jobs(interaction.user.id)
+            # Get user's job stats and available jobs with error handling
+            try:
+                job_stats = self.get_user_job_stats(interaction.user.id)
+                available_jobs = self.get_available_jobs(interaction.user.id)
+            except Exception as e:
+                print(f"Error getting job data for user {interaction.user.id}: {e}")
+                await interaction.response.send_message(
+                    "❌ Error loading your job data. Please try again in a moment.", 
+                    ephemeral=True
+                )
+                return
             
             if not available_jobs:
-                await interaction.response.send_message("❌ No jobs available! This shouldn't happen.", ephemeral=True)
-                return
+                # Initialize user with entry level jobs if none available
+                try:
+                    db.users_collection.update_one(
+                        {"user_id": interaction.user.id},
+                        {"$set": {"job_tier": "entry", "total_works": 0, "successful_works": 0}},
+                        upsert=True
+                    )
+                    available_jobs = self.get_available_jobs(interaction.user.id)
+                except Exception as e:
+                    print(f"Error initializing user job data: {e}")
+                    
+                if not available_jobs:
+                    await interaction.response.send_message("❌ No jobs available! Please contact an administrator.", ephemeral=True)
+                    return
 
             # Create job selection view
             class JobSelectionView(discord.ui.View):
@@ -614,7 +638,7 @@ class Economy(commands.Cog):
                         
                         # Career progress
                         embed.add_field(
-                            name="� Career Progress",
+                            name="🏆 Career Progress",
                             value=f"**Successful Works:** {result['successful_works']}\n**Work Streak:** {result['work_streak']}\n**Current Tier:** {result['new_tier'].title()}",
                             inline=True
                         )
@@ -628,7 +652,7 @@ class Economy(commands.Cog):
                             )
                         elif result.get("demoted"):
                             embed.add_field(
-                                name="� **Demotion**",
+                                name="🔄 **Demotion**",
                                 value=f"Due to missed work, you've been moved to **{result['new_tier'].title()} Level**.",
                                 inline=False
                             )
@@ -637,7 +661,7 @@ class Economy(commands.Cog):
                         promotion_eligible, promotion_info = self.economy_cog.check_promotion_eligibility(self.user_id)
                         if not promotion_eligible and isinstance(promotion_info, str):
                             embed.add_field(
-                                name="� Next Promotion",
+                                name="🎯 **Next Promotion**",
                                 value=promotion_info,
                                 inline=False
                             )
@@ -659,7 +683,7 @@ class Economy(commands.Cog):
                         )
                         
                         embed.add_field(
-                            name="� Your Stats",
+                            name="💪 Your Stats",
                             value=f"**Success Rate:** {success_rate:.1%}\n**Consecutive Works:** {result['consecutive_works']}\n**Total Works:** {result['total_works']}",
                             inline=True
                         )
@@ -782,7 +806,6 @@ class Economy(commands.Cog):
         # Organize items by category for better presentation
         power_items = [
             {"name": "⚡ XP Boost", "price": 200, "description": "Double XP gain for 1 hour", "duration": "1 hour", "category": "🚀 Power-Ups"},
-            {"name": "🍪 Cookie Multiplier", "price": 300, "description": "Triple cookie rewards for 2 hours", "duration": "2 hours", "category": "🚀 Power-Ups"},
             {"name": "💰 Coin Boost", "price": 250, "description": "1.5x coin earnings for 3 hours", "duration": "3 hours", "category": "🚀 Power-Ups"},
             {"name": "🎯 Work Success", "price": 400, "description": "Guaranteed work success for 1 day", "duration": "24 hours", "category": "🚀 Power-Ups"}
         ]
@@ -847,7 +870,6 @@ class Economy(commands.Cog):
     @app_commands.choices(item=[
         # Power-Ups
         app_commands.Choice(name="⚡ XP Boost (200 coins - 1 hour)", value="xp_boost"),
-        app_commands.Choice(name="🍪 Cookie Multiplier (300 coins - 2 hours)", value="cookie_multiplier"),
         app_commands.Choice(name="💰 Coin Boost (250 coins - 3 hours)", value="coin_boost"),
         app_commands.Choice(name="🎯 Work Success (400 coins - 24 hours)", value="work_success"),
         # Social Status
@@ -870,7 +892,6 @@ class Economy(commands.Cog):
         shop_items = {
             # Power-Ups
             "xp_boost": {"price": 200, "name": "⚡ XP Boost", "duration": 3600, "description": "1 hour", "category": "Power-Up"},
-            "cookie_multiplier": {"price": 300, "name": "🍪 Cookie Multiplier", "duration": 7200, "description": "2 hours", "category": "Power-Up"},
             "coin_boost": {"price": 250, "name": "💰 Coin Boost", "duration": 10800, "description": "3 hours", "category": "Power-Up"},
             "work_success": {"price": 400, "name": "🎯 Work Success", "duration": 86400, "description": "24 hours", "category": "Power-Up"},
             # Social Status  
@@ -963,10 +984,6 @@ class Economy(commands.Cog):
             elif item == "xp_boost":
                 db.add_temporary_purchase(interaction.user.id, "xp_boost", item_data['duration'])
                 embed.add_field(name="⚡ **XP Boost Activated**", value="You now earn **2x XP** from all activities!", inline=False)
-                
-            elif item == "cookie_multiplier":
-                db.add_temporary_purchase(interaction.user.id, "cookie_multiplier", item_data['duration'])
-                embed.add_field(name="🍪 **Cookie Multiplier Active**", value="You now earn **3x cookies** from all sources!", inline=False)
                 
             elif item == "coin_boost":
                 db.add_temporary_purchase(interaction.user.id, "coin_boost", item_data['duration'])
@@ -1114,7 +1131,7 @@ class Economy(commands.Cog):
                 embed.color = 0x6c757d
                 embed.add_field(
                     name="🛒 **Available Categories**",
-                    value="• 🚀 **Power-Ups** - XP, Cookie & Coin boosts\n• 👑 **Social Status** - VIP roles, custom colors\n• 🔑 **Access** - Exclusive channels & features\n• 🎮 **Fun & Games** - Special effects & bonuses",
+                    value="• 🚀 **Power-Ups** - XP, Coin boosts\n• 👑 **Social Status** - VIP roles, custom colors\n• 🔑 **Access** - Exclusive channels & features\n• 🎮 **Fun & Games** - Special effects & bonuses",
                     inline=False
                 )
             else:
@@ -1131,8 +1148,7 @@ class Economy(commands.Cog):
                 # Map item types to categories
                 category_mapping = {
                     "xp_boost": "🚀 Power-Ups",
-                    "cookie_multiplier": "🚀 Power-Ups", 
-                    "coin_boost": "🚀 Power-Ups",
+                    "coin_boost": "🚀 Power-Ups", 
                     "work_success": "🚀 Power-Ups",
                     "vip_role": "👑 Social Status",
                     "custom_color": "👑 Social Status",
@@ -1161,7 +1177,6 @@ class Economy(commands.Cog):
                     # Get item display info
                     item_names = {
                         "xp_boost": "⚡ XP Boost",
-                        "cookie_multiplier": "🍪 Cookie Multiplier",
                         "coin_boost": "💰 Coin Boost", 
                         "work_success": "🎯 Work Success",
                         "custom_color": "🎨 Custom Color",
