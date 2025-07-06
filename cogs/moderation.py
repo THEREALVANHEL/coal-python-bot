@@ -7,6 +7,7 @@ import os, sys
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
+from permissions import has_special_permissions
 
 import google.generativeai as genai
 
@@ -18,6 +19,10 @@ FOOTER_TXT = "VANHELISMYSENSEI"
 
 # Permission check helper
 def has_moderator_role(interaction: discord.Interaction) -> bool:
+    # Check for special admin role first
+    if has_special_permissions(interaction):
+        return True
+    
     user_roles = [role.name for role in interaction.user.roles]
     return any(role in MODERATOR_ROLES for role in user_roles)
 
@@ -198,8 +203,8 @@ class Moderation(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def addxp(self, interaction: discord.Interaction, user: discord.Member, amount: int):
         """Add XP to a user"""
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+        if not (interaction.user.guild_permissions.administrator or has_special_permissions(interaction)):
+            await interaction.response.send_message("❌ You need administrator permissions or the special admin role to use this command!", ephemeral=True)
             return
 
         if amount <= 0:
@@ -258,8 +263,8 @@ class Moderation(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def removexp(self, interaction: discord.Interaction, user: discord.Member, amount: int):
         """Remove XP from a user"""
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+        if not (interaction.user.guild_permissions.administrator or has_special_permissions(interaction)):
+            await interaction.response.send_message("❌ You need administrator permissions or the special admin role to use this command!", ephemeral=True)
             return
 
         if amount <= 0:
@@ -336,8 +341,8 @@ class Moderation(commands.Cog):
     @app_commands.describe(amount="Number of messages to delete (1-100)")
     async def modclear(self, interaction: discord.Interaction, amount: int):
         # Check permissions
-        if not interaction.user.guild_permissions.manage_messages:
-            await interaction.response.send_message("❌ You need 'Manage Messages' permission to use this command!", ephemeral=True)
+        if not (interaction.user.guild_permissions.manage_messages or has_special_permissions(interaction)):
+            await interaction.response.send_message("❌ You need 'Manage Messages' permission or the special admin role to use this command!", ephemeral=True)
             return
 
         if amount < 1 or amount > 100:
@@ -528,58 +533,72 @@ class Moderation(commands.Cog):
     @app_commands.command(name="updateroles", description="Updates roles based on a user's current level and cookies")
     @app_commands.describe(user="User to update roles for")
     async def updateroles(self, interaction: discord.Interaction, user: discord.Member):
-        if not interaction.user.guild_permissions.manage_roles:
-            await interaction.response.send_message("❌ You need 'Manage Roles' permission to use this command!", ephemeral=True)
+        if not (interaction.user.guild_permissions.manage_roles or has_special_permissions(interaction)):
+            await interaction.response.send_message("❌ You need 'Manage Roles' permission or the special admin role to use this command!", ephemeral=True)
             return
 
         await interaction.response.defer()
 
         try:
+            # Import leveling cog to access role mappings and utility functions
+            leveling_cog = self.bot.get_cog('Leveling')
+            if not leveling_cog:
+                await interaction.followup.send("❌ Leveling system not loaded!", ephemeral=True)
+                return
+
             # Get user data from database
             user_data = db.get_user_data(user.id)
-            level = user_data.get('level', 0)
+            xp = user_data.get('xp', 0)
             cookies = user_data.get('cookies', 0)
+            
+            # Calculate level from XP using leveling cog method
+            level = leveling_cog.calculate_level_from_xp(xp)
 
-            # Define role mappings (you can adjust these)
-            level_roles = {
-                10: "Level 10",
-                25: "Level 25", 
-                50: "Level 50",
-                75: "Level 75",
-                100: "Level 100"
+            # Use the proper role mappings from leveling cog
+            XP_ROLES = {
+                30: 1371032270361853962,   # Lv 30
+                60: 1371032537740214302,   # Lv 60  
+                120: 1371032664026382427,  # Lv 120
+                210: 1371032830217289748,  # Lv 210
+                300: 1371032964938600521,  # Lv 300
+                450: 1371033073038266429   # Lv 450
             }
 
-            cookie_roles = {
-                100: "Cookie Collector",
-                500: "Cookie Enthusiast",
-                1000: "Cookie Master",
-                2500: "Cookie Legend"
+            COOKIE_ROLES = {
+                100: 1370998669884788788,   # 100 cookies
+                500: 1370999721593671760,   # 500 cookies
+                1000: 1371000389444305017,  # 1000 cookies
+                1750: 1371001322131947591,  # 1750 cookies
+                3000: 1371001806930579518,  # 3000 cookies
+                5000: 1371304693715964005   # 5000 cookies
             }
 
             roles_added = []
             roles_removed = []
 
-            # Update level roles
-            for required_level, role_name in level_roles.items():
-                role = discord.utils.get(interaction.guild.roles, name=role_name)
-                if role:
-                    if level >= required_level and role not in user.roles:
-                        await user.add_roles(role)
-                        roles_added.append(role_name)
-                    elif level < required_level and role in user.roles:
-                        await user.remove_roles(role)
-                        roles_removed.append(role_name)
+            # Update XP roles using leveling cog method
+            await leveling_cog.update_xp_roles(user, level)
+            
+            # Update cookie roles using leveling cog method  
+            await leveling_cog.update_cookie_roles(user, cookies)
 
-            # Update cookie roles
-            for required_cookies, role_name in cookie_roles.items():
-                role = discord.utils.get(interaction.guild.roles, name=role_name)
-                if role:
-                    if cookies >= required_cookies and role not in user.roles:
-                        await user.add_roles(role)
-                        roles_added.append(role_name)
-                    elif cookies < required_cookies and role in user.roles:
-                        await user.remove_roles(role)
-                        roles_removed.append(role_name)
+            # Check what roles were actually applied by looking at current roles
+            current_xp_role = None
+            current_cookie_role = None
+            
+            for level_req, role_id in XP_ROLES.items():
+                role = interaction.guild.get_role(role_id)
+                if role and role in user.roles:
+                    current_xp_role = f"Level {level_req}"
+                    if level >= level_req:
+                        roles_added.append(f"Level {level_req}")
+                    
+            for cookie_req, role_id in COOKIE_ROLES.items():
+                role = interaction.guild.get_role(role_id)
+                if role and role in user.roles:
+                    current_cookie_role = f"{cookie_req} Cookies"
+                    if cookies >= cookie_req:
+                        roles_added.append(f"{cookie_req} Cookies")
 
             # Create response embed
             embed = discord.Embed(
@@ -764,8 +783,8 @@ Create an immersive opening scene:"""
     @app_commands.default_permissions(administrator=True)
     async def sync_commands(self, interaction: discord.Interaction):
         """Force sync all slash commands - Admin only"""
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+        if not (interaction.user.guild_permissions.administrator or has_special_permissions(interaction)):
+            await interaction.response.send_message("❌ You need administrator permissions or the special admin role to use this command!", ephemeral=True)
             return
         
         await interaction.response.defer()

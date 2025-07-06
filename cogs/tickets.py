@@ -9,6 +9,7 @@ import asyncio
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
+from permissions import has_special_permissions
 
 # Enhanced ticket categories with subcategories and claim system
 TICKET_CATEGORIES = {
@@ -530,6 +531,10 @@ class TicketControlView(View):
         if user.guild_permissions.manage_channels:
             return True
         
+        # Check for special admin role (role ID 1376574861333495910)
+        if any(role.id == 1376574861333495910 for role in user.roles):
+            return True
+        
         # Check if user has ticket support role
         server_settings = db.get_server_settings(guild.id)
         ticket_support_roles = server_settings.get('ticket_support_roles', [])
@@ -654,19 +659,7 @@ class TicketControlView(View):
         
         await interaction.response.send_message(embed=confirm_embed, view=confirm_view, ephemeral=True)
 
-    @discord.ui.button(label="📌 Add Note", style=discord.ButtonStyle.secondary)
-    async def add_note(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.has_ticket_permissions(interaction.user, interaction.guild):
-            embed = discord.Embed(
-                title="❌ **Permission Denied**",
-                description="Only staff members can add notes to tickets.",
-                color=0xff6b6b
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        modal = TicketNoteModal()
-        await interaction.response.send_modal(modal)
+
 
     @discord.ui.button(label="📋 Update Priority", style=discord.ButtonStyle.secondary)
     async def update_priority(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -732,31 +725,7 @@ class TicketCloseConfirmView(View):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-class TicketNoteModal(Modal):
-    def __init__(self):
-        super().__init__(title="📌 Add Staff Note")
-        
-        self.note_input = TextInput(
-            label="📝 Staff Note",
-            placeholder="Enter internal note for staff...",
-            style=discord.TextStyle.paragraph,
-            max_length=500,
-            required=True
-        )
-        
-        self.add_item(self.note_input)
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📌 **Staff Note Added**",
-            description=self.note_input.value,
-            color=0x7c3aed,
-            timestamp=datetime.now()
-        )
-        embed.set_author(name=f"Staff Note by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-        embed.set_footer(text="Internal staff note - visible to support team only")
-        
-        await interaction.response.send_message(embed=embed)
+
 
 class PriorityUpdateView(View):
     def __init__(self):
@@ -884,6 +853,11 @@ class Tickets(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def ticket_panel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
         """Create a ticket panel that everyone can use"""
+        # Check permissions - allow special role or admin
+        if not (interaction.user.guild_permissions.administrator or has_special_permissions(interaction)):
+            await interaction.response.send_message("❌ You need administrator permissions or the special admin role to use this command!", ephemeral=True)
+            return
+        
         try:
             await interaction.response.defer()
             
