@@ -1,339 +1,350 @@
-# 🤖 Coal Python Bot - Command List
+# 🤖 COAL BOT - Complete Command List
 
-## 📋 **Table of Contents**
-- [🎮 Community Commands](#-community-commands)
-- [💰 Economy Commands](#-economy-commands)
-- [🍪 Cookie Commands](#-cookie-commands)
-- [📊 Leveling Commands](#-leveling-commands)
-- [🛠️ Moderation Commands](#️-moderation-commands)
-- [⚙️ Settings Commands](#️-settings-commands)
-- [🎉 Event Commands](#-event-commands)
-- [🔧 General Commands](#-general-commands)
-- [🎭 Auto Events](#-auto-events)
+## 📋 **Role Permissions Reference**
+- **🦥 Overseer** - Full admin access
+- **Forgotten one** - Full admin access  
+- **� Lead moderator** - Manager + Host permissions
+- **Moderator �🚓** - Basic moderation + announcements
 
 ---
 
-## 🎮 **Community Commands**
+## � **TICKET SYSTEM**
 
-### `/suggest <suggestion>`
-- **Description:** Submit a suggestion to the server
-- **Usage:** `/suggest Make a gaming channel`
+### `/createticket`
+- **Function:** Create a support ticket instantly
 - **Permissions:** Everyone
-- **Features:** Automatic voting reactions (👍/👎)
+- **Description:** Opens a private ticket with regional support options (UK/US/EU)
 
-### `/flip`
-- **Description:** Flip a coin - heads or tails
-- **Usage:** `/flip`
-- **Permissions:** Everyone
-- **Features:** Shows actual coin images (heads.jpeg/tails.jpeg)
+### `/ticketpanel`
+- **Function:** Create ticket panel in current channel
+- **Permissions:** Administrator only
+- **Description:** Sets up the ticket creation interface
 
-### `/spinawheel <options>`
-- **Description:** Spin a wheel with up to 10 options
-- **Usage:** `/spinawheel Pizza, Burger, Tacos, Sushi`
-- **Permissions:** Everyone
-- **Features:** Creates custom wheel image with your options
-- **Limits:** 2-10 options
+### `/giveticketroleperms`
+- **Function:** Grant ticket support permissions to roles
+- **Permissions:** Administrator only
+- **Description:** Allows roles to access and manage tickets
 
-### `/userinfo [user]`
-- **Description:** View detailed info about a server member
-- **Usage:** `/userinfo @username` or `/userinfo` (for yourself)
-- **Permissions:** Everyone
-- **Shows:** Username, ID, join date, roles, account creation
+### `/ticketstats`
+- **Function:** View comprehensive ticket system statistics
+- **Permissions:** Manage Channels
+- **Description:** Shows ticket analytics and system info
 
-### `/serverinfo`
-- **Description:** Shows stats and info about the server
-- **Usage:** `/serverinfo`
-- **Permissions:** Everyone
-- **Shows:** Owner, member count, channels, roles, boost info
-
-### `/ping`
-- **Description:** Check the bot's ping to Discord servers
-- **Usage:** `/ping`
-- **Permissions:** Everyone
-
-### `/askblecknephew <question>`
-- **Description:** THE SAINT shall clear your doubts (AI-powered)
-- **Usage:** `/askblecknephew What's the meaning of life?`
-- **Permissions:** Everyone
-- **Features:** AI responses with clickable links
-
-### `/giveaway <duration> <prize> [winners] [channel]`
-- **Description:** Start a giveaway with specified duration and winner count
-- **Usage:** `/giveaway 60 Discord Nitro 2 #general`
-- **Permissions:** 🚨 **Moderator+** (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
-- **Features:** Interactive button entry, automatic winner selection
-- **Limits:** 1-10080 minutes (1 week max), 1-20 winners
-
-### `/announce <channel> <title> <message>`
-- **Description:** Creates and sends a formatted announcement
-- **Usage:** `/announce #announcements Server Update New rules added!`
-- **Permissions:** 🚨 **Moderator+** (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+### `/closealltickets`
+- **Function:** Emergency: Close all open tickets
+- **Permissions:** Administrator only
+- **Description:** Nuclear option for emergency situations
 
 ---
 
-## 💰 **Economy Commands**
+## 💰 **ECONOMY SYSTEM**
 
-### `/balance [user]`
-- **Description:** Check your or another user's coin balance
-- **Usage:** `/balance` or `/balance @username`
+### `/balance`
+- **Function:** Check your shiny coin balance
 - **Permissions:** Everyone
+- **Description:** View your current coin wallet
 
 ### `/work`
-- **Description:** Work to earn some coins
-- **Usage:** `/work`
+- **Function:** Work various jobs to earn coins
 - **Permissions:** Everyone
-- **Cooldown:** 30 minutes
-- **Earnings:** 50-200 coins per work
-- **Features:** Detailed job descriptions, realistic scenarios (Software Developer, Pro Gamer, etc.)
-- **Boost:** Double earnings with XP Boost active
-
-### `/coinflip <amount> <choice>`
-- **Description:** Flip a coin and bet coins
-- **Usage:** `/coinflip 100 heads`
-- **Permissions:** Everyone
-- **Choices:** heads, tails
-- **Features:** Shows actual coin images, win/lose system
+- **Description:** Choose from different jobs to earn money
 
 ### `/shop`
-- **Description:** View the server shop
-- **Usage:** `/shop`
+- **Function:** View the premium temporary items shop
 - **Permissions:** Everyone
-- **Items:** XP Boost (250), VIP Role (800), Custom Role (1500), Profile Badge (500)
-- **Note:** All roles are temporary with time limits!
+- **Description:** Browse 16 premium items across 4 categories
 
-### `/buy <item>`
-- **Description:** Buy an item from the shop
-- **Usage:** `/buy VIP Role`
+### `/buy`
+- **Function:** Purchase premium temporary items
 - **Permissions:** Everyone
-- **Items:** XP Boost (1 hour), VIP Role (7 days), Custom Role (30 days), Profile Badge (permanent)
-- **Features:** Temporary roles auto-removed when expired
+- **Description:** Buy power-ups, social status, access perks, and fun items
+
+### `/coinflip`
+- **Function:** Flip a coin and bet coins
+- **Permissions:** Everyone
+- **Description:** Gambling mini-game with coin betting
+
+### `/myitems`
+- **Function:** View your active temporary purchases
+- **Permissions:** Everyone
+- **Description:** Check remaining time on purchased items
 
 ---
 
-## 🍪 **Cookie Commands**
+## 🍪 **COOKIE SYSTEM**
 
-### `/cookies [user]`
-- **Description:** Check your or another user's cookie count
-- **Usage:** `/cookies` or `/cookies @username`
+### `/cookies`
+- **Function:** Check your delicious cookie balance
 - **Permissions:** Everyone
+- **Description:** View your cookie wealth and stats
 
-### `/givecookies <user> <amount>`
-- **Description:** Give cookies to another user
-- **Usage:** `/givecookies @username 10`
-- **Permissions:** Everyone
-- **Limits:** Must have enough cookies to give
+### `/addcookies`
+- **Function:** Add cookies to a user
+- **Permissions:** Manager roles only (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
+- **Description:** Give cookies to members
 
-### `/cookieleaderboard`
-- **Description:** View the top cookie holders
-- **Usage:** `/cookieleaderboard`
-- **Permissions:** Everyone
-- **Shows:** Top 10 cookie holders
+### `/removecookies`
+- **Function:** Remove cookies with selection options
+- **Permissions:** Manager roles only (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
+- **Description:** Remove cookies, supports percentages, reset, penalty codes
+
+### `/cookiesgiveall`
+- **Function:** Give cookies to everyone in server
+- **Permissions:** Manager roles only (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
+- **Description:** Mass cookie distribution
 
 ---
 
-## 📊 **Leveling Commands**
+## 🏆 **LEVELING & PROFILE**
 
-### `/level [user]`
-- **Description:** Check your or another user's level and XP
-- **Usage:** `/level` or `/level @username`
+### `/profile`
+- **Function:** Show comprehensive profile
 - **Permissions:** Everyone
+- **Description:** View level, cookies, job, daily streak, and stats
 
 ### `/leaderboard`
-- **Description:** View the XP leaderboard
-- **Usage:** `/leaderboard`
+- **Function:** View all server leaderboards
 - **Permissions:** Everyone
-- **Shows:** Top 10 XP holders
+- **Description:** See top members by XP, cookies, and level
 
 ### `/daily`
-- **Description:** Claim your daily XP bonus
-- **Usage:** `/daily`
+- **Function:** Claim daily XP and coin bonus
 - **Permissions:** Everyone
-- **Cooldown:** 24 hours
-- **Reward:** 100 XP base + streak bonus
-- **Features:** Streak system (bonus every 7 days)
-
-### `/streaktop`
-- **Description:** Shows the top 10 users with the highest daily streaks
-- **Usage:** `/streaktop`
-- **Permissions:** Everyone
-- **Features:** Fire emojis for long streaks, tracks daily consistency
+- **Description:** Daily rewards with streak multipliers
 
 ---
 
-## 🛠️ **Moderation Commands**
+## 🚨 **MODERATION**
 
-### `/warn <user> [reason]`
-- **Description:** Warn a user
-- **Usage:** `/warn @username Spamming in chat`
-- **Permissions:** 🚨 **Moderator+**
+### `/addxp`
+- **Function:** Add XP to a user
+- **Permissions:** Administrator only
+- **Description:** Manually adjust member XP
 
-### `/warnings <user>`
-- **Description:** View all warnings for a user
-- **Usage:** `/warnings @username`
-- **Permissions:** 🚨 **Moderator+**
+### `/removexp`
+- **Function:** Remove XP from a user
+- **Permissions:** Administrator only
+- **Description:** Reduce member XP for violations
 
-### `/kick <user> [reason]`
-- **Description:** Kick a user from the server
-- **Usage:** `/kick @username Breaking rules`
-- **Permissions:** 🚨 **Kick Members**
+### `/modclear`
+- **Function:** Delete specified number of messages
+- **Permissions:** Manage Messages
+- **Description:** Bulk message deletion for cleanup
 
-### `/ban <user> [reason]`
-- **Description:** Ban a user from the server
-- **Usage:** `/ban @username Serious rule violation`
-- **Permissions:** 🚨 **Ban Members**
+### `/warn`
+- **Function:** Warn a user
+- **Permissions:** Manage Messages
+- **Description:** Issue formal warnings to members
 
-### `/timeout <user> <duration> [reason]`
-- **Description:** Timeout a user for specified duration
-- **Usage:** `/timeout @username 60 Excessive spam`
-- **Permissions:** 🚨 **Moderate Members**
-- **Duration:** In minutes
+### `/checkwarnlist`
+- **Function:** Check warnings for a user
+- **Permissions:** Manage Messages
+- **Description:** View member's warning history
 
-### `/purge <amount>`
-- **Description:** Delete multiple messages at once
-- **Usage:** `/purge 10`
-- **Permissions:** 🚨 **Manage Messages**
-- **Limits:** 1-100 messages
+### `/removewarnlist`
+- **Function:** Remove warnings or clear all
+- **Permissions:** Manage Messages
+- **Description:** Delete specific warnings or reset count
+
+### `/updateroles`
+- **Function:** Update roles based on level and cookies
+- **Permissions:** Manage Roles
+- **Description:** Sync member roles with their progression
+
+### `/roleplay`
+- **Function:** Interactive AI roleplay with persistence
+- **Permissions:** Everyone
+- **Description:** Chat with AI characters with memory
 
 ---
 
-## ⚙️ **Settings Commands**
+## 📢 **COMMUNITY & EVENTS**
 
-### `/setchannel <function> <channel>`
-- **Description:** Set a channel for specific bot functions
-- **Usage:** `/setchannel Level Up Announcements #level-ups`
-- **Permissions:** 🚨 **Manage Server**
-- **Functions:** Level Up, Welcome, Goodbye, Starboard, Mod Logs
+### `/suggest`
+- **Function:** Submit server improvement suggestions
+- **Permissions:** Everyone
+- **Description:** Send suggestions with optional media to suggestion channel
 
-### `/starboard <action> [value]`
-- **Description:** Configure the starboard settings
-- **Usage:** `/starboard Set Star Threshold 5`
-- **Permissions:** 🚨 **Manage Server**
-- **Actions:** Set Star Threshold, Toggle Starboard, Set Starboard Channel
+### `/shout`
+- **Function:** Create event announcements with live tracking
+- **Permissions:** Announcement roles (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+- **Description:** Professional event posts with participant tracking, time strings (1h, 30m)
+
+### `/gamelog`
+- **Function:** Log completed games with details
+- **Permissions:** Announcement roles (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+- **Description:** Record game results with participants and media
+
+### `/spinwheel`
+- **Function:** Spin enhanced wheel with arrow
+- **Permissions:** Everyone
+- **Description:** Modern wheel spinner with premium design
+
+### `/giveaway`
+- **Function:** Start giveaway with duration and winners
+- **Permissions:** Announcement roles (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+- **Description:** Automated giveaway system with time limits
+
+### `/announce`
+- **Function:** Create professional pointwise announcements
+- **Permissions:** Announcement roles (Moderator 🚨🚓, 🚨 Lead moderator, 🦥 Overseer, Forgotten one)
+- **Description:** Structured announcements with bullet points
+
+### `/remind`
+- **Function:** Set personal reminders
+- **Permissions:** Everyone
+- **Description:** Get pinged after specified time (5m, 1h, 2d format)
+
+---
+
+## ℹ️ **INFORMATION & UTILITY**
+
+### `/userinfo`
+- **Function:** View detailed member information
+- **Permissions:** Everyone
+- **Description:** Comprehensive user stats and details
+
+### `/serverinfo`
+- **Function:** Show server stats and information
+- **Permissions:** Everyone
+- **Description:** Server overview with member counts and features
+
+### `/ping`
+- **Function:** Check bot's ping to Discord
+- **Permissions:** Everyone
+- **Description:** Test bot responsiveness and latency
+
+### `/askblecknephew`
+- **Function:** Ask BleckNephew AI anything
+- **Permissions:** Everyone
+- **Description:** Chat with optimized AI assistant (under 500 words)
+
+### `/flip`
+- **Function:** Flip a coin - heads or tails
+- **Permissions:** Everyone
+- **Description:** Simple coin flip game
+
+---
+
+## ⚙️ **SERVER SETTINGS**
+
+### `/quicksetup`
+- **Function:** Enhanced setup wizard for all bot functions
+- **Permissions:** Manage Server
+- **Description:** Configure channels, roles, and bot features
+
+### `/starboard`
+- **Function:** Configure starboard settings
+- **Permissions:** Manage Server
+- **Description:** Set up reaction-based message highlighting
 
 ### `/viewsettings`
-- **Description:** View current server settings
-- **Usage:** `/viewsettings`
-- **Permissions:** Everyone
-- **Shows:** Channel settings, starboard config
-
-### `/resetsettings`
-- **Description:** Reset all server settings to default
-- **Usage:** `/resetsettings`
-- **Permissions:** 🚨 **Administrator**
-- **Warning:** This action cannot be undone!
-
----
-
-## 🎉 **Event Commands**
-
-### `/shout <channel> <message>`
-- **Description:** Make the bot send a message to a specific channel
-- **Usage:** `/shout #general Event starting in 5 minutes!`
-- **Permissions:** 🚨 **Host Only** (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
-- **Features:** Formatted embed with join button
-
-### `/gamelog <title> <description> [winner] [image]`
-- **Description:** Log a game event or result with image support
-- **Usage:** `/gamelog Tournament Finals Epic battle royale @winner screenshot.png`
-- **Permissions:** 🚨 **Host Only** (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
-- **Features:** Image attachment support, winner highlighting
-
----
-
-## 🔧 **General Commands**
-
-### `/help`
-- **Description:** Show help information
-- **Usage:** `/help`
-- **Permissions:** Everyone
+- **Function:** View current server configuration
+- **Permissions:** Manage Server
+- **Description:** Check all bot settings and channels
 
 ### `/sync`
-- **Description:** Sync slash commands (owner only)
-- **Usage:** `/sync`
-- **Permissions:** 🚨 **Bot Owner Only**
+- **Function:** Force sync all slash commands
+- **Permissions:** Administrator only
+- **Description:** Refresh command registration (emergency use)
 
 ---
 
-## 🎭 **Auto Events**
+## 🔧 **DEVELOPMENT/TESTING**
 
-### **Message XP System**
-- **Trigger:** Sending messages
-- **Reward:** 15-25 XP per message (30-50 with XP Boost)
-- **Cooldown:** 1 minute between XP gains
-- **Features:** Automatic level up announcements, XP boost detection
-- **Boost:** Double XP when XP Boost item is active
+### `/hello`
+- **Function:** Basic hello command
+- **Permissions:** Everyone
+- **Description:** Test if bot is responding
 
-### **Welcome Messages**
-- **Trigger:** User joins server
-- **Features:** Welcome embed with animated GIF, member count
-- **Requirement:** Welcome channel must be set
+### `/test`
+- **Function:** Simple test command
+- **Permissions:** Everyone
+- **Description:** Verify bot responsiveness
 
-### **Goodbye Messages**
-- **Trigger:** User leaves server
-- **Features:** Goodbye embed with animated GIF
-- **Requirement:** Goodbye channel must be set
-
-### **Starboard System**
-- **Trigger:** ⭐ reactions on messages
-- **Requirement:** Starboard enabled + threshold met
-- **Features:** Automatic message highlighting in starboard channel
-
-### **Temporary Role System**
-- **Trigger:** Purchasing roles from shop
-- **Features:** Automatic role removal when expired
-- **Cleanup:** Hourly cleanup task removes expired roles
-- **Tracking:** All temporary roles stored in MongoDB with timestamps
-
-### **Auto-Cleanup System**
-- **Frequency:** Every hour
-- **Function:** Removes expired roles, purchases, and temporary items
-- **Scope:** Server-wide cleanup of all expired items
-- **Logging:** Automatic cleanup status logging
+### `/info`
+- **Function:** Show bot information and status
+- **Permissions:** Everyone
+- **Description:** Bot version and system info
 
 ---
 
-## 🎨 **Special Features**
+## 🎮 **EVENT COMMANDS** (Alternative versions)
 
-### **Asset Integration**
-- 🪙 **Coin Images:** Real coin images for flip/coinflip commands
-- 🎡 **Custom Wheels:** Generated wheel images with your options
-- 🎬 **Animated GIFs:** Welcome/goodbye messages with GIFs
-- 🎨 **Custom Fonts:** Poppins-Bold font for wheel text
+### Event `/shout`
+- **Function:** Make bot send message to specific channel
+- **Permissions:** Host roles (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
+- **Description:** Alternative shout command for events
 
-### **Permission Levels**
-- 👤 **Everyone:** Basic commands, fun features
-- 🚨 **Moderator+:** Warn, announce, giveaway commands
-- 🛠️ **Manage Server:** Settings configuration
-- 👑 **Administrator:** Reset settings, advanced config
-- 🎯 **Host Only:** Event management, shout commands
-
-### **Interactive Features**
-- 🎉 **Giveaway Buttons:** Click to enter giveaways
-- 🌟 **Reaction Voting:** Automatic reactions on suggestions
-- 🔗 **Link Buttons:** Clickable links in AI responses
-- 🎮 **Event Buttons:** Join event buttons in announcements
-- ⚡ **XP Boost System:** Temporary double XP from shop purchases
-- 🌟 **VIP Role System:** Temporary premium roles with auto-removal
-- 🔄 **Auto-Cleanup:** Hourly removal of expired items
-
-### **Error Handling**
-- 🛡️ **Interaction Safety:** Prevents "already acknowledged" errors
-- 🔧 **MongoDB Compatibility:** Proper collection truth value testing
-- 📊 **Database Syncing:** All data stored and retrieved from MongoDB
-- 🔄 **Automatic Recovery:** Graceful error handling with fallbacks
+### Event `/gamelog`
+- **Function:** Log game event with image support
+- **Permissions:** Host roles (🦥 Overseer, Forgotten one, 🚨 Lead moderator)
+- **Description:** Alternative gamelog with winner tracking
 
 ---
 
-## 📞 **Need Help?**
+## 📊 **USAGE TIPS**
 
-If you need assistance with any command or feature, feel free to:
-- Use `/help` for basic information
-- Ask a moderator for command-specific help
-- Check the bot's responses for usage examples
+- **Time Formats:** Use `1h` (1 hour), `30m` (30 minutes), `2d` (2 days), `now` for immediate
+- **Percentage Cookies:** Use `25%` to remove percentage of cookies
+- **Special Codes:** Use `reset` or `penalty` for special cookie removal
+- **Live Events:** Shout command now shows live participant count to everyone
+- **Temporary Items:** Shop items are organized in Power-Ups, Social Status, Access, and Fun categories
 
-**Bot Version:** Latest with Temporary Roles & Error Fixes
-**Last Updated:** January 2025 - Major System Update
+## 🎯 **PREMIUM SHOP CATEGORIES**
+
+### 💪 Power-Ups (4 items)
+- XP Boost, Cookie Multiplier, Coin Boost, Work Success
+
+### ⭐ Social Status (4 items)  
+- VIP Role, Custom Color, Crown Badge, Rainbow Name
+
+### 🔓 Access (4 items)
+- VIP Channels, Nickname Freedom, Voice Priority, Early Access
+
+### 🎉 Fun & Games (4 items)
+- Luck Boost, Party Mode, Double Daily, Mystery Box
 
 ---
 
-*This bot is continuously updated with new features and improvements!* 🚀
+## 🚀 **RECENT UPDATES**
+
+### ✨ **Latest Features**
+- **Live Event Tracking:** Shout command now shows real-time participant counts
+- **Enhanced Ticket System:** Regional support with claim/unclaim functionality
+- **Expanded Premium Shop:** 16 temporary items across 4 categories
+- **Time String Support:** Natural time parsing (1h, 30m, 2d)
+- **Optimized AI:** BleckNephew responses under 500 words for better engagement
+- **Advanced Cookie Management:** Percentage removal and special codes
+
+### 🎨 **Design Improvements**
+- **Modern Spin Wheel:** Premium typography and gradient effects
+- **Professional Embeds:** Consistent branding across all commands
+- **Enhanced UI:** Better buttons, modals, and user interactions
+- **Responsive Design:** Optimized for all Discord platforms
+
+### 🛡️ **System Enhancements**
+- **Permission Overhaul:** Clear role-based access control
+- **Database Optimization:** Efficient data management and cleanup
+- **Error Handling:** Improved stability and user feedback
+- **Performance:** Faster response times and better resource usage
+
+---
+
+## � **Support & Documentation**
+
+### 🔗 **Quick Links**
+- **GitHub Repository:** https://github.com/THEREALVANHEL/coal-python-bot.git
+- **Command Categories:** 9 major categories with 47 total commands
+- **Premium Features:** 16 temporary shop items with auto-cleanup
+
+### 💡 **Getting Help**
+- Use `/help` or specific command help for guidance
+- Contact moderators for permission-related issues
+- Check `/viewsettings` to verify server configuration
+
+**Total Commands: 47** | **Categories: 9** | **Premium Items: 16**
+
+---
+
+*Last Updated: January 2025 - Complete Feature Set*
