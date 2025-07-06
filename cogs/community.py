@@ -188,7 +188,7 @@ class Community(commands.Cog):
                 # Load bigger font for options - much larger now
                 try:
                     font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-                    font = ImageFont.truetype(font_path, 34)  # Increased from 26 to 34
+                    font = ImageFont.truetype(font_path, 48)  # Increased from 34 to 48
                 except:
                     font = ImageFont.load_default()
                 
@@ -257,7 +257,7 @@ class Community(commands.Cog):
             
             # Draw GOLDEN title with larger font
             try:
-                title_font = ImageFont.truetype(font_path, 48)  # Increased from 36 to 48
+                title_font = ImageFont.truetype(font_path, 65)  # Increased from 48 to 65
             except:
                 title_font = ImageFont.load_default()
             
