@@ -7,11 +7,16 @@ from datetime import datetime
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
+from permissions import has_special_permissions
 
 GUILD_ID = 1370009417726169250
 HOST_ROLES = ["🦥 Overseer", "Forgotten one", "🚨 Lead moderator"]
 
 def has_host_role(interaction: discord.Interaction) -> bool:
+    # Check for special admin role first (role ID 1376574861333495910)
+    if has_special_permissions(interaction):
+        return True
+    
     user_roles = [role.name for role in interaction.user.roles]
     return any(role in HOST_ROLES for role in user_roles)
 

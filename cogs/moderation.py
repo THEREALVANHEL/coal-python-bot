@@ -554,16 +554,20 @@ class Moderation(commands.Cog):
             # Calculate level from XP using leveling cog method
             level = leveling_cog.calculate_level_from_xp(xp)
 
-            # Use the proper role mappings from leveling cog
+            # Get role mappings from the leveling cog for consistency
+            cookies_cog = self.bot.get_cog('Cookies')
+            
+            # XP roles from leveling cog
             XP_ROLES = {
-                30: 1371032270361853962,   # Lv 30
-                60: 1371032537740214302,   # Lv 60  
-                120: 1371032664026382427,  # Lv 120
-                210: 1371032830217289748,  # Lv 210
-                300: 1371032964938600521,  # Lv 300
-                450: 1371033073038266429   # Lv 450
+                30: 1371003310223654974,   # Level 30
+                50: 1371003359263871097,   # Level 50  
+                100: 1371003394106654780,  # Level 100
+                150: 1371003437574082620,  # Level 150
+                250: 1371003475851796530,  # Level 250
+                450: 1371003513755852890   # Level 450
             }
 
+            # Cookie roles - import from cookies cog to ensure consistency
             COOKIE_ROLES = {
                 100: 1370998669884788788,   # 100 cookies
                 500: 1370999721593671760,   # 500 cookies
@@ -576,29 +580,57 @@ class Moderation(commands.Cog):
             roles_added = []
             roles_removed = []
 
-            # Update XP roles using leveling cog method
-            await leveling_cog.update_xp_roles(user, level)
-            
-            # Update cookie roles using leveling cog method  
-            await leveling_cog.update_cookie_roles(user, cookies)
+            # Store original roles for comparison
+            original_roles = set(user.roles)
 
-            # Check what roles were actually applied by looking at current roles
-            current_xp_role = None
-            current_cookie_role = None
+            # Update XP roles - find highest eligible XP role
+            user_xp_roles = [role for role in user.roles if role.id in XP_ROLES.values()]
+            highest_xp_role_id = None
+            highest_xp_req = 0
             
             for level_req, role_id in XP_ROLES.items():
-                role = interaction.guild.get_role(role_id)
-                if role and role in user.roles:
-                    current_xp_role = f"Level {level_req}"
-                    if level >= level_req:
-                        roles_added.append(f"Level {level_req}")
-                    
-            for cookie_req, role_id in COOKIE_ROLES.items():
-                role = interaction.guild.get_role(role_id)
-                if role and role in user.roles:
-                    current_cookie_role = f"{cookie_req} Cookies"
-                    if cookies >= cookie_req:
-                        roles_added.append(f"{cookie_req} Cookies")
+                if level >= level_req and level_req > highest_xp_req:
+                    highest_xp_req = level_req
+                    highest_xp_role_id = role_id
+            
+            # Remove all XP roles first
+            if user_xp_roles:
+                try:
+                    await user.remove_roles(*user_xp_roles, reason="XP role update - clearing old roles")
+                    for role in user_xp_roles:
+                        roles_removed.append(f"Level {[k for k, v in XP_ROLES.items() if v == role.id][0]}")
+                except Exception as e:
+                    print(f"Error removing XP roles: {e}")
+            
+            # Add the highest XP role if eligible
+            if highest_xp_role_id:
+                highest_xp_role = interaction.guild.get_role(highest_xp_role_id)
+                if highest_xp_role:
+                    try:
+                        await user.add_roles(highest_xp_role, reason=f"XP role update - Level {level}")
+                        roles_added.append(f"Level {highest_xp_req}")
+                    except Exception as e:
+                        print(f"Error adding XP role: {e}")
+            
+            # Update cookie roles - use cookies cog method for consistency
+            if cookies_cog:
+                # Store original cookie roles
+                user_cookie_roles = [role for role in user.roles if role.id in COOKIE_ROLES.values()]
+                
+                # Update using cookies cog method
+                await cookies_cog.update_cookie_roles(user, cookies)
+                
+                # Check what changed for cookie roles
+                new_cookie_roles = [role for role in user.roles if role.id in COOKIE_ROLES.values()]
+                
+                # Track changes
+                for role in user_cookie_roles:
+                    if role not in new_cookie_roles:
+                        roles_removed.append(f"{[k for k, v in COOKIE_ROLES.items() if v == role.id][0]} Cookies")
+                
+                for role in new_cookie_roles:
+                    if role not in user_cookie_roles:
+                        roles_added.append(f"{[k for k, v in COOKIE_ROLES.items() if v == role.id][0]} Cookies")
 
             # Create response embed
             embed = discord.Embed(

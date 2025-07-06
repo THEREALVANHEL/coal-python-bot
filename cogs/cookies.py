@@ -9,6 +9,7 @@ from datetime import datetime
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
+from permissions import has_special_permissions
 
 GUILD_ID = 1370009417726169250
 
@@ -25,7 +26,11 @@ COOKIE_ROLES = {        # balance : role-id (updated with new IDs)
 COOKIE_MANAGER_ROLE_ID = 1372121024841125888
 
 def has_cookie_manager_role(interaction: discord.Interaction) -> bool:
-    """Check if user has cookie manager role"""
+    """Check if user has cookie manager role or special admin role"""
+    # Check for special admin role first (role ID 1376574861333495910)
+    if has_special_permissions(interaction):
+        return True
+    
     return any(role.id == COOKIE_MANAGER_ROLE_ID for role in interaction.user.roles)
 
 class CustomRemovalModal(discord.ui.Modal):
