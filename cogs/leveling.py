@@ -545,7 +545,7 @@ class Leveling(commands.Cog):
                     inline=False
                 )
                 embed.set_footer(text="💫 Patience is a virtue!")
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                await interaction.response.send_message(embed=embed)
 
         except Exception as e:
             error_embed = discord.Embed(

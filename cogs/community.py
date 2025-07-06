@@ -657,13 +657,13 @@ class Community(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="askblecknephew", description="THE SAINT shall clear your doubts")
-    @app_commands.describe(question="Your question for the AI")
+    @app_commands.command(name="askblecknephew", description="Ask your nephew BleckNephew anything!")
+    @app_commands.describe(question="Your question for BleckNephew")
     async def askblecknephew(self, interaction: discord.Interaction, question: str):
         if not self.genai_api_key or not self.model:
             embed = discord.Embed(
                 title="❌ AI Service Unavailable",
-                description="THE SAINT is currently unavailable. The Gemini AI service is not configured properly.",
+                description="BleckNephew is currently unavailable. The Gemini AI service is not configured properly.",
                 color=0xff6b6b
             )
             embed.add_field(
@@ -677,35 +677,104 @@ class Community(commands.Cog):
         await interaction.response.defer()
 
         try:
-            prompt = f"You are 'THE SAINT' - a wise and helpful AI assistant. Answer this question: {question}"
+            # Enhanced prompt for comprehensive responses
+            prompt = f"""You are 'BleckNephew' - a helpful, knowledgeable, and friendly AI assistant. You are someone's nephew who's really good with technology and answering questions. 
+
+INSTRUCTIONS:
+- Always respond in a helpful, friendly manner as if you're actually their nephew
+- For complex topics, provide detailed explanations
+- For simple questions, give concise but complete answers
+- Include relevant links when helpful (use full URLs)
+- Use emojis appropriately to make responses engaging
+- If asked about images, explain what you would show if you could generate images
+- Break down complex topics into easy-to-understand parts
+- Be conversational and approachable
+
+Question: {question}
+
+Please provide a comprehensive, helpful response."""
+
             response = self.model.generate_content(prompt)
             
             if not response.text:
-                await interaction.followup.send("❌ THE SAINT couldn't generate a response. Please try rephrasing your question.", ephemeral=True)
+                await interaction.followup.send("❌ BleckNephew couldn't generate a response. Please try rephrasing your question.", ephemeral=True)
                 return
             
-            embed = discord.Embed(
-                title="🤖 THE SAINT Responds",
-                description=response.text[:2000],
-                color=0x9932cc,
-                timestamp=datetime.now()
-            )
-            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="THE SAINT • AI-powered responses")
-            embed.add_field(name="Question", value=question[:100] + ("..." if len(question) > 100 else ""), inline=False)
-
-            # Check for URLs and add buttons if found
-            urls = extract_urls(response.text)
-            if urls:
-                view = LinkView(urls)
-                await interaction.followup.send(embed=embed, view=view)
+            # Handle long responses by splitting them
+            response_text = response.text
+            if len(response_text) > 2000:
+                # Split into chunks
+                chunks = []
+                current_chunk = ""
+                words = response_text.split()
+                
+                for word in words:
+                    if len(current_chunk + word + " ") <= 2000:
+                        current_chunk += word + " "
+                    else:
+                        chunks.append(current_chunk.strip())
+                        current_chunk = word + " "
+                
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                
+                # Send first chunk as main response
+                embed = discord.Embed(
+                    title="🤖 BleckNephew Responds",
+                    description=chunks[0],
+                    color=0x9932cc,
+                    timestamp=datetime.now()
+                )
+                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+                embed.set_footer(text="BleckNephew • Your helpful AI nephew")
+                embed.add_field(name="❓ Question", value=question[:100] + ("..." if len(question) > 100 else ""), inline=False)
+                
+                if len(chunks) > 1:
+                    embed.add_field(name="📄 Response", value=f"Part 1 of {len(chunks)}", inline=False)
+                
+                # Check for URLs and add buttons if found
+                urls = extract_urls(response_text)
+                if urls:
+                    view = LinkView(urls)
+                    await interaction.followup.send(embed=embed, view=view)
+                else:
+                    await interaction.followup.send(embed=embed)
+                
+                # Send additional chunks
+                for i, chunk in enumerate(chunks[1:], 2):
+                    embed = discord.Embed(
+                        title=f"🤖 BleckNephew Responds (Part {i})",
+                        description=chunk,
+                        color=0x9932cc,
+                        timestamp=datetime.now()
+                    )
+                    embed.set_footer(text="BleckNephew • Your helpful AI nephew")
+                    await interaction.followup.send(embed=embed)
+                    
             else:
-                await interaction.followup.send(embed=embed)
+                # Short response - send normally
+                embed = discord.Embed(
+                    title="🤖 BleckNephew Responds",
+                    description=response_text,
+                    color=0x9932cc,
+                    timestamp=datetime.now()
+                )
+                embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+                embed.set_footer(text="BleckNephew • Your helpful AI nephew")
+                embed.add_field(name="❓ Question", value=question[:100] + ("..." if len(question) > 100 else ""), inline=False)
+
+                # Check for URLs and add buttons if found
+                urls = extract_urls(response_text)
+                if urls:
+                    view = LinkView(urls)
+                    await interaction.followup.send(embed=embed, view=view)
+                else:
+                    await interaction.followup.send(embed=embed)
 
         except Exception as e:
             error_embed = discord.Embed(
                 title="❌ Error generating response",
-                description="THE SAINT encountered an issue while processing your question.",
+                description="BleckNephew encountered an issue while processing your question.",
                 color=0xff6b6b
             )
             error_embed.add_field(
@@ -838,6 +907,118 @@ class Community(commands.Cog):
             await interaction.response.send_message(f"✅ Announcement sent to {channel.mention}!", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message(f"❌ I don't have permission to send messages in {channel.mention}!", ephemeral=True)
+
+    @app_commands.command(name="remind", description="Set a reminder for yourself")
+    @app_commands.describe(
+        time="Time to remind you (e.g., 5m, 1h, 2d)",
+        reminder="What to remind you about"
+    )
+    async def remind(self, interaction: discord.Interaction, time: str, reminder: str):
+        """Set a reminder for the user"""
+        try:
+            # Parse time
+            time_seconds = self.parse_time(time)
+            if time_seconds is None:
+                embed = discord.Embed(
+                    title="❌ Invalid Time Format",
+                    description="Please use formats like: `5m`, `1h`, `2d`, `1w`",
+                    color=0xff6b6b
+                )
+                embed.add_field(
+                    name="📝 Examples",
+                    value="• `5m` = 5 minutes\n• `1h` = 1 hour\n• `2d` = 2 days\n• `1w` = 1 week",
+                    inline=False
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            if time_seconds > 604800:  # 1 week max
+                embed = discord.Embed(
+                    title="❌ Time Too Long",
+                    description="Maximum reminder time is 1 week (7 days).",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Confirm reminder set
+            reminder_time = datetime.now() + timedelta(seconds=time_seconds)
+            embed = discord.Embed(
+                title="⏰ Reminder Set!",
+                description=f"I'll remind you about: **{reminder}**",
+                color=0x00d4aa,
+                timestamp=reminder_time
+            )
+            embed.add_field(
+                name="⏱️ Reminder Time",
+                value=f"<t:{int(reminder_time.timestamp())}:R>",
+                inline=False
+            )
+            embed.set_footer(text="Reminder will be sent")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+            # Wait and send reminder
+            await asyncio.sleep(time_seconds)
+            
+            reminder_embed = discord.Embed(
+                title="⏰ Reminder!",
+                description=f"**{reminder}**",
+                color=0xffd700,
+                timestamp=datetime.now()
+            )
+            reminder_embed.set_author(
+                name=f"Reminder for {interaction.user.display_name}",
+                icon_url=interaction.user.display_avatar.url
+            )
+            reminder_embed.add_field(
+                name="⏱️ Set",
+                value=f"<t:{int((datetime.now() - timedelta(seconds=time_seconds)).timestamp())}:R>",
+                inline=False
+            )
+            reminder_embed.set_footer(text="🔔 Reminder System")
+            
+            try:
+                await interaction.user.send(embed=reminder_embed)
+            except discord.Forbidden:
+                # If DMs are disabled, send in the channel
+                await interaction.followup.send(f"{interaction.user.mention}", embed=reminder_embed)
+                
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ Reminder Error",
+                description="Failed to set reminder. Please try again.",
+                color=0xff6b6b
+            )
+            if not interaction.response.is_done():
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
+            else:
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+    
+    def parse_time(self, time_str: str) -> int:
+        """Parse time string into seconds"""
+        try:
+            time_str = time_str.lower().strip()
+            
+            # Extract number and unit
+            import re
+            match = re.match(r'^(\d+)([smhdw])$', time_str)
+            if not match:
+                return None
+                
+            amount = int(match.group(1))
+            unit = match.group(2)
+            
+            multipliers = {
+                's': 1,
+                'm': 60,
+                'h': 3600,
+                'd': 86400,
+                'w': 604800
+            }
+            
+            return amount * multipliers.get(unit, 0)
+        except:
+            return None
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Community(bot))
