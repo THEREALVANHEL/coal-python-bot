@@ -311,13 +311,17 @@ class Cookies(commands.Cog):
                 await interaction.response.send_message(f"❌ Error adding cookies: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="removecookies", description="Remove cookies from a user with selection options (Manager only)")
-    @app_commands.describe(user="User to remove cookies from", option="Select removal option")
+    @app_commands.describe(
+        user="User to remove cookies from", 
+        option="Select removal option",
+        custom_amount="Custom amount to remove (only used with 'Custom Amount' option)"
+    )
     @app_commands.choices(option=[
         app_commands.Choice(name="💔 Remove All Cookies", value="all"),
         app_commands.Choice(name="📉 Remove Half", value="half"),
         app_commands.Choice(name="🔢 Custom Amount", value="custom")
     ])
-    async def removecookies(self, interaction: discord.Interaction, user: discord.Member, option: str):
+    async def removecookies(self, interaction: discord.Interaction, user: discord.Member, option: str, custom_amount: str = None):
         if not has_manager_role(interaction):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
@@ -339,23 +343,33 @@ class Cookies(commands.Cog):
                 return
             
             if option == "custom":
-                # Show modal for custom amount
-                modal = CustomRemovalModal(user, old_cookies)
-                await interaction.followup.send("Please wait while we prepare the custom removal form...", ephemeral=True)
-                # We can't send modals from followup, so we'll handle custom differently
-                # Instead, ask for amount in a simple way
-                embed = discord.Embed(
-                    title="🔢 **Custom Cookie Removal**",
-                    description=f"**User:** {user.mention}\n**Current Cookies:** {old_cookies:,}\n\nPlease specify the amount to remove (1 - {old_cookies:,})",
-                    color=0xff6b6b
-                )
-                embed.add_field(
-                    name="💡 **How to proceed:**",
-                    value="Use this command again with either 'all' or 'half' options, or contact an admin for custom amounts.",
-                    inline=False
-                )
-                await interaction.followup.send(embed=embed, ephemeral=True)
-                return
+                if not custom_amount:
+                    embed = discord.Embed(
+                        title="❌ **Missing Custom Amount**",
+                        description="You must provide a custom amount to remove!",
+                        color=0xff6b6b
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    return
+                try:
+                    amount = int(custom_amount)
+                    if amount <= 0 or amount > old_cookies:
+                        embed = discord.Embed(
+                            title="❌ **Invalid Custom Amount**",
+                            description=f"Custom amount must be between 1 and {old_cookies:,}!",
+                            color=0xff6b6b
+                        )
+                        await interaction.followup.send(embed=embed, ephemeral=True)
+                        return
+                    amount = int(custom_amount)
+                except ValueError:
+                    embed = discord.Embed(
+                        title="❌ **Invalid Custom Amount**",
+                        description="Please enter a valid number for the custom amount!",
+                        color=0xff6b6b
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    return
             elif option == "all":
                 amount = old_cookies
             elif option == "half":

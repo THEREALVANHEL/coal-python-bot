@@ -185,11 +185,16 @@ class Community(commands.Cog):
                 text_x = center + text_radius * math.cos(mid_angle)
                 text_y = center + text_radius * math.sin(mid_angle)
                 
-                # Load bigger font for options - much larger now
+                # Load bigger font for options - much larger now using assets font
                 try:
                     font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-                    font = ImageFont.truetype(font_path, 48)  # Increased from 34 to 48
-                except:
+                    if os.path.exists(font_path):
+                        font = ImageFont.truetype(font_path, 48)  # Premium font from assets
+                    else:
+                        # Fallback to any system font
+                        font = ImageFont.load_default()
+                except Exception as e:
+                    print(f"Font loading error: {e}")
                     font = ImageFont.load_default()
                 
                 # Get text size for centering
@@ -255,10 +260,15 @@ class Community(commands.Cog):
                 draw.polygon([(arrow_end_x, arrow_end_y), (head_x1, head_y1), (head_x2, head_y2)], 
                            fill='#000000', outline='#333333', width=1)
             
-            # Draw GOLDEN title with larger font
+            # Draw GOLDEN title with larger font using assets font
             try:
-                title_font = ImageFont.truetype(font_path, 65)  # Increased from 48 to 65
-            except:
+                font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
+                if os.path.exists(font_path):
+                    title_font = ImageFont.truetype(font_path, 65)  # Premium title font from assets
+                else:
+                    title_font = ImageFont.load_default()
+            except Exception as e:
+                print(f"Title font loading error: {e}")
                 title_font = ImageFont.load_default()
             
             bbox = draw.textbbox((0, 0), title, font=title_font)
