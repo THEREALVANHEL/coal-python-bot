@@ -171,16 +171,24 @@ class Leveling(commands.Cog):
             # Remove all XP roles first
             roles_to_remove = [role for role in all_xp_roles if role in member.roles]
             if roles_to_remove:
-                await member.remove_roles(*roles_to_remove, reason="XP level role update - clearing old roles")
+                try:
+                    await member.remove_roles(*roles_to_remove, reason="XP level role update - clearing old roles")
+                    print(f"[Leveling] Removed {len(roles_to_remove)} XP roles from {member.display_name}")
+                except Exception as e:
+                    print(f"[Leveling] Error removing XP roles from {member.display_name}: {e}")
             
             # Add only the highest role if user qualifies for one
             if highest_role_id:
                 highest_role = guild.get_role(highest_role_id)
                 if highest_role:
-                    await member.add_roles(highest_role, reason=f"XP level role update - level {level}")
-                    
+                    try:
+                        await member.add_roles(highest_role, reason=f"XP level role update - level {level}")
+                        print(f"[Leveling] Gave {highest_role.name} role to {member.display_name} (level {level})")
+                    except Exception as e:
+                        print(f"[Leveling] Error adding XP role {highest_role.name} to {member.display_name}: {e}")
+                        
         except Exception as e:
-            print(f"Error updating XP roles for {member}: {e}")
+            print(f"[Leveling] Error updating XP roles for {member}: {e}")
 
     async def update_cookie_roles(self, member: discord.Member, cookies: int):
         """Update user's cookie-based roles - only give highest role, remove all others"""
@@ -206,16 +214,24 @@ class Leveling(commands.Cog):
             # Remove all cookie roles first
             roles_to_remove = [role for role in all_cookie_roles if role in member.roles]
             if roles_to_remove:
-                await member.remove_roles(*roles_to_remove, reason="Cookie milestone role update - clearing old roles")
+                try:
+                    await member.remove_roles(*roles_to_remove, reason="Cookie milestone role update - clearing old roles")
+                    print(f"[Leveling] Removed {len(roles_to_remove)} cookie roles from {member.display_name}")
+                except Exception as e:
+                    print(f"[Leveling] Error removing cookie roles from {member.display_name}: {e}")
             
             # Add only the highest role if user qualifies for one
             if highest_role_id:
                 highest_role = guild.get_role(highest_role_id)
                 if highest_role:
-                    await member.add_roles(highest_role, reason=f"Cookie milestone role update - {cookies} cookies")
-                    
+                    try:
+                        await member.add_roles(highest_role, reason=f"Cookie milestone role update - {cookies} cookies")
+                        print(f"[Leveling] Gave {highest_role.name} role to {member.display_name} ({cookies} cookies)")
+                    except Exception as e:
+                        print(f"[Leveling] Error adding cookie role {highest_role.name} to {member.display_name}: {e}")
+                        
         except Exception as e:
-            print(f"Error updating cookie roles for {member}: {e}")
+            print(f"[Leveling] Error updating cookie roles for {member}: {e}")
 
     async def create_leaderboard_embed(self, leaderboard_type: str, page: int, members_per_page: int = 10):
         """Create leaderboard embed for any type"""
@@ -360,7 +376,7 @@ class Leveling(commands.Cog):
         total_pages = streak_data.get('total_pages', 1)
         
         embed = discord.Embed(
-            title="� Daily Streak Leaderboard",
+            title="🔥 Daily Streak Leaderboard",
             color=0xff4500,
             timestamp=datetime.now()
         )

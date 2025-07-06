@@ -115,29 +115,29 @@ class Community(commands.Cog):
         print("[Community] Loaded successfully.")
 
     def create_pie_wheel_image(self, options, title="Spin the Wheel!", winner=None):
-        """Create a professional and sleek wheel with modern design and smaller arrow"""
+        """Create a professional and elegant wheel with larger options and golden title"""
         try:
             # Create a high-quality image
-            size = 600
+            size = 700
             img = Image.new('RGBA', (size, size), (255, 255, 255, 0))
             draw = ImageDraw.Draw(img)
             
             # Center and radius
             center = size // 2
-            radius = center - 80
+            radius = center - 100
             
-            # Modern gradient-inspired color palette
+            # Simple elegant color palette - white, black, grays
             colors = [
-                '#667eea',  # Purple Blue
-                '#764ba2',  # Deep Purple
-                '#f093fb',  # Pink Purple
-                '#f5576c',  # Coral Pink
-                '#4facfe',  # Light Blue
-                '#00f2fe',  # Cyan
-                '#43e97b',  # Green
-                '#38f9d7',  # Turquoise
-                '#ffecd2',  # Warm Peach
-                '#fcb69f'   # Soft Orange
+                '#FFFFFF',  # Pure White
+                '#000000',  # Pure Black  
+                '#F5F5F5',  # Light Gray
+                '#2C2C2C',  # Dark Gray
+                '#E8E8E8',  # Lighter Gray
+                '#404040',  # Medium Dark Gray
+                '#FAFAFA',  # Off White
+                '#1A1A1A',  # Near Black
+                '#DDDDDD',  # Light Gray 2
+                '#333333'   # Charcoal
             ]
             
             # Calculate angles for each slice
@@ -148,30 +148,30 @@ class Community(commands.Cog):
             winner_index = options.index(winner) if winner in options else 0
             
             # Draw outer ring (shadow effect)
-            shadow_radius = radius + 5
+            shadow_radius = radius + 8
             draw.ellipse([center - shadow_radius, center - shadow_radius, 
                          center + shadow_radius, center + shadow_radius], 
-                        fill='#00000020', outline=None)
+                        fill='#00000030', outline=None)
             
-            # Draw pie slices with gradient effect
+            # Draw pie slices
             start_angle = 0
             for i, option in enumerate(options):
                 end_angle = start_angle + angle_per_slice
                 color = colors[i % len(colors)]
                 
-                # Enhanced winner highlighting
+                # Enhanced winner highlighting with golden glow
                 if i == winner_index:
-                    outline_color = '#FFD700'
-                    outline_width = 6
-                    # Add glowing effect for winner
-                    glow_radius = radius + 3
+                    outline_color = '#FFD700'  # Golden
+                    outline_width = 8
+                    # Add golden glowing effect for winner
+                    glow_radius = radius + 6
                     draw.pieslice(
                         [center - glow_radius, center - glow_radius, center + glow_radius, center + glow_radius],
-                        start_angle, end_angle, fill='#FFD70040', outline=None
+                        start_angle, end_angle, fill='#FFD70060', outline=None
                     )
                 else:
-                    outline_color = '#ffffff'
-                    outline_width = 2
+                    outline_color = '#CCCCCC'
+                    outline_width = 3
                 
                 # Draw the main slice
                 draw.pieslice(
@@ -179,16 +179,16 @@ class Community(commands.Cog):
                     start_angle, end_angle, fill=color, outline=outline_color, width=outline_width
                 )
                 
-                # Calculate text position
+                # Calculate text position - closer to edge for better visibility
                 mid_angle = math.radians(start_angle + angle_per_slice / 2)
-                text_radius = radius * 0.7
+                text_radius = radius * 0.75  # Moved closer to edge
                 text_x = center + text_radius * math.cos(mid_angle)
                 text_y = center + text_radius * math.sin(mid_angle)
                 
-                # Load professional font
+                # Load bigger font for options
                 try:
                     font_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Poppins-Bold.ttf')
-                    font = ImageFont.truetype(font_path, 20)
+                    font = ImageFont.truetype(font_path, 26)  # Increased from 20 to 26
                 except:
                     font = ImageFont.load_default()
                 
@@ -197,35 +197,38 @@ class Community(commands.Cog):
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]
                 
-                # Draw text with clean shadow
-                shadow_offset = 2
+                # Choose text color based on background for better contrast
+                text_color = '#000000' if color in ['#FFFFFF', '#F5F5F5', '#E8E8E8', '#FAFAFA', '#DDDDDD'] else '#FFFFFF'
+                
+                # Draw text with better shadow for visibility
+                shadow_offset = 3
                 draw.text((text_x - text_width//2 + shadow_offset, text_y - text_height//2 + shadow_offset), 
                          option, font=font, fill='#00000080')
                 draw.text((text_x - text_width//2, text_y - text_height//2), 
-                         option, font=font, fill='white')
+                         option, font=font, fill=text_color)
                 
                 start_angle = end_angle
             
             # Draw modern center hub
-            center_radius = 30
-            # Outer ring
+            center_radius = 35
+            # Outer ring - elegant black
             draw.ellipse([center - center_radius, center - center_radius, 
                          center + center_radius, center + center_radius], 
-                        fill='#2c3e50', outline='#34495e', width=3)
-            # Inner circle
-            inner_radius = center_radius - 8
+                        fill='#000000', outline='#333333', width=4)
+            # Inner circle - clean white
+            inner_radius = center_radius - 10
             draw.ellipse([center - inner_radius, center - inner_radius, 
                          center + inner_radius, center + inner_radius], 
-                        fill='#ecf0f1', outline='#bdc3c7', width=2)
+                        fill='#FFFFFF', outline='#CCCCCC', width=2)
             
             # Draw sleek, smaller arrow pointing to winner
             if winner:
                 winner_angle = math.radians(winner_index * angle_per_slice + angle_per_slice / 2)
                 
                 # Smaller, more elegant arrow
-                arrow_length = 60
-                arrow_width = 8
-                arrow_start_radius = center_radius + 5
+                arrow_length = 70
+                arrow_width = 10
+                arrow_start_radius = center_radius + 8
                 arrow_end_radius = arrow_start_radius + arrow_length
                 
                 # Calculate arrow center line
@@ -234,12 +237,12 @@ class Community(commands.Cog):
                 arrow_end_x = center + arrow_end_radius * math.cos(winner_angle)
                 arrow_end_y = center + arrow_end_radius * math.sin(winner_angle)
                 
-                # Draw arrow shaft (sleeker)
+                # Draw arrow shaft (elegant black)
                 draw.line([(arrow_start_x, arrow_start_y), (arrow_end_x, arrow_end_y)], 
-                         fill='#e74c3c', width=arrow_width)
+                         fill='#000000', width=arrow_width)
                 
                 # Draw smaller, more professional arrowhead
-                arrow_head_size = 10
+                arrow_head_size = 12
                 head_angle1 = winner_angle + math.pi * 0.75
                 head_angle2 = winner_angle - math.pi * 0.75
                 
@@ -248,35 +251,36 @@ class Community(commands.Cog):
                 head_x2 = arrow_end_x + arrow_head_size * math.cos(head_angle2)
                 head_y2 = arrow_end_y + arrow_head_size * math.sin(head_angle2)
                 
-                # Arrow head with gradient effect
+                # Arrow head with black fill
                 draw.polygon([(arrow_end_x, arrow_end_y), (head_x1, head_y1), (head_x2, head_y2)], 
-                           fill='#c0392b', outline='#a93226', width=1)
+                           fill='#000000', outline='#333333', width=1)
             
-            # Draw modern title with better typography
+            # Draw GOLDEN title with larger font
             try:
-                title_font = ImageFont.truetype(font_path, 28)
+                title_font = ImageFont.truetype(font_path, 36)  # Increased from 28 to 36
             except:
                 title_font = ImageFont.load_default()
             
             bbox = draw.textbbox((0, 0), title, font=title_font)
             title_width = bbox[2] - bbox[0]
             title_x = center - title_width // 2
-            title_y = 20
+            title_y = 30
             
-            # Modern title with subtle shadow
-            draw.text((title_x + 2, title_y + 2), title, font=title_font, fill='#00000040')
-            draw.text((title_x, title_y), title, font=title_font, fill='#2c3e50')
+            # Golden title with elegant shadow
+            draw.text((title_x + 3, title_y + 3), title, font=title_font, fill='#00000040')
+            draw.text((title_x, title_y), title, font=title_font, fill='#FFD700')  # Golden color
             
-            # Add subtle corner decoration
-            corner_size = 20
+            # Add simple elegant corner decorations
+            corner_size = 25
+            decoration_color = '#FFD700'  # Golden decorations
             # Top-left
-            draw.arc([10, 10, 10 + corner_size, 10 + corner_size], 180, 270, fill='#3498db', width=3)
+            draw.arc([15, 15, 15 + corner_size, 15 + corner_size], 180, 270, fill=decoration_color, width=4)
             # Top-right  
-            draw.arc([size - corner_size - 10, 10, size - 10, 10 + corner_size], 270, 360, fill='#3498db', width=3)
+            draw.arc([size - corner_size - 15, 15, size - 15, 15 + corner_size], 270, 360, fill=decoration_color, width=4)
             # Bottom-left
-            draw.arc([10, size - corner_size - 10, 10 + corner_size, size - 10], 90, 180, fill='#3498db', width=3)
+            draw.arc([15, size - corner_size - 15, 15 + corner_size, size - 15], 90, 180, fill=decoration_color, width=4)
             # Bottom-right
-            draw.arc([size - corner_size - 10, size - corner_size - 10, size - 10, size - 10], 0, 90, fill='#3498db', width=3)
+            draw.arc([size - corner_size - 15, size - corner_size - 15, size - 15, size - 15], 0, 90, fill=decoration_color, width=4)
             
             # Save the image
             output_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'temp_wheel.png')
@@ -284,7 +288,7 @@ class Community(commands.Cog):
             return output_path
             
         except Exception as e:
-            print(f"Error creating professional wheel image: {e}")
+            print(f"Error creating elegant wheel image: {e}")
             return None
 
     @app_commands.command(name="suggest", description="💡 Submit suggestions to improve the server (with optional media)")
@@ -764,7 +768,7 @@ Please provide a comprehensive, helpful response."""
                 )
                 embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
                 embed.set_footer(text="BleckNephew • Your helpful AI nephew")
-                embed.add_field(name="❓ Question", value=question[:100] + ("..." if len(question) > 100 else ""), inline=False)
+                embed.add_field(name="❓ Your Question", value=f"```{question[:500] + ('...' if len(question) > 500 else '')}```", inline=False)
                 
                 if len(chunks) > 1:
                     embed.add_field(name="📄 Response", value=f"Part 1 of {len(chunks)}", inline=False)
@@ -798,7 +802,7 @@ Please provide a comprehensive, helpful response."""
                 )
                 embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
                 embed.set_footer(text="BleckNephew • Your helpful AI nephew")
-                embed.add_field(name="❓ Question", value=question[:100] + ("..." if len(question) > 100 else ""), inline=False)
+                embed.add_field(name="❓ Your Question", value=f"```{question[:500] + ('...' if len(question) > 500 else '')}```", inline=False)
 
                 # Check for URLs and add buttons if found
                 urls = extract_urls(response_text)
@@ -953,13 +957,11 @@ Please provide a comprehensive, helpful response."""
                 timestamp=datetime.now()
             )
             
-            # Format points with professional styling
+            # Format points with professional styling using numbers
             formatted_points = []
-            point_emojis = ["🔹", "🔸", "▫️", "🟦", "🟨", "🟩", "🟧", "🟪", "⬜", "🔷", "🔶", "🔲", "🔳", "⚪", "⚫"]
             
-            for i, point in enumerate(point_list):
-                emoji = point_emojis[i % len(point_emojis)]
-                formatted_points.append(f"{emoji} **{point}**")
+            for i, point in enumerate(point_list, 1):
+                formatted_points.append(f"**{i}.** {point}")
             
             # Add main points section
             points_text = "\n".join(formatted_points)
@@ -1009,18 +1011,12 @@ Please provide a comprehensive, helpful response."""
             )
             embed.set_footer(text=f"📢 Announced by {interaction.user.display_name} • {datetime.now().strftime('%B %d, %Y')}")
             
-            # Prepare mention if role is specified
+            # Prepare mention if role is specified - no warning, just mention
             mention_text = ""
             if mention_role:
                 role = discord.utils.get(interaction.guild.roles, name=mention_role)
                 if role:
                     mention_text = f"{role.mention}\n\n"
-                else:
-                    embed.add_field(
-                        name="⚠️ **Mention Warning**",
-                        value=f"Role '{mention_role}' not found",
-                        inline=False
-                    )
             
             # Send the announcement
             await channel.send(content=mention_text, embed=embed)

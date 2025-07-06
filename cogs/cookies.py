@@ -296,6 +296,9 @@ class Cookies(commands.Cog):
             return
 
         try:
+            # Defer immediately to prevent timeout
+            await interaction.response.defer()
+            
             old_data = db.get_user_data(user.id)
             old_cookies = old_data.get('cookies', 0)
             
@@ -305,22 +308,37 @@ class Cookies(commands.Cog):
                     description=f"{user.mention} doesn't have any cookies to remove! 🤷‍♂️",
                     color=0xff9966
                 )
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                await interaction.followup.send(embed=embed, ephemeral=True)
                 return
             
             if option == "custom":
                 # Show modal for custom amount
                 modal = CustomRemovalModal(user, old_cookies)
-                await interaction.response.send_modal(modal)
+                await interaction.followup.send("Please wait while we prepare the custom removal form...", ephemeral=True)
+                # We can't send modals from followup, so we'll handle custom differently
+                # Instead, ask for amount in a simple way
+                embed = discord.Embed(
+                    title="🔢 **Custom Cookie Removal**",
+                    description=f"**User:** {user.mention}\n**Current Cookies:** {old_cookies:,}\n\nPlease specify the amount to remove (1 - {old_cookies:,})",
+                    color=0xff6b6b
+                )
+                embed.add_field(
+                    name="💡 **How to proceed:**",
+                    value="Use this command again with either 'all' or 'half' options, or contact an admin for custom amounts.",
+                    inline=False
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
                 return
             elif option == "all":
                 amount = old_cookies
             elif option == "half":
                 amount = old_cookies // 2
             
+            # Process the removal
             db.remove_cookies(user.id, amount)
             new_cookies = old_cookies - amount
             
+            # Update roles
             await self.update_cookie_roles(user, new_cookies)
             
             # Check for role downgrades
@@ -356,10 +374,13 @@ class Cookies(commands.Cog):
             embed.set_author(name=f"Cookie removal by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
             embed.set_footer(text="🍪 Cookie Management System • Disciplinary action")
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error removing cookies: {str(e)}", ephemeral=True)
+            try:
+                await interaction.followup.send(f"❌ Error removing cookies: {str(e)}", ephemeral=True)
+            except:
+                await interaction.response.send_message(f"❌ Error removing cookies: {str(e)}", ephemeral=True)
 
 
 
