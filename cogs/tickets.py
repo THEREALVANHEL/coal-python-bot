@@ -451,6 +451,179 @@ Our support team will be with you shortly. Please explain your issue in detail b
             error_embed.set_footer(text="🛠️ Technical Support")
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
+class ClaimedTicketView(View):
+    def __init__(self, creator_id: int, category_key: str, subcategory: str, claimer_id: int):
+        super().__init__(timeout=None)
+        self.creator_id = creator_id
+        self.category_key = category_key
+        self.subcategory = subcategory
+        self.claimer_id = claimer_id
+
+    def has_ticket_permissions(self, user, guild):
+        """Check if user has ticket permissions"""
+        if user.id == self.creator_id or user.id == self.claimer_id:
+            return True
+        if user.guild_permissions.manage_channels:
+            return True
+        
+        # Check for special admin role
+        if any(role.id == 1376574861333495910 for role in user.roles):
+            return True
+        
+        # Check if user has ticket support role
+        server_settings = db.get_server_settings(guild.id)
+        ticket_support_roles = server_settings.get('ticket_support_roles', [])
+        
+        for role in user.roles:
+            if role.id in ticket_support_roles:
+                return True
+        
+        # Check for admin/mod/staff roles as fallback
+        for role in user.roles:
+            if any(name in role.name.lower() for name in ["admin", "mod", "staff", "support", "helper"]):
+                return True
+        
+        return False
+
+    @discord.ui.button(label="🔄 Unclaim Ticket", style=discord.ButtonStyle.secondary, custom_id="unclaim_ticket_btn")
+    async def unclaim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.has_ticket_permissions(interaction.user, interaction.guild):
+            embed = discord.Embed(
+                title="❌ **Permission Denied**",
+                description="Only staff members can unclaim tickets.",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        channel = interaction.channel
+        topic = channel.topic or ""
+        
+        # Check if ticket is claimed
+        if "🔒 CLAIMED" not in topic:
+            embed = discord.Embed(
+                title="⚠️ **Not Claimed**",
+                description="This ticket is not currently claimed.",
+                color=0xff9966
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Cool channel renaming back to unclaimed
+        old_name = channel.name
+        if old_name.startswith("🔒-claimed-"):
+            # Extract original info and recreate unclaimed name
+            parts = old_name.replace("🔒-claimed-", "").split("-")
+            if len(parts) >= 3:
+                user_part = parts[0]
+                title_part = parts[1]
+                user_id = parts[-1]
+                new_name = f"ticket-{user_part}-{title_part}-{user_id}"[:100]
+            else:
+                new_name = f"ticket-{'-'.join(parts)}"[:100]
+        else:
+            new_name = old_name.replace("🔒-claimed-", "ticket-")[:100]
+        
+        try:
+            # Rename channel back to unclaimed format
+            await channel.edit(name=new_name)
+            
+            # Update topic to remove claim info
+            new_topic = topic.split("🔒 CLAIMED")[1].split(" • ", 2)[-1] if "🔒 CLAIMED" in topic else topic
+            await channel.edit(topic=new_topic[:1024])
+            
+            # Move back to main support category
+            support_category = discord.utils.get(interaction.guild.categories, name="✨ Support Hub")
+            if support_category:
+                await channel.edit(category=support_category)
+                
+        except Exception as e:
+            print(f"Error unclaiming ticket: {e}")
+        
+        # Create unclaim embed
+        embed = discord.Embed(
+            title="🔄 **Ticket Unclaimed**",
+            description=f"**{interaction.user.display_name}** has unclaimed this ticket. It's now available for other staff members.",
+            color=0x7289da,
+            timestamp=datetime.now()
+        )
+        
+        embed.add_field(
+            name="📋 **Status**",
+            value="🟡 Available for claiming\n✨ Waiting for staff assignment",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="⏰ **Unclaimed At**",
+            value=f"<t:{int(datetime.now().timestamp())}:R>",
+            inline=True
+        )
+        
+        embed.set_footer(text="🎫 Ready for staff to claim and assist")
+        
+        # Back to original control view
+        view = TicketControlView(self.creator_id, self.category_key, self.subcategory)
+        
+        await interaction.response.edit_message(embed=embed, view=view)
+
+    @discord.ui.button(label="🔴 Close & Archive", style=discord.ButtonStyle.danger, custom_id="close_archive_btn")
+    async def close_and_archive(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.has_ticket_permissions(interaction.user, interaction.guild):
+            embed = discord.Embed(
+                title="❌ **Permission Denied**",
+                description="Only the ticket creator or staff can close tickets.",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Confirmation view
+        view = TicketCloseConfirmView(interaction.user.id)
+        
+        embed = discord.Embed(
+            title="⚠️ **Confirm Ticket Closure**",
+            description="Are you sure you want to close and archive this ticket?\n\n**This action will:**\n• Save the ticket conversation\n• Archive the channel\n• Remove access for the user\n• Generate a support summary",
+            color=0xff6b6b
+        )
+        embed.add_field(name="⚡ **Quick Close**", value="The ticket will be archived automatically in 30 seconds if no action is taken.", inline=False)
+        embed.set_footer(text="🔴 This action cannot be undone")
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    @discord.ui.button(label="⚡ Set Priority", style=discord.ButtonStyle.primary, custom_id="set_priority_btn")
+    async def set_priority(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.has_ticket_permissions(interaction.user, interaction.guild):
+            embed = discord.Embed(
+                title="❌ **Permission Denied**",
+                description="Only staff members can change ticket priority.",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        view = PriorityUpdateView()
+        
+        embed = discord.Embed(
+            title="⚡ **Update Ticket Priority**",
+            description="Select the new priority level for this ticket:",
+            color=0x7c3aed
+        )
+        
+        priority_info = {
+            "🟢 Low": "Standard requests, general questions",
+            "🟡 Medium": "Account issues, moderate problems", 
+            "🟠 High": "Urgent issues, important requests",
+            "🔴 Urgent": "Critical problems, immediate attention needed"
+        }
+        
+        for priority, desc in priority_info.items():
+            embed.add_field(name=priority, value=desc, inline=True)
+        
+        embed.set_footer(text="Priority affects response time and staff assignment")
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
 class TicketControlView(View):
     def __init__(self, creator_id: int, category_key: str, subcategory: str):
         super().__init__(timeout=None)
@@ -484,7 +657,7 @@ class TicketControlView(View):
         
         return False
 
-    @discord.ui.button(label="👤 Claim Ticket", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="👤 Claim Ticket", style=discord.ButtonStyle.success, custom_id="claim_ticket_btn")
     async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             embed = discord.Embed(
@@ -497,6 +670,90 @@ class TicketControlView(View):
         
         channel = interaction.channel
         topic = channel.topic or ""
+        
+        # Check if already claimed
+        if "🔒 CLAIMED" in topic or f"👤 {interaction.user.display_name}" in topic:
+            embed = discord.Embed(
+                title="⚠️ **Already Claimed**",
+                description=f"This ticket is already claimed by a staff member.",
+                color=0xff9966
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Cool channel renaming after claiming
+        old_name = channel.name
+        if old_name.startswith("ticket-"):
+            # Extract base info
+            parts = old_name.split("-")
+            if len(parts) >= 4:
+                user_part = parts[1]
+                title_part = parts[2]
+                user_id = parts[-1]
+                
+                # Create new cool claimed name format
+                new_name = f"🔒-claimed-{user_part}-{title_part}-{interaction.user.name.lower()}-{user_id}"[:100]
+            else:
+                new_name = f"🔒-claimed-{old_name[7:]}-{interaction.user.name.lower()}"[:100]
+        else:
+            new_name = f"🔒-claimed-{channel.name}-{interaction.user.name.lower()}"[:100]
+        
+        try:
+            # Rename channel with cool claimed format
+            await channel.edit(name=new_name)
+            
+            # Update topic with claim info and timestamp
+            claimed_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+            new_topic = f"🔒 CLAIMED by {interaction.user.display_name} • {claimed_time} • " + topic
+            await channel.edit(topic=new_topic[:1024])
+            
+            # Move to claimed category if it exists
+            claimed_category = discord.utils.get(interaction.guild.categories, name="🔒 Claimed Tickets")
+            if claimed_category:
+                await channel.edit(category=claimed_category)
+            
+            # Log claim in database
+            try:
+                db.log_ticket_claim(interaction.guild.id, channel.id, interaction.user.id)
+            except:
+                pass
+                
+        except Exception as e:
+            print(f"Error updating claimed ticket: {e}")
+        
+        # Create awesome claim embed
+        embed = discord.Embed(
+            title="🔒 **Ticket Claimed Successfully!**",
+            description=f"**{interaction.user.display_name}** has claimed this ticket and will handle your request.",
+            color=0x00d4aa,
+            timestamp=datetime.now()
+        )
+        
+        embed.add_field(
+            name="👤 **Assigned Staff**",
+            value=f"{interaction.user.mention}\n`{interaction.user.display_name}`",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="⏰ **Claimed At**",
+            value=f"<t:{int(datetime.now().timestamp())}:F>",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="📋 **Next Steps**",
+            value="• Staff will review your request\n• Please provide any additional details\n• Average response time: 5-15 minutes",
+            inline=False
+        )
+        
+        embed.set_author(name="Ticket Management System", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        embed.set_footer(text="✨ Professional Support • Fast Response Guaranteed")
+        
+        # Update the view to show claimed status
+        view = ClaimedTicketView(self.creator_id, self.category_key, self.subcategory, interaction.user.id)
+        
+        await interaction.response.edit_message(embed=embed, view=view)
         
         # Handle unclaim if already claimed
         if "| Claimed by:" in topic:
@@ -1031,6 +1288,248 @@ class Tickets(commands.Cog):
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error getting ticket stats: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="organizetickets", description="🗂️ Auto-organize tickets by status (claimed/unclaimed)")
+    @app_commands.default_permissions(manage_channels=True)
+    async def organize_tickets(self, interaction: discord.Interaction):
+        """Automatically organize tickets into claimed and unclaimed categories"""
+        await interaction.response.defer()
+        
+        guild = interaction.guild
+        organized_count = 0
+        
+        try:
+            # Create categories if they don't exist
+            unclaimed_category = discord.utils.get(guild.categories, name="🎫 Open Tickets")
+            claimed_category = discord.utils.get(guild.categories, name="🔒 Claimed Tickets")
+            
+            if not unclaimed_category:
+                unclaimed_category = await guild.create_category("🎫 Open Tickets")
+            
+            if not claimed_category:
+                claimed_category = await guild.create_category("🔒 Claimed Tickets")
+            
+            # Find all ticket channels
+            ticket_channels = [ch for ch in guild.text_channels if ch.name.startswith(("ticket-", "🔒-claimed-"))]
+            
+            for channel in ticket_channels:
+                try:
+                    if channel.name.startswith("🔒-claimed-") or "🔒 CLAIMED" in (channel.topic or ""):
+                        # Move to claimed category
+                        if channel.category != claimed_category:
+                            await channel.edit(category=claimed_category)
+                            organized_count += 1
+                    else:
+                        # Move to unclaimed category
+                        if channel.category != unclaimed_category:
+                            await channel.edit(category=unclaimed_category)
+                            organized_count += 1
+                            
+                    await asyncio.sleep(0.5)  # Rate limit protection
+                    
+                except Exception as e:
+                    print(f"Error organizing channel {channel.name}: {e}")
+                    continue
+            
+            embed = discord.Embed(
+                title="🗂️ **Tickets Organized Successfully!**",
+                description=f"Automatically sorted **{organized_count}** ticket channels by their claim status.",
+                color=0x00d4aa,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 **Organization Results**",
+                value=f"• **🎫 Open Tickets**: {len([ch for ch in unclaimed_category.channels if ch.name.startswith('ticket-')])}\n• **🔒 Claimed Tickets**: {len([ch for ch in claimed_category.channels if ch.name.startswith('🔒-claimed-')])}\n• **Total Organized**: {organized_count}",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="✨ **Benefits**",
+                value="• Easier ticket management\n• Clear status visibility\n• Improved staff workflow\n• Better user experience",
+                inline=False
+            )
+            
+            embed.set_footer(text="🎫 Ticket Organization System • Run this command regularly for best results")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ **Organization Failed**",
+                description=f"Error organizing tickets: {str(e)}",
+                color=0xff6b6b
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="ticketleaderboard", description="🏆 View ticket resolution leaderboard for staff")
+    @app_commands.default_permissions(manage_channels=True)
+    async def ticket_leaderboard(self, interaction: discord.Interaction):
+        """Show ticket resolution statistics for staff members"""
+        try:
+            # Get ticket statistics from database
+            stats = db.get_ticket_stats(interaction.guild.id)
+            
+            embed = discord.Embed(
+                title="🏆 **Ticket Resolution Leaderboard**",
+                description="Top performing staff members based on ticket handling",
+                color=0xffd700,
+                timestamp=datetime.now()
+            )
+            
+            if not stats or not stats.get('staff_stats'):
+                embed.add_field(
+                    name="📊 **No Data Available**",
+                    value="No ticket resolution data found. Start claiming and resolving tickets to see statistics!",
+                    inline=False
+                )
+            else:
+                # Sort staff by tickets resolved
+                staff_stats = sorted(stats['staff_stats'].items(), key=lambda x: x[1].get('resolved', 0), reverse=True)
+                
+                leaderboard_text = ""
+                for i, (staff_id, data) in enumerate(staff_stats[:10]):
+                    user = interaction.guild.get_member(int(staff_id))
+                    if user:
+                        position_emoji = ["🥇", "🥈", "🥉"] + ["🏅"] * 7
+                        resolved = data.get('resolved', 0)
+                        claimed = data.get('claimed', 0)
+                        avg_time = data.get('avg_resolution_time', 0)
+                        
+                        leaderboard_text += f"{position_emoji[i]} **{user.display_name}**\n"
+                        leaderboard_text += f"   • Resolved: {resolved} tickets\n"
+                        leaderboard_text += f"   • Claimed: {claimed} tickets\n"
+                        if avg_time > 0:
+                            hours = avg_time // 3600
+                            minutes = (avg_time % 3600) // 60
+                            leaderboard_text += f"   • Avg Resolution: {int(hours)}h {int(minutes)}m\n"
+                        leaderboard_text += "\n"
+                
+                embed.add_field(
+                    name="🎯 **Top Staff Members**",
+                    value=leaderboard_text or "No staff statistics available",
+                    inline=False
+                )
+            
+            # Add overall server stats
+            total_tickets = stats.get('total_tickets', 0)
+            resolved_tickets = stats.get('resolved_tickets', 0)
+            open_tickets = stats.get('open_tickets', 0)
+            
+            embed.add_field(
+                name="📈 **Server Statistics**",
+                value=f"• **Total Tickets**: {total_tickets}\n• **Resolved**: {resolved_tickets}\n• **Currently Open**: {open_tickets}\n• **Resolution Rate**: {(resolved_tickets/max(1,total_tickets)*100):.1f}%",
+                inline=True
+            )
+            
+            embed.set_footer(text="🏆 Updated automatically • Use /organizetickets to optimize workflow")
+            
+            await interaction.response.send_message(embed=embed)
+            
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ **Leaderboard Error**",
+                description=f"Could not retrieve ticket statistics: {str(e)}",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="autoarchive", description="🗃️ Auto-archive old resolved tickets")
+    @app_commands.describe(days="Days old for tickets to be archived (default: 7)")
+    @app_commands.default_permissions(manage_channels=True)
+    async def auto_archive(self, interaction: discord.Interaction, days: int = 7):
+        """Automatically archive old resolved tickets"""
+        await interaction.response.defer()
+        
+        if days < 1 or days > 30:
+            embed = discord.Embed(
+                title="❌ **Invalid Days**",
+                description="Days must be between 1 and 30.",
+                color=0xff6b6b
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+        
+        guild = interaction.guild
+        archived_count = 0
+        cutoff_time = datetime.now().timestamp() - (days * 24 * 3600)
+        
+        try:
+            # Find archive category or create it
+            archive_category = discord.utils.get(guild.categories, name="🗃️ Archived Tickets")
+            if not archive_category:
+                archive_category = await guild.create_category("🗃️ Archived Tickets")
+                # Set permissions to hide archived tickets
+                await archive_category.set_permissions(guild.default_role, read_messages=False)
+            
+            # Find old ticket channels
+            for channel in guild.text_channels:
+                if not channel.name.startswith(("ticket-", "🔒-claimed-")):
+                    continue
+                
+                # Check if channel is old enough
+                if channel.created_at.timestamp() < cutoff_time:
+                    try:
+                        # Archive the channel
+                        old_name = channel.name
+                        new_name = f"archived-{old_name}"[:100]
+                        
+                        await channel.edit(
+                            name=new_name,
+                            category=archive_category,
+                            topic=f"🗃️ Auto-archived on {datetime.now().strftime('%Y-%m-%d')} • " + (channel.topic or "")
+                        )
+                        
+                        # Send archive notification
+                        embed = discord.Embed(
+                            title="🗃️ **Ticket Archived**",
+                            description=f"This ticket has been automatically archived due to inactivity ({days} days).",
+                            color=0x6c757d,
+                            timestamp=datetime.now()
+                        )
+                        embed.add_field(name="📅 **Archived Date**", value=f"<t:{int(datetime.now().timestamp())}:F>", inline=True)
+                        embed.add_field(name="⏰ **Reason**", value=f"Inactive for {days} days", inline=True)
+                        embed.set_footer(text="Contact staff to reopen if needed")
+                        
+                        await channel.send(embed=embed)
+                        archived_count += 1
+                        
+                        await asyncio.sleep(1)  # Rate limit protection
+                        
+                    except Exception as e:
+                        print(f"Error archiving channel {channel.name}: {e}")
+                        continue
+            
+            embed = discord.Embed(
+                title="🗃️ **Auto-Archive Complete**",
+                description=f"Successfully archived **{archived_count}** old ticket channels.",
+                color=0x00d4aa,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 **Archive Summary**",
+                value=f"• **Channels Archived**: {archived_count}\n• **Age Threshold**: {days} days\n• **Archive Location**: {archive_category.mention}",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="💡 **Pro Tip**",
+                value="Run this command regularly to keep your server organized and improve performance!",
+                inline=False
+            )
+            
+            embed.set_footer(text="🗃️ Auto-Archive System • Keeping your server clean and organized")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ **Archive Failed**",
+                description=f"Error during auto-archive: {str(e)}",
+                color=0xff6b6b
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="closealltickets", description="🚨 Emergency: Close all open tickets")
     @app_commands.default_permissions(administrator=True)

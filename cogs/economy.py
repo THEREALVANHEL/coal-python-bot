@@ -39,11 +39,11 @@ JOB_TIERS = {
             },
             {
                 "name": "Customer Support", 
-                "emoji": "�",
+                "emoji": "📞",
                 "min_pay": 18, 
                 "max_pay": 32, 
                 "description": "helping customers",
-                "full_description": "� You assist customers with their questions and problems, providing friendly and helpful service.",
+                "full_description": "📞 You assist customers with their questions and problems, providing friendly and helpful service.",
                 "skill": "support"
             }
         ]
@@ -89,11 +89,11 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Software Developer", 
-                "emoji": "�️",
+                "emoji": "🖥️",
                 "min_pay": 40, 
                 "max_pay": 80, 
                 "description": "developing applications",
-                "full_description": "�️ You build robust applications and features, solving complex problems with code.",
+                "full_description": "🖥️ You build robust applications and features, solving complex problems with code.",
                 "skill": "development"
             },
             {
@@ -107,11 +107,11 @@ JOB_TIERS = {
             },
             {
                 "name": "Project Coordinator", 
-                "emoji": "�",
+                "emoji": "🎯",
                 "min_pay": 50, 
                 "max_pay": 85, 
                 "description": "coordinating team projects",
-                "full_description": "� You ensure projects run smoothly by coordinating teams and managing timelines.",
+                "full_description": "🎯 You ensure projects run smoothly by coordinating teams and managing timelines.",
                 "skill": "management"
             }
         ]
@@ -191,11 +191,11 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Industry Innovator", 
-                "emoji": "�",
+                "emoji": "🌟",
                 "min_pay": 300, 
                 "max_pay": 500, 
                 "description": "revolutionizing the industry",
-                "full_description": "� You create groundbreaking innovations that change entire industries forever.",
+                "full_description": "🌟 You create groundbreaking innovations that change entire industries forever.",
                 "skill": "innovation"
             },
             {
@@ -614,7 +614,7 @@ class Economy(commands.Cog):
                         
                         # Career progress
                         embed.add_field(
-                            name="� Career Progress",
+                            name="🏆 Career Progress",
                             value=f"**Successful Works:** {result['successful_works']}\n**Work Streak:** {result['work_streak']}\n**Current Tier:** {result['new_tier'].title()}",
                             inline=True
                         )
@@ -628,7 +628,7 @@ class Economy(commands.Cog):
                             )
                         elif result.get("demoted"):
                             embed.add_field(
-                                name="� **Demotion**",
+                                name="🔄 **Demotion**",
                                 value=f"Due to missed work, you've been moved to **{result['new_tier'].title()} Level**.",
                                 inline=False
                             )
@@ -637,7 +637,7 @@ class Economy(commands.Cog):
                         promotion_eligible, promotion_info = self.economy_cog.check_promotion_eligibility(self.user_id)
                         if not promotion_eligible and isinstance(promotion_info, str):
                             embed.add_field(
-                                name="� Next Promotion",
+                                name="🎯 Next Promotion",
                                 value=promotion_info,
                                 inline=False
                             )
@@ -659,7 +659,7 @@ class Economy(commands.Cog):
                         )
                         
                         embed.add_field(
-                            name="� Your Stats",
+                            name="💪 Your Stats",
                             value=f"**Success Rate:** {success_rate:.1%}\n**Consecutive Works:** {result['consecutive_works']}\n**Total Works:** {result['total_works']}",
                             inline=True
                         )
@@ -782,7 +782,6 @@ class Economy(commands.Cog):
         # Organize items by category for better presentation
         power_items = [
             {"name": "⚡ XP Boost", "price": 200, "description": "Double XP gain for 1 hour", "duration": "1 hour", "category": "🚀 Power-Ups"},
-            {"name": "🍪 Cookie Multiplier", "price": 300, "description": "Triple cookie rewards for 2 hours", "duration": "2 hours", "category": "🚀 Power-Ups"},
             {"name": "💰 Coin Boost", "price": 250, "description": "1.5x coin earnings for 3 hours", "duration": "3 hours", "category": "🚀 Power-Ups"},
             {"name": "🎯 Work Success", "price": 400, "description": "Guaranteed work success for 1 day", "duration": "24 hours", "category": "🚀 Power-Ups"}
         ]
@@ -847,7 +846,6 @@ class Economy(commands.Cog):
     @app_commands.choices(item=[
         # Power-Ups
         app_commands.Choice(name="⚡ XP Boost (200 coins - 1 hour)", value="xp_boost"),
-        app_commands.Choice(name="🍪 Cookie Multiplier (300 coins - 2 hours)", value="cookie_multiplier"),
         app_commands.Choice(name="💰 Coin Boost (250 coins - 3 hours)", value="coin_boost"),
         app_commands.Choice(name="🎯 Work Success (400 coins - 24 hours)", value="work_success"),
         # Social Status
@@ -870,7 +868,6 @@ class Economy(commands.Cog):
         shop_items = {
             # Power-Ups
             "xp_boost": {"price": 200, "name": "⚡ XP Boost", "duration": 3600, "description": "1 hour", "category": "Power-Up"},
-            "cookie_multiplier": {"price": 300, "name": "🍪 Cookie Multiplier", "duration": 7200, "description": "2 hours", "category": "Power-Up"},
             "coin_boost": {"price": 250, "name": "💰 Coin Boost", "duration": 10800, "description": "3 hours", "category": "Power-Up"},
             "work_success": {"price": 400, "name": "🎯 Work Success", "duration": 86400, "description": "24 hours", "category": "Power-Up"},
             # Social Status  
@@ -963,10 +960,6 @@ class Economy(commands.Cog):
             elif item == "xp_boost":
                 db.add_temporary_purchase(interaction.user.id, "xp_boost", item_data['duration'])
                 embed.add_field(name="⚡ **XP Boost Activated**", value="You now earn **2x XP** from all activities!", inline=False)
-                
-            elif item == "cookie_multiplier":
-                db.add_temporary_purchase(interaction.user.id, "cookie_multiplier", item_data['duration'])
-                embed.add_field(name="🍪 **Cookie Multiplier Active**", value="You now earn **3x cookies** from all sources!", inline=False)
                 
             elif item == "coin_boost":
                 db.add_temporary_purchase(interaction.user.id, "coin_boost", item_data['duration'])
@@ -1131,7 +1124,6 @@ class Economy(commands.Cog):
                 # Map item types to categories
                 category_mapping = {
                     "xp_boost": "🚀 Power-Ups",
-                    "cookie_multiplier": "🚀 Power-Ups", 
                     "coin_boost": "🚀 Power-Ups",
                     "work_success": "🚀 Power-Ups",
                     "vip_role": "👑 Social Status",
@@ -1161,7 +1153,6 @@ class Economy(commands.Cog):
                     # Get item display info
                     item_names = {
                         "xp_boost": "⚡ XP Boost",
-                        "cookie_multiplier": "🍪 Cookie Multiplier",
                         "coin_boost": "💰 Coin Boost", 
                         "work_success": "🎯 Work Success",
                         "custom_color": "🎨 Custom Color",
