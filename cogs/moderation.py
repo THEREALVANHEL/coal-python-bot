@@ -696,5 +696,76 @@ Create an immersive opening scene:"""
             embed.add_field(name="🔍 Error Details", value=f"```{str(e)[:100]}```", inline=False)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
+    @app_commands.command(name="sync", description="Force sync all slash commands (Admin only)")
+    @app_commands.default_permissions(administrator=True)
+    async def sync_commands(self, interaction: discord.Interaction):
+        """Force sync all slash commands - Admin only"""
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # Clear existing commands
+            self.bot.tree.clear_commands(guild=None)
+            await asyncio.sleep(2)
+            
+            # Sync to current guild first (faster)
+            guild = discord.Object(id=interaction.guild.id)
+            synced_guild = await self.bot.tree.sync(guild=guild)
+            
+            # Sync globally
+            synced_global = await self.bot.tree.sync()
+            
+            embed = discord.Embed(
+                title="✅ **Commands Synced Successfully!**",
+                description="All slash commands have been force synced.",
+                color=0x00d4aa,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 **Sync Results**",
+                value=f"**Guild Sync:** {len(synced_guild)} commands\n**Global Sync:** {len(synced_global)} commands",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="⏰ **Availability**",
+                value="• **Guild commands:** Available immediately\n• **Global commands:** May take up to 1 hour",
+                inline=False
+            )
+            
+            # List new commands
+            tree_commands = [cmd.name for cmd in self.bot.tree.get_commands()]
+            if tree_commands:
+                commands_text = ", ".join(tree_commands[:20])  # Limit to prevent overflow
+                if len(tree_commands) > 20:
+                    commands_text += f" and {len(tree_commands) - 20} more..."
+                
+                embed.add_field(
+                    name="🔧 **Available Commands**",
+                    value=f"`{commands_text}`",
+                    inline=False
+                )
+            
+            embed.set_footer(text="🎯 Command synchronization complete")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ **Sync Failed**",
+                description="Failed to sync commands. Please try again.",
+                color=0xff6b6b
+            )
+            error_embed.add_field(
+                name="🔍 **Error Details**",
+                value=f"```{str(e)[:200]}```",
+                inline=False
+            )
+            await interaction.followup.send(embed=error_embed)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Moderation(bot))
