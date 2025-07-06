@@ -375,10 +375,10 @@ class TicketCreationModal(Modal):
             }
             priority_emoji = priority_emojis.get(priority, "🟢")
             
-            # Create premium welcome embed with sophisticated design
+            # Create clean and elegant welcome embed
             welcome_embed = discord.Embed(
-                title=f"✨ **{self.category_info['name']} Ticket**",
-                description=f"**{self.title_input.value}**\n\n{self.description_input.value}",
+                title=f"🎫 {self.title_input.value}",
+                description=self.description_input.value,
                 color=priority_color,
                 timestamp=datetime.now()
             )
@@ -431,8 +431,8 @@ class TicketCreationModal(Modal):
                 inline=False
             )
             
-            welcome_embed.set_thumbnail(url=user.display_avatar.url)
-            welcome_embed.set_footer(text=f"✨ Ticket ID: {ticket_channel.id} • Premium Support Experience")
+            welcome_embed.set_author(name=f"Ticket by {user.display_name}", icon_url=user.display_avatar.url)
+            welcome_embed.set_footer(text=f"Ticket ID: {ticket_channel.id}")
             
             # Create enhanced ticket controls with better organization
             control_view = TicketControlView(user.id, self.category_key, self.subcategory)

@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import os, sys
+import asyncio
 from discord.ui import Button, View
 from datetime import datetime
 
@@ -20,16 +21,12 @@ COOKIE_ROLES = {        # balance : role-id (updated with new IDs)
     5000: 1371304693715964005
 }
 
-MANAGER_ROLES = ["🦥 Overseer", "Forgotten one", "🚨 Lead moderator"]
-ADMIN_ROLES = ["🦥 Overseer", "Forgotten one"]  # Roles that can remove all cookies
+# Specific role that can manage cookies
+COOKIE_MANAGER_ROLE_ID = 1372121024841125888
 
-def has_manager_role(interaction: discord.Interaction) -> bool:
-    user_roles = [role.name for role in interaction.user.roles]
-    return any(role in MANAGER_ROLES for role in user_roles)
-
-def has_admin_role(interaction: discord.Interaction) -> bool:
-    user_roles = [role.name for role in interaction.user.roles]
-    return any(role in ADMIN_ROLES for role in user_roles)
+def has_cookie_manager_role(interaction: discord.Interaction) -> bool:
+    """Check if user has cookie manager role"""
+    return any(role.id == COOKIE_MANAGER_ROLE_ID for role in interaction.user.roles)
 
 class CustomRemovalModal(discord.ui.Modal):
     def __init__(self, user: discord.Member, max_cookies: int):
@@ -258,7 +255,7 @@ class Cookies(commands.Cog):
     @app_commands.command(name="addcookies", description="Adds cookies to a user (Manager only)")
     @app_commands.describe(user="User to give cookies to", amount="Amount of cookies to add")
     async def addcookies(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        if not has_manager_role(interaction):
+        if not has_cookie_manager_role(interaction):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
@@ -324,7 +321,7 @@ class Cookies(commands.Cog):
         app_commands.Choice(name="🎯 Special Code", value="special")
     ])
     async def removecookies(self, interaction: discord.Interaction, user: discord.Member, option: str, custom_amount: str = None):
-        if not has_manager_role(interaction):
+        if not has_cookie_manager_role(interaction):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
@@ -498,7 +495,7 @@ class Cookies(commands.Cog):
     @app_commands.command(name="cookiesgiveall", description="Gives cookies to everyone in the server (Manager only)")
     @app_commands.describe(amount="Amount of cookies to give to each member")
     async def cookiesgiveall(self, interaction: discord.Interaction, amount: int):
-        if not has_manager_role(interaction):
+        if not has_cookie_manager_role(interaction):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
@@ -530,6 +527,116 @@ class Cookies(commands.Cog):
 
         except Exception as e:
             await interaction.followup.send(f"❌ Error distributing cookies: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="cookiesremoveall", description="Remove all cookies from everyone in the server (Manager only)")
+    async def cookiesremoveall(self, interaction: discord.Interaction):
+        if not has_cookie_manager_role(interaction):
+            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+
+        # Confirmation check
+        embed = discord.Embed(
+            title="⚠️ **DANGEROUS OPERATION**",
+            description="This will remove **ALL COOKIES** from **EVERY MEMBER** in the server!\n\n**⚠️ THIS ACTION CANNOT BE UNDONE!**",
+            color=0xff0000,
+            timestamp=datetime.now()
+        )
+        embed.add_field(
+            name="🚨 **What will happen:**",
+            value="• Every member's cookies will be set to 0\n• All cookie-based roles will be removed\n• Cookie leaderboard will be reset\n• No recovery is possible",
+            inline=False
+        )
+        embed.add_field(
+            name="⏰ **Confirmation Required**",
+            value="You have **30 seconds** to confirm this action.\nType **CONFIRM RESET** in the next message to proceed.",
+            inline=False
+        )
+        embed.set_footer(text="🛑 Admin Action • Use with extreme caution")
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+        def check(m):
+            return (m.author == interaction.user and 
+                   m.channel == interaction.channel and 
+                   m.content.upper() == "CONFIRM RESET")
+        
+        try:
+            # Wait for confirmation
+            confirmation = await interaction.client.wait_for('message', timeout=30.0, check=check)
+            
+            # Delete the confirmation message for cleanliness
+            try:
+                await confirmation.delete()
+            except:
+                pass
+            
+            # Process the reset
+            processing_embed = discord.Embed(
+                title="🔄 **Processing Cookie Reset...**",
+                description="Removing all cookies from server members...",
+                color=0xffaa00
+            )
+            await interaction.edit_original_response(embed=processing_embed)
+            
+            members = [member for member in interaction.guild.members if not member.bot]
+            reset_count = 0
+            total_cookies_removed = 0
+            
+            for member in members:
+                try:
+                    user_data = db.get_user_data(member.id)
+                    old_cookies = user_data.get('cookies', 0)
+                    
+                    if old_cookies > 0:
+                        db.set_cookies(member.id, 0)  # Reset to 0
+                        await self.update_cookie_roles(member, 0)  # Remove all cookie roles
+                        total_cookies_removed += old_cookies
+                        reset_count += 1
+                except Exception as e:
+                    print(f"[CookiesRemoveAll] Error resetting {member.display_name}: {e}")
+                    continue
+            
+            # Final confirmation embed
+            success_embed = discord.Embed(
+                title="💥 **COOKIE RESET COMPLETE**",
+                description=f"Successfully reset cookies for **{reset_count}** members!",
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            success_embed.add_field(
+                name="📊 **Reset Statistics**",
+                value=f"**Members Reset:** {reset_count:,}\n**Total Cookies Removed:** {total_cookies_removed:,}\n**Server Impact:** Complete cookie economy reset",
+                inline=False
+            )
+            success_embed.add_field(
+                name="🔄 **Next Steps**",
+                value="• All cookie-based roles have been removed\n• Members can start earning cookies again\n• Cookie leaderboard is now clean",
+                inline=False
+            )
+            success_embed.set_author(
+                name=f"Mass reset by {interaction.user.display_name}",
+                icon_url=interaction.user.display_avatar.url
+            )
+            success_embed.set_footer(text="🍪 Cookie Management System • Complete reset executed")
+            
+            await interaction.edit_original_response(embed=success_embed)
+            
+        except asyncio.TimeoutError:
+            timeout_embed = discord.Embed(
+                title="⏰ **Confirmation Timeout**",
+                description="Cookie reset cancelled - no confirmation received within 30 seconds.",
+                color=0x999999
+            )
+            timeout_embed.set_footer(text="🛡️ Safety feature - operation cancelled")
+            await interaction.edit_original_response(embed=timeout_embed)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ **Reset Failed**",
+                description=f"An error occurred during the cookie reset process: {str(e)}",
+                color=0xff6b6b
+            )
+            await interaction.edit_original_response(embed=error_embed)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Cookies(bot))

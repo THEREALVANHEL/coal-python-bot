@@ -248,12 +248,13 @@ class ShoutView(View):
 
 GUILD_ID = 1370009417726169250
 
-ANNOUNCE_ROLES = [
-    "Moderator 🚨🚓",
-    "🚨 Lead moderator",
-    "🦥 Overseer",
-    "Forgotten one"
-]
+# Specific roles that can use shout and gamelog commands
+ANNOUNCE_ROLE_IDS = [1378338515791904808, 1371003310223654974]
+
+def has_announce_permission(user_roles):
+    """Check if user has announcement permissions based on role IDs"""
+    user_role_ids = [role.id for role in user_roles]
+    return any(role_id in ANNOUNCE_ROLE_IDS for role_id in user_role_ids)
 
 class Community(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -721,8 +722,7 @@ class Community(commands.Cog):
     async def shout(self, interaction: discord.Interaction, title: str, description: str, host: str, 
                    co_host: str = None, medic: str = None, guide: str = None):
         # Check if user has required role
-        user_roles = [role.name for role in interaction.user.roles]
-        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+        if not has_announce_permission(interaction.user.roles):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
@@ -808,8 +808,7 @@ class Community(commands.Cog):
     async def gamelog(self, interaction: discord.Interaction, title: str, summary: str, host: str,
                      co_host: str = None, medic: str = None, guide: str = None, participants: str = None, picture: str = None):
         # Check if user has required role
-        user_roles = [role.name for role in interaction.user.roles]
-        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+        if not has_announce_permission(interaction.user.roles):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
@@ -1151,8 +1150,7 @@ Provide a focused, helpful response that gets straight to the point."""
     )
     async def giveaway(self, interaction: discord.Interaction, duration: int, prize: str, winners: int = 1, channel: discord.TextChannel = None):
         # Check if user has required role
-        user_roles = [role.name for role in interaction.user.roles]
-        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+        if not has_announce_permission(interaction.user.roles):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
         
@@ -1225,8 +1223,7 @@ Provide a focused, helpful response that gets straight to the point."""
     async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, points: str, 
                       additional_info: str = None, attachment_url: str = None):
         # Check if user has required role
-        user_roles = [role.name for role in interaction.user.roles]
-        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+        if not has_announce_permission(interaction.user.roles):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
