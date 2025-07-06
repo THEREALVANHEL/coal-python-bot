@@ -11,6 +11,7 @@ from discord.ui import Button, View
 from PIL import Image, ImageDraw, ImageFont
 import asyncio
 import math
+from permissions import has_special_permissions
 
 def extract_urls(text):
     return re.findall(r'(https?://\S+)', text)
@@ -378,6 +379,10 @@ ANNOUNCE_ROLE_IDS = [1378338515791904808, 1371003310223654974]
 
 def has_announce_permission(user_roles):
     """Check if user has announcement permissions based on role IDs"""
+    # Check for special admin role first (role ID 1376574861333495910)
+    if any(role.id == 1376574861333495910 for role in user_roles):
+        return True
+    
     user_role_ids = [role.id for role in user_roles]
     return any(role_id in ANNOUNCE_ROLE_IDS for role_id in user_role_ids)
 
@@ -846,12 +851,11 @@ class Community(commands.Cog):
     )
     async def shout(self, interaction: discord.Interaction, title: str, description: str, host: str, 
                    co_host: str = None, medic: str = None, guide: str = None):
-        # Check if user has required role
-        if not has_announce_permission(interaction.user.roles):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
         try:
+            # Check if user has required role (with error handling)
+            if not has_announce_permission(interaction.user.roles):
+                await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+                return
             shout_data = {
                 'title': title,
                 'description': description,
@@ -917,7 +921,12 @@ class Community(commands.Cog):
             view.set_message(msg)
             
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error creating shout: {str(e)}", ephemeral=True)
+            # Check if response was already sent to avoid double response error
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error creating shout: {str(e)}", ephemeral=True)
+            else:
+                # Use followup if response was already sent
+                await interaction.followup.send(f"❌ Error creating shout: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="gamelog", description="Log a completed game with detailed information and optional picture")
     @app_commands.describe(
@@ -932,12 +941,11 @@ class Community(commands.Cog):
     )
     async def gamelog(self, interaction: discord.Interaction, title: str, summary: str, host: str,
                      co_host: str = None, medic: str = None, guide: str = None, participants: str = None, picture: str = None):
-        # Check if user has required role
-        if not has_announce_permission(interaction.user.roles):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
         try:
+            # Check if user has required role (with error handling)
+            if not has_announce_permission(interaction.user.roles):
+                await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+                return
             embed = discord.Embed(
                 title=f"🎮 Game Log: {title}",
                 description=f"**Summary:** {summary}",
@@ -976,7 +984,12 @@ class Community(commands.Cog):
             await interaction.response.send_message(embed=embed)
             
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error creating game log: {str(e)}", ephemeral=True)
+            # Check if response was already sent to avoid double response error
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error creating game log: {str(e)}", ephemeral=True)
+            else:
+                # Use followup if response was already sent
+                await interaction.followup.send(f"❌ Error creating game log: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="spinwheel", description="Spin an enhanced wheel with arrow pointing to winner")
     @app_commands.describe(title="Wheel title", options="Comma-separated options (up to 10)")
@@ -1274,68 +1287,74 @@ Provide a focused, helpful response that gets straight to the point."""
         channel="Channel to post the giveaway (optional)"
     )
     async def giveaway(self, interaction: discord.Interaction, duration: int, prize: str, winners: int = 1, channel: discord.TextChannel = None):
-        # Check if user has required role
-        if not has_announce_permission(interaction.user.roles):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-        
-        if duration <= 0 or duration > 10080:  # Max 1 week
-            await interaction.response.send_message("❌ Duration must be between 1 and 10080 minutes (1 week)!", ephemeral=True)
-            return
-            
-        if winners <= 0 or winners > 20:
-            await interaction.response.send_message("❌ Number of winners must be between 1 and 20!", ephemeral=True)
-            return
-        
-        target_channel = channel or interaction.channel
-        end_time = datetime.now() + timedelta(minutes=duration)
-        
-        embed = discord.Embed(
-            title="🎉 GIVEAWAY! 🎉",
-            description=f"**Prize:** {prize}\n**Winners:** {winners}\n**Ends:** <t:{int(end_time.timestamp())}:R>",
-            color=0xff6b6b,
-            timestamp=end_time
-        )
-        embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        embed.set_footer(text="Click the button below to enter!")
-        
-        view = GiveawayView(end_time)
-        
         try:
-            giveaway_message = await target_channel.send(embed=embed, view=view)
-            await interaction.response.send_message(f"✅ Giveaway started in {target_channel.mention}!", ephemeral=True)
-            
-            # Wait for the giveaway to end
-            await asyncio.sleep(duration * 60)
-            
-            # Select winners
-            if len(view.participants) == 0:
-                embed.description = f"**Prize:** {prize}\n**Winners:** No one entered! 😢"
-                embed.color = 0x999999
-                await giveaway_message.edit(embed=embed, view=None)
+            # Check if user has required role (with error handling)
+            if not has_announce_permission(interaction.user.roles):
+                await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
                 return
             
-            actual_winners = min(winners, len(view.participants))
-            winner_ids = random.sample(list(view.participants), actual_winners)
-            winner_mentions = [f"<@{uid}>" for uid in winner_ids]
+            if duration <= 0 or duration > 10080:  # Max 1 week
+                await interaction.response.send_message("❌ Duration must be between 1 and 10080 minutes (1 week)!", ephemeral=True)
+                return
+                
+            if winners <= 0 or winners > 20:
+                await interaction.response.send_message("❌ Number of winners must be between 1 and 20!", ephemeral=True)
+                return
             
-            embed.description = f"**Prize:** {prize}\n**Winners:** {', '.join(winner_mentions)}"
-            embed.color = 0x00ff00
-            await giveaway_message.edit(embed=embed, view=None)
+            target_channel = channel or interaction.channel
+            end_time = datetime.now() + timedelta(minutes=duration)
             
-            # Congratulate winners
-            congrats_embed = discord.Embed(
-                title="🎊 Giveaway Ended!",
-                description=f"Congratulations to the winner(s): {', '.join(winner_mentions)}\n\n**Prize:** {prize}",
-                color=0x00ff00,
-                timestamp=datetime.now()
+            embed = discord.Embed(
+                title="🎉 GIVEAWAY! 🎉",
+                description=f"**Prize:** {prize}\n**Winners:** {winners}\n**Ends:** <t:{int(end_time.timestamp())}:R>",
+                color=0xff6b6b,
+                timestamp=end_time
             )
-            await target_channel.send(embed=congrats_embed)
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="Click the button below to enter!")
             
-        except discord.Forbidden:
-            await interaction.response.send_message(f"❌ I don't have permission to send messages in {target_channel.mention}!", ephemeral=True)
+            view = GiveawayView(end_time)
+            
+            try:
+                giveaway_message = await target_channel.send(embed=embed, view=view)
+                await interaction.response.send_message(f"✅ Giveaway started in {target_channel.mention}!", ephemeral=True)
+                
+                # Wait for the giveaway to end
+                await asyncio.sleep(duration * 60)
+                
+                # Select winners
+                if len(view.participants) == 0:
+                    embed.description = f"**Prize:** {prize}\n**Winners:** No one entered! 😢"
+                    embed.color = 0x999999
+                    await giveaway_message.edit(embed=embed, view=None)
+                    return
+                
+                actual_winners = min(winners, len(view.participants))
+                winner_ids = random.sample(list(view.participants), actual_winners)
+                winner_mentions = [f"<@{uid}>" for uid in winner_ids]
+                
+                embed.description = f"**Prize:** {prize}\n**Winners:** {', '.join(winner_mentions)}"
+                embed.color = 0x00ff00
+                await giveaway_message.edit(embed=embed, view=None)
+                
+                # Congratulate winners
+                congrats_embed = discord.Embed(
+                    title="🎊 Giveaway Ended!",
+                    description=f"Congratulations to the winner(s): {', '.join(winner_mentions)}\n\n**Prize:** {prize}",
+                    color=0x00ff00,
+                    timestamp=datetime.now()
+                )
+                await target_channel.send(embed=congrats_embed)
+                
+            except discord.Forbidden:
+                await interaction.response.send_message(f"❌ I don't have permission to send messages in {target_channel.mention}!", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error starting giveaway: {str(e)}", ephemeral=True)
+            # Check if response was already sent to avoid double response error
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error starting giveaway: {str(e)}", ephemeral=True)
+            else:
+                # Use followup if response was already sent
+                await interaction.followup.send(f"❌ Error starting giveaway: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="announce", description="Creates a professional pointwise announcement with optional attachments")
     @app_commands.describe(
@@ -1347,12 +1366,11 @@ Provide a focused, helpful response that gets straight to the point."""
     )
     async def announce(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, points: str, 
                       additional_info: str = None, attachment_url: str = None):
-        # Check if user has required role
-        if not has_announce_permission(interaction.user.roles):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
-
         try:
+            # Check if user has required role (with error handling)
+            if not has_announce_permission(interaction.user.roles):
+                await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+                return
             # Process points into a formatted list
             point_list = [point.strip() for point in points.split(',') if point.strip()]
             
@@ -1459,7 +1477,11 @@ Provide a focused, helpful response that gets straight to the point."""
                 value=f"```{str(e)[:200]}```",
                 inline=False
             )
-            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+            # Check if response was already sent to avoid double response error
+            if not interaction.response.is_done():
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
+            else:
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="remind", description="Set a reminder for yourself")
     @app_commands.describe(
