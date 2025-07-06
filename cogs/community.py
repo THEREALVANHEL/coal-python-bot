@@ -43,6 +43,8 @@ class ShoutView(View):
         self.participants = set()
         self.original_message = original_message
         self.start_time = datetime.now()
+        self.event_started = False
+        self.event_ended = False
 
     def set_message(self, message):
         """Set the original message object for editing"""
@@ -81,6 +83,17 @@ class ShoutView(View):
     @discord.ui.button(label="🔥 Join Event", style=discord.ButtonStyle.primary, emoji="🚀")
     async def join_event(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = interaction.user.id
+        
+        # Check if event has ended
+        if self.event_ended:
+            await interaction.response.send_message("❌ This event has ended! No more participants can join.", ephemeral=True)
+            return
+        
+        # Check if event has started (participants can still join if event hasn't started)
+        if self.event_started:
+            await interaction.response.send_message("❌ This event has already started! Registration is closed.", ephemeral=True)
+            return
+        
         if user_id in self.participants:
             await interaction.response.send_message("❌ You're already participating in this event!", ephemeral=True)
             return
@@ -91,25 +104,103 @@ class ShoutView(View):
         # Update the embed with live participants visible to everyone
         await self.update_message_with_participants(interaction)
 
-    @discord.ui.button(label="❌ Leave Event", style=discord.ButtonStyle.secondary, emoji="👋")
+    @discord.ui.button(label="👋 Leave Event", style=discord.ButtonStyle.secondary, emoji="❌")
     async def leave_event(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = interaction.user.id
+        
+        # Check if event has ended
+        if self.event_ended:
+            await interaction.response.send_message("❌ This event has ended! No changes can be made.", ephemeral=True)
+            return
+        
+        # Allow leaving even if event has started (people might need to drop out)
         if user_id not in self.participants:
             await interaction.response.send_message("❌ You're not participating in this event!", ephemeral=True)
             return
         
         self.participants.discard(user_id)
-        await interaction.response.send_message(f"👋 You've left **{self.shout_data['title']}**. You can rejoin anytime!", ephemeral=True)
+        leave_message = f"👋 You've left **{self.shout_data['title']}**."
+        
+        if not self.event_started:
+            leave_message += " You can rejoin before the event starts!"
+        else:
+            leave_message += " (Event already started - you won't be able to rejoin)"
+            
+        await interaction.response.send_message(leave_message, ephemeral=True)
         
         # Update the embed with live participants visible to everyone
+        await self.update_message_with_participants(interaction)
+
+    def is_event_organizer(self, user):
+        """Check if user is the host or has organizer permissions"""
+        # Check if user is the host or co-host
+        user_name = user.display_name
+        if (user_name == self.shout_data.get('host') or 
+            user_name == self.shout_data.get('co_host')):
+            return True
+        
+        # Check if user has announcement permissions
+        return has_announce_permission(user.roles)
+
+    @discord.ui.button(label="🟢 Start Event", style=discord.ButtonStyle.success, emoji="🚀")
+    async def start_event(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Only allow host/organizers to start event
+        if not self.is_event_organizer(interaction.user):
+            await interaction.response.send_message("❌ Only the event host/organizers can start the event!", ephemeral=True)
+            return
+        
+        if self.event_started:
+            await interaction.response.send_message("❌ Event has already been started!", ephemeral=True)
+            return
+        
+        if self.event_ended:
+            await interaction.response.send_message("❌ This event has already ended!", ephemeral=True)
+            return
+        
+        # Start the event
+        self.event_started = True
+        self.shout_data['event_started_time'] = datetime.now()
+        
+        await interaction.response.send_message(
+            f"🚀 **EVENT STARTED!** Registration is now closed. {len(self.participants)} participants locked in!", 
+            ephemeral=False
+        )
+        
+        # Update the embed
+        await self.update_message_with_participants(interaction)
+
+    @discord.ui.button(label="🔴 End Event", style=discord.ButtonStyle.danger, emoji="🏁")
+    async def end_event(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Only allow host/organizers to end event
+        if not self.is_event_organizer(interaction.user):
+            await interaction.response.send_message("❌ Only the event host/organizers can end the event!", ephemeral=True)
+            return
+        
+        if self.event_ended:
+            await interaction.response.send_message("❌ Event has already been ended!", ephemeral=True)
+            return
+        
+        # End the event
+        self.event_ended = True
+        self.shout_data['event_ended_time'] = datetime.now()
+        
+        await interaction.response.send_message(
+            f"🏁 **EVENT ENDED!** Thank you to all {len(self.participants)} participants! 🎉", 
+            ephemeral=False
+        )
+        
+        # Update the embed and disable most buttons
         await self.update_message_with_participants(interaction)
 
     @discord.ui.button(label="⏰ Set Time", style=discord.ButtonStyle.secondary, emoji="⏰")
     async def set_event_time(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Only allow event organizers to set time
-        user_roles = [role.name for role in interaction.user.roles]
-        if not any(role in ANNOUNCE_ROLES for role in user_roles):
+        if not self.is_event_organizer(interaction.user):
             await interaction.response.send_message("❌ Only event organizers can set event times!", ephemeral=True)
+            return
+        
+        if self.event_ended:
+            await interaction.response.send_message("❌ Cannot modify an ended event!", ephemeral=True)
             return
         
         class TimeModal(discord.ui.Modal):
@@ -175,11 +266,21 @@ class ShoutView(View):
                 shown_names = participant_names[:15]
                 participant_display = "• " + "\n• ".join(shown_names) + f"\n*...and {len(participant_names) - 15} more participants*"
             
-            # Create updated embed with modern design
+            # Create updated embed with modern design and event status
+            if self.event_ended:
+                title_prefix = "🏁 [ENDED]"
+                embed_color = 0x808080  # Gray for ended events
+            elif self.event_started:
+                title_prefix = "🔴 [LIVE]"
+                embed_color = 0xff4444  # Red for live events
+            else:
+                title_prefix = "📢"
+                embed_color = 0x00d4aa  # Teal for upcoming events
+            
             embed = discord.Embed(
-                title=f"📢 **{self.shout_data['title']}**",
+                title=f"{title_prefix} **{self.shout_data['title']}**",
                 description=self.shout_data['description'],
-                color=0x00d4aa,  # Modern teal color
+                color=embed_color,
                 timestamp=datetime.now()
             )
             
@@ -201,23 +302,29 @@ class ShoutView(View):
                     inline=True
                 )
             
-            # Time information
+            # Time information with event status
             time_info = []
             if 'time_display' in self.shout_data:
                 time_info.append(self.shout_data['time_display'])
             else:
                 time_info.append(f"📅 Created: <t:{int(self.start_time.timestamp())}:R>")
+            
+            # Add event status timestamps
+            if 'event_started_time' in self.shout_data:
+                time_info.append(f"🚀 Started: <t:{int(self.shout_data['event_started_time'].timestamp())}:R>")
+            if 'event_ended_time' in self.shout_data:
+                time_info.append(f"🏁 Ended: <t:{int(self.shout_data['event_ended_time'].timestamp())}:R>")
                 
             embed.add_field(
-                name="⏰ **Event Time**",
+                name="⏰ **Event Timeline**",
                 value="\n".join(time_info),
                 inline=True
             )
             
             # Participants count with icon
             embed.add_field(
-                name="� **Participation**",
-                value=f"👥 **{len(self.participants)}** joined\n🎯 Ready for action!",
+                name="👥 **Participation Status**",
+                value=f"👥 **{len(self.participants)}** participants\n{'� Event completed!' if self.event_ended else '🔴 Event in progress!' if self.event_started else '🟢 Registration open!'}",
                 inline=True
             )
             
@@ -228,8 +335,12 @@ class ShoutView(View):
                 inline=False
             )
             
-            # Add motivational footer
-            if len(self.participants) == 0:
+            # Add contextual footer based on event status
+            if self.event_ended:
+                footer_text = f"🏁 Event ended with {len(self.participants)} participants. Thanks for joining!"
+            elif self.event_started:
+                footer_text = f"🔴 Event in progress with {len(self.participants)} participants!"
+            elif len(self.participants) == 0:
                 footer_text = "🚀 Be the first to join this epic event!"
             elif len(self.participants) < 5:
                 footer_text = f"🎉 {len(self.participants)} brave souls have joined! Who's next?"
@@ -237,6 +348,20 @@ class ShoutView(View):
                 footer_text = f"🔥 {len(self.participants)} participants and counting! The hype is real!"
                 
             embed.set_footer(text=footer_text)
+            
+            # Disable buttons based on event status
+            for item in self.children:
+                if hasattr(item, 'label'):
+                    if self.event_ended:
+                        # Disable all buttons when event is ended except Set Time for reference
+                        if item.label not in ["⏰ Set Time"]:
+                            item.disabled = True
+                    elif self.event_started:
+                        # When event is started, disable join but allow leave and organizer controls
+                        if item.label == "🔥 Join Event":
+                            item.disabled = True
+                        elif item.label == "🟢 Start Event":
+                            item.disabled = True
             
             # Update the original message visible to everyone
             await self.original_message.edit(embed=embed, view=self)

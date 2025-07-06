@@ -488,26 +488,78 @@ class Leveling(commands.Cog):
                 inline=False
             )
             
-            # Job section - only show if user has worked
+            # Independent Career section - show job progression system
             if last_work > 0:
-                job = self.get_job_title(level)
-                # Check if it's been more than 7 days since last work
-                current_time = datetime.now().timestamp()
-                days_since_work = (current_time - last_work) / 86400
+                # Get job stats
+                job_tier = user_data.get("job_tier", "entry")
+                current_job = user_data.get("current_job", "Not started")
+                successful_works = user_data.get("successful_works", 0)
+                total_works = user_data.get("total_works", 0)
+                work_streak = user_data.get("work_streak", 0)
+                consecutive_works = user_data.get("consecutive_works", 0)
                 
-                if days_since_work <= 7:
-                    status = "Active"
+                # Calculate status based on recent activity
+                current_time = datetime.now().timestamp()
+                hours_since_work = (current_time - last_work) / 3600
+                
+                if hours_since_work <= 6:  # Within 6 hours
+                    status = "Recently Active"
                     status_emoji = "🟢"
-                elif days_since_work <= 30:
-                    status = "Inactive"
+                elif hours_since_work <= 72:  # Within 3 days  
+                    status = "Active"
                     status_emoji = "🟡"
+                elif hours_since_work <= 168:  # Within 1 week
+                    status = "Inactive" 
+                    status_emoji = "�"
                 else:
-                    status = "Retired"
+                    status = "Absent"
                     status_emoji = "🔴"
                 
+                # Get tier info
+                if job_tier in ["entry", "junior", "mid", "senior", "executive", "legendary"]:
+                    tier_info = {
+                        "entry": "Entry Level",
+                        "junior": "Junior Level", 
+                        "mid": "Mid Level",
+                        "senior": "Senior Level",
+                        "executive": "Executive Level",
+                        "legendary": "Legendary Status"
+                    }
+                    tier_name = tier_info[job_tier]
+                else:
+                    tier_name = "Unknown"
+                
+                # Calculate success rate
+                success_rate = (successful_works / max(1, total_works)) * 100
+                
                 embed.add_field(
-                    name="💼 Career",
-                    value=f"**Job Title:** {job['name']}\n**Status:** {status_emoji} {status}\n**Level Range:** {job['min_level']}-{job['max_level']}\n**Last Worked:** <t:{int(last_work)}:R>",
+                    name="💼 Independent Career",
+                    value=f"**Current Job:** {current_job}\n**Career Tier:** {tier_name}\n**Work Status:** {status_emoji} {status}\n**Success Rate:** {success_rate:.1f}% ({successful_works}/{total_works})\n**Work Streak:** {work_streak} days\n**Consecutive:** {consecutive_works} successes\n**Last Worked:** <t:{int(last_work)}:R>",
+                    inline=False
+                )
+                
+                # Add promotion progress if not at max tier
+                if job_tier != "legendary":
+                    # Import the job tiers from economy
+                    from cogs.economy import JOB_TIERS
+                    if job_tier in JOB_TIERS:
+                        promotion_requirement = JOB_TIERS[job_tier]["promotion_requirement"]
+                        works_needed = max(0, promotion_requirement - successful_works)
+                        
+                        if works_needed == 0:
+                            promotion_status = "🎉 **PROMOTION READY!**"
+                        else:
+                            promotion_status = f"📈 {works_needed} more successful works needed"
+                        
+                        embed.add_field(
+                            name="🎯 Next Promotion",
+                            value=promotion_status,
+                            inline=True
+                        )
+            else:
+                embed.add_field(
+                    name="💼 Career Status",
+                    value="**Not started** - Use `/work` to begin your independent career journey!\n\n**Features:**\n• Progress based on work performance\n• No XP level requirements\n• Promotions and demotions\n• Work streak bonuses",
                     inline=False
                 )
             

@@ -12,89 +12,216 @@ import database as db
 
 GUILD_ID = 1370009417726169250
 
-# Job opportunities with varying pay and requirements
-JOB_OPPORTUNITIES = [
-    {
-        "name": "Pizza Delivery", 
-        "emoji": "🍕",
-        "min_pay": 25, 
-        "max_pay": 50, 
-        "cooldown": 1800, 
-        "description": "delivering hot pizzas",
-        "full_description": "🍕 You hop on your delivery bike and navigate through busy streets, delivering steaming hot pizzas to hungry customers. Tips depend on your speed and customer satisfaction!",
-        "requirements": "No experience needed"
+# Independent Job Progression System - No Level Requirements!
+JOB_TIERS = {
+    "entry": {
+        "name": "Entry Level",
+        "unlock_requirement": 0,  # Available immediately
+        "promotion_requirement": 10,  # 10 successful works to promote
+        "jobs": [
+            {
+                "name": "Pizza Delivery", 
+                "emoji": "🍕",
+                "min_pay": 15, 
+                "max_pay": 30, 
+                "description": "delivering hot pizzas",
+                "full_description": "🍕 You hop on your delivery bike and navigate busy streets, delivering steaming hot pizzas to hungry customers.",
+                "skill": "delivery"
+            },
+            {
+                "name": "Data Entry", 
+                "emoji": "⌨️",
+                "min_pay": 20, 
+                "max_pay": 35, 
+                "description": "entering data accurately",
+                "full_description": "⌨️ You carefully input information into computer systems, ensuring accuracy and attention to detail.",
+                "skill": "admin"
+            },
+            {
+                "name": "Customer Support", 
+                "emoji": "�",
+                "min_pay": 18, 
+                "max_pay": 32, 
+                "description": "helping customers",
+                "full_description": "� You assist customers with their questions and problems, providing friendly and helpful service.",
+                "skill": "support"
+            }
+        ]
     },
-    {
-        "name": "Code Review", 
-        "emoji": "👨‍💻",
-        "min_pay": 40, 
-        "max_pay": 80, 
-        "cooldown": 2700, 
-        "description": "reviewing code for bugs",
-        "full_description": "👨‍💻 You carefully examine lines of code, hunting for bugs and suggesting improvements. Your attention to detail helps prevent crashes and security vulnerabilities!",
-        "requirements": "Basic programming knowledge"
+    "junior": {
+        "name": "Junior Level",
+        "unlock_requirement": 10,  # 10 successful works from entry level
+        "promotion_requirement": 25,  # 25 successful works to promote
+        "jobs": [
+            {
+                "name": "Junior Developer", 
+                "emoji": "👨‍💻",
+                "min_pay": 25, 
+                "max_pay": 50, 
+                "description": "writing simple code",
+                "full_description": "👨‍💻 You write and test basic code, learning the fundamentals of software development.",
+                "skill": "development"
+            },
+            {
+                "name": "Content Creator", 
+                "emoji": "✍️",
+                "min_pay": 30, 
+                "max_pay": 55, 
+                "description": "creating engaging content",
+                "full_description": "✍️ You create articles, posts, and media content that engages and informs audiences.",
+                "skill": "creative"
+            },
+            {
+                "name": "Sales Associate", 
+                "emoji": "💼",
+                "min_pay": 28, 
+                "max_pay": 45, 
+                "description": "selling products and services",
+                "full_description": "💼 You connect with customers to understand their needs and provide suitable solutions.",
+                "skill": "sales"
+            }
+        ]
     },
-    {
-        "name": "Bug Hunting", 
-        "emoji": "🐛",
-        "min_pay": 60, 
-        "max_pay": 120, 
-        "cooldown": 3600, 
-        "description": "finding and reporting bugs",
-        "full_description": "🐛 Armed with testing tools, you systematically search for elusive bugs in software. Each bug you find and report earns bounty rewards from grateful developers!",
-        "requirements": "Problem-solving skills"
+    "mid": {
+        "name": "Mid Level",
+        "unlock_requirement": 35,  # 35 total successful works
+        "promotion_requirement": 60,  # 60 successful works to promote
+        "jobs": [
+            {
+                "name": "Software Developer", 
+                "emoji": "�️",
+                "min_pay": 40, 
+                "max_pay": 80, 
+                "description": "developing applications",
+                "full_description": "�️ You build robust applications and features, solving complex problems with code.",
+                "skill": "development"
+            },
+            {
+                "name": "Marketing Specialist", 
+                "emoji": "📈",
+                "min_pay": 45, 
+                "max_pay": 75, 
+                "description": "promoting products effectively",
+                "full_description": "📈 You develop and execute marketing strategies to reach target audiences.",
+                "skill": "marketing"
+            },
+            {
+                "name": "Project Coordinator", 
+                "emoji": "�",
+                "min_pay": 50, 
+                "max_pay": 85, 
+                "description": "coordinating team projects",
+                "full_description": "� You ensure projects run smoothly by coordinating teams and managing timelines.",
+                "skill": "management"
+            }
+        ]
     },
-    {
-        "name": "Teaching Session", 
-        "emoji": "📚",
-        "min_pay": 80, 
-        "max_pay": 150, 
-        "cooldown": 4500, 
-        "description": "teaching programming",
-        "full_description": "📚 You lead an engaging coding workshop, helping eager students understand complex programming concepts. Seeing that 'aha!' moment makes it all worthwhile!",
-        "requirements": "Teaching experience"
+    "senior": {
+        "name": "Senior Level", 
+        "unlock_requirement": 95,  # 95 total successful works
+        "promotion_requirement": 150,  # 150 successful works to promote
+        "jobs": [
+            {
+                "name": "Senior Engineer", 
+                "emoji": "🏗️",
+                "min_pay": 70, 
+                "max_pay": 120, 
+                "description": "architecting solutions",
+                "full_description": "🏗️ You design and implement complex systems that form the backbone of applications.",
+                "skill": "engineering"
+            },
+            {
+                "name": "Team Lead", 
+                "emoji": "👥",
+                "min_pay": 80, 
+                "max_pay": 130, 
+                "description": "leading development teams",
+                "full_description": "👥 You guide and mentor team members while delivering high-quality projects.",
+                "skill": "leadership"
+            },
+            {
+                "name": "Product Manager", 
+                "emoji": "🎯",
+                "min_pay": 85, 
+                "max_pay": 140, 
+                "description": "managing product strategy",
+                "full_description": "🎯 You define product vision and strategy, working with stakeholders to deliver value.",
+                "skill": "strategy"
+            }
+        ]
     },
-    {
-        "name": "Freelance Project", 
-        "emoji": "💼",
-        "min_pay": 100, 
-        "max_pay": 200, 
-        "cooldown": 5400, 
-        "description": "completing a freelance project",
-        "full_description": "💼 You work independently on a custom software solution for a client. From requirements gathering to final delivery, you handle the entire project lifecycle!",
-        "requirements": "Portfolio and experience"
+    "executive": {
+        "name": "Executive Level",
+        "unlock_requirement": 245,  # 245 total successful works
+        "promotion_requirement": 500,  # 500 successful works (prestige level)
+        "jobs": [
+            {
+                "name": "Engineering Director", 
+                "emoji": "🔧",
+                "min_pay": 120, 
+                "max_pay": 200, 
+                "description": "directing engineering efforts",
+                "full_description": "🔧 You oversee multiple engineering teams and set technical direction for the organization.",
+                "skill": "engineering"
+            },
+            {
+                "name": "VP of Product", 
+                "emoji": "🚀",
+                "min_pay": 150, 
+                "max_pay": 250, 
+                "description": "leading product innovation",
+                "full_description": "🚀 You drive product innovation and strategy across the entire organization.",
+                "skill": "strategy"
+            },
+            {
+                "name": "Chief Technology Officer", 
+                "emoji": "👑",
+                "min_pay": 200, 
+                "max_pay": 350, 
+                "description": "setting technology vision",
+                "full_description": "👑 You set the technology vision and strategy for the entire company's future.",
+                "skill": "leadership"
+            }
+        ]
     },
-    {
-        "name": "Consulting", 
-        "emoji": "🤝",
-        "min_pay": 150, 
-        "max_pay": 300, 
-        "cooldown": 7200, 
-        "description": "providing tech consulting",
-        "full_description": "🤝 You advise companies on their technology strategy, helping them make informed decisions about architecture, tools, and processes. Your expertise drives business success!",
-        "requirements": "Senior level expertise"
-    },
-    {
-        "name": "System Architecture", 
-        "emoji": "🏗️",
-        "min_pay": 200, 
-        "max_pay": 400, 
-        "cooldown": 9000, 
-        "description": "designing system architecture",
-        "full_description": "🏗️ You design the blueprint for complex software systems, ensuring scalability, reliability, and performance. Your architectural decisions shape the future of technology!",
-        "requirements": "Expert level experience"
-    },
-    {
-        "name": "Product Launch", 
-        "emoji": "🚀",
-        "min_pay": 300, 
-        "max_pay": 600, 
-        "cooldown": 10800, 
-        "description": "launching a new product",
-        "full_description": "🚀 You orchestrate the launch of a groundbreaking product, coordinating with marketing, engineering, and sales teams. The success of the launch determines the company's future!",
-        "requirements": "Leadership and vision"
+    "legendary": {
+        "name": "Legendary Status",
+        "unlock_requirement": 745,  # 745 total successful works - rare achievement
+        "promotion_requirement": 9999,  # Max level essentially
+        "jobs": [
+            {
+                "name": "Industry Innovator", 
+                "emoji": "�",
+                "min_pay": 300, 
+                "max_pay": 500, 
+                "description": "revolutionizing the industry",
+                "full_description": "� You create groundbreaking innovations that change entire industries forever.",
+                "skill": "innovation"
+            },
+            {
+                "name": "Tech Visionary", 
+                "emoji": "🌟",
+                "min_pay": 400, 
+                "max_pay": 600, 
+                "description": "shaping the future of technology",
+                "full_description": "🌟 You envision and create the technologies that will define the next generation.",
+                "skill": "visionary"
+            },
+            {
+                "name": "Global Leader", 
+                "emoji": "🌍",
+                "min_pay": 500, 
+                "max_pay": 800, 
+                "description": "leading worldwide initiatives",
+                "full_description": "🌍 You lead global initiatives that impact millions of people worldwide.",
+                "skill": "global"
+            }
+        ]
     }
-]
+}
+
+# Work cooldown increased to 2.5 hours for better balance
+WORK_COOLDOWN_HOURS = 2.5
 
 class Economy(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -102,6 +229,204 @@ class Economy(commands.Cog):
 
     async def cog_load(self):
         print("[Economy] Loaded successfully.")
+
+    def get_user_job_stats(self, user_id):
+        """Get user's job statistics and progression"""
+        user_data = db.get_user_data(user_id)
+        return {
+            "total_works": user_data.get("total_works", 0),
+            "successful_works": user_data.get("successful_works", 0),
+            "failed_works": user_data.get("failed_works", 0),
+            "current_job": user_data.get("current_job", None),
+            "current_tier": user_data.get("job_tier", "entry"),
+            "consecutive_works": user_data.get("consecutive_works", 0),
+            "last_work_success": user_data.get("last_work_success", True),
+            "work_streak": user_data.get("work_streak", 0),
+            "missed_work_days": user_data.get("missed_work_days", 0)
+        }
+
+    def get_available_jobs(self, user_id):
+        """Get jobs available to user based on their work history"""
+        job_stats = self.get_user_job_stats(user_id)
+        successful_works = job_stats["successful_works"]
+        current_tier = job_stats["current_tier"]
+        
+        # Start with current tier jobs
+        available_tiers = [current_tier]
+        
+        # Check if user can access higher tiers
+        for tier_name, tier_data in JOB_TIERS.items():
+            if successful_works >= tier_data["unlock_requirement"]:
+                if tier_name not in available_tiers:
+                    available_tiers.append(tier_name)
+        
+        # Get all jobs from available tiers
+        available_jobs = []
+        for tier_name in available_tiers:
+            tier_jobs = JOB_TIERS[tier_name]["jobs"]
+            for job in tier_jobs:
+                job_with_tier = job.copy()
+                job_with_tier["tier"] = tier_name
+                job_with_tier["tier_name"] = JOB_TIERS[tier_name]["name"]
+                available_jobs.append(job_with_tier)
+        
+        return available_jobs
+
+    def check_promotion_eligibility(self, user_id):
+        """Check if user is eligible for promotion"""
+        job_stats = self.get_user_job_stats(user_id)
+        current_tier = job_stats["current_tier"]
+        successful_works = job_stats["successful_works"]
+        
+        if current_tier not in JOB_TIERS:
+            return False, "Invalid tier"
+        
+        tier_data = JOB_TIERS[current_tier]
+        promotion_requirement = tier_data["promotion_requirement"]
+        
+        if successful_works >= promotion_requirement:
+            # Find next tier
+            tier_order = list(JOB_TIERS.keys())
+            current_index = tier_order.index(current_tier)
+            
+            if current_index < len(tier_order) - 1:
+                next_tier = tier_order[current_index + 1]
+                return True, next_tier
+        
+        return False, f"Need {promotion_requirement - successful_works} more successful works"
+
+    def process_work_result(self, user_id, job, success, earnings=0):
+        """Process work result and update job statistics"""
+        try:
+            user_data = db.get_user_data(user_id)
+            
+            # Update work statistics
+            total_works = user_data.get("total_works", 0) + 1
+            successful_works = user_data.get("successful_works", 0)
+            failed_works = user_data.get("failed_works", 0)
+            consecutive_works = user_data.get("consecutive_works", 0)
+            work_streak = user_data.get("work_streak", 0)
+            missed_work_days = user_data.get("missed_work_days", 0)
+            
+            # Check for missed work (if last work was more than 1 day ago)
+            last_work = user_data.get("last_work", 0)
+            current_time = datetime.now().timestamp()
+            hours_since_last_work = (current_time - last_work) / 3600
+            
+            if success:
+                successful_works += 1
+                consecutive_works += 1
+                
+                # Reset missed days if working consistently
+                if hours_since_last_work < 48:  # Within 2 days
+                    work_streak += 1
+                else:
+                    work_streak = 1  # Reset streak
+                    
+                if hours_since_last_work > 72:  # More than 3 days
+                    missed_work_days += 1
+                    
+            else:
+                failed_works += 1
+                consecutive_works = 0  # Reset consecutive works on failure
+                work_streak = max(0, work_streak - 1)  # Reduce streak on failure
+            
+            # Check for promotion
+            promotion_eligible, promotion_info = self.check_promotion_eligibility(user_id)
+            promoted = False
+            new_tier = user_data.get("job_tier", "entry")
+            
+            if promotion_eligible and isinstance(promotion_info, str):
+                new_tier = promotion_info
+                promoted = True
+            
+            # Check for demotion (if too many failures or missed days)
+            demoted = False
+            if missed_work_days >= 7 and new_tier != "entry":  # Missed work for a week
+                tier_order = list(JOB_TIERS.keys())
+                current_index = tier_order.index(new_tier)
+                if current_index > 0:
+                    new_tier = tier_order[current_index - 1]
+                    demoted = True
+                    missed_work_days = 0  # Reset after demotion
+            
+            # Update database
+            update_data = {
+                "total_works": total_works,
+                "successful_works": successful_works,
+                "failed_works": failed_works,
+                "consecutive_works": consecutive_works,
+                "work_streak": work_streak,
+                "missed_work_days": missed_work_days,
+                "last_work_success": success,
+                "current_job": job["name"],
+                "job_tier": new_tier,
+                "last_work": current_time
+            }
+            
+            if earnings > 0:
+                db.add_coins(user_id, earnings)
+            
+            # Update user data in database
+            if db.users_collection:
+                db.users_collection.update_one(
+                    {"user_id": user_id},
+                    {"$set": update_data},
+                    upsert=True
+                )
+            
+            return {
+                "success": success,
+                "promoted": promoted,
+                "demoted": demoted,
+                "new_tier": new_tier,
+                "earnings": earnings,
+                "consecutive_works": consecutive_works,
+                "work_streak": work_streak,
+                "total_works": total_works,
+                "successful_works": successful_works
+            }
+            
+        except Exception as e:
+            print(f"Error processing work result: {e}")
+            return {"success": False, "error": str(e)}
+
+    def get_work_success_rate(self, user_id, job):
+        """Calculate work success rate based on user's experience and job difficulty"""
+        job_stats = self.get_user_job_stats(user_id)
+        consecutive_works = job_stats["consecutive_works"]
+        work_streak = job_stats["work_streak"]
+        
+        # Base success rate depends on job tier
+        job_tier = job.get("tier", "entry")
+        base_rates = {
+            "entry": 0.85,      # 85% success rate for entry jobs
+            "junior": 0.75,     # 75% success rate for junior jobs  
+            "mid": 0.65,        # 65% success rate for mid-level jobs
+            "senior": 0.55,     # 55% success rate for senior jobs
+            "executive": 0.45,  # 45% success rate for executive jobs
+            "legendary": 0.35   # 35% success rate for legendary jobs
+        }
+        
+        base_success_rate = base_rates.get(job_tier, 0.75)
+        
+        # Bonuses for experience and consistency
+        consecutive_bonus = min(0.15, consecutive_works * 0.02)  # Up to 15% bonus
+        streak_bonus = min(0.10, work_streak * 0.01)  # Up to 10% bonus
+        
+        # Check for active work success boost
+        user_data = db.get_user_data(user_id)
+        active_purchases = user_data.get("temporary_purchases", [])
+        has_work_boost = any(
+            purchase.get("item_type") == "work_success" and 
+            purchase.get("expires_at", 0) > datetime.now().timestamp()
+            for purchase in active_purchases
+        )
+        
+        work_boost = 1.0 if has_work_boost else 0.0  # Guaranteed success with boost
+        
+        final_success_rate = min(1.0, base_success_rate + consecutive_bonus + streak_bonus + work_boost)
+        return final_success_rate
 
 
 
@@ -187,155 +512,245 @@ class Economy(commands.Cog):
 
 
 
-    @app_commands.command(name="work", description="💼 Work various jobs to earn coins - choose your preferred job!")
+    @app_commands.command(name="work", description="💼 Independent career progression system - work your way up!")
     async def work(self, interaction: discord.Interaction):
         try:
-            # Check cooldown 
             user_data = db.get_user_data(interaction.user.id)
             last_work = user_data.get('last_work', 0)
             current_time = datetime.now().timestamp()
             
-            # Base cooldown of 30 minutes
-            base_cooldown = 30 * 60  # 30 minutes in seconds
+            # New 2.5 hour cooldown
+            cooldown_seconds = int(WORK_COOLDOWN_HOURS * 3600)
             
-            if current_time - last_work < base_cooldown:
-                time_left = base_cooldown - (current_time - last_work)
-                minutes = int(time_left // 60)
-                seconds = int(time_left % 60)
+            if current_time - last_work < cooldown_seconds:
+                time_left = cooldown_seconds - (current_time - last_work)
+                hours = int(time_left // 3600)
+                minutes = int((time_left % 3600) // 60)
                 
                 embed = discord.Embed(
                     title="⏰ **Work Cooldown**",
-                    description=f"You're tired! Rest for **{minutes}m {seconds}s** before working again.",
+                    description=f"You need to rest! Come back in **{hours}h {minutes}m**.",
                     color=0xff9966,
                     timestamp=datetime.now()
                 )
-                embed.add_field(name="💡 Tip", value="Higher level jobs pay more but have lower success rates!", inline=False)
-                embed.set_footer(text="💼 Come back when you're refreshed!")
+                embed.add_field(
+                    name="💡 Tip", 
+                    value="Use this time to check `/profile` for your career progress or `/shop` for work boosts!", 
+                    inline=False
+                )
+                embed.set_footer(text="💼 Quality work requires proper rest!")
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
 
-            # Get available jobs based on user level
-            xp = user_data.get('xp', 0)
-            level = self.calculate_level_from_xp(xp)
+            # Get user's job stats and available jobs
+            job_stats = self.get_user_job_stats(interaction.user.id)
+            available_jobs = self.get_available_jobs(interaction.user.id)
             
-            # Higher level users get access to better jobs
-            available_jobs = JOB_OPPORTUNITIES[:min(len(JOB_OPPORTUNITIES), max(1, level // 10 + 1))]
-            
+            if not available_jobs:
+                await interaction.response.send_message("❌ No jobs available! This shouldn't happen.", ephemeral=True)
+                return
+
             # Create job selection view
             class JobSelectionView(discord.ui.View):
-                def __init__(self, user_level, current_time):
-                    super().__init__(timeout=60)
-                    self.user_level = user_level
-                    self.current_time = current_time
+                def __init__(self, economy_cog, user_id):
+                    super().__init__(timeout=120)
+                    self.economy_cog = economy_cog
+                    self.user_id = user_id
                 
                 @discord.ui.select(
-                    placeholder="🎯 Choose your job for today...",
+                    placeholder="🎯 Choose your job opportunity...",
                     min_values=1,
                     max_values=1,
                     options=[
                         discord.SelectOption(
-                            label=job["name"],
-                            description=f"💰 {job['min_pay']}-{job['max_pay']} coins • {job['requirements']}",
+                            label=f"{job['name']} ({job['tier_name']})",
+                            description=f"💰 {job['min_pay']}-{job['max_pay']} coins • {job['description']}",
                             emoji=job.get("emoji", "💼"),
                             value=str(i)
-                        ) for i, job in enumerate(available_jobs)
+                        ) for i, job in enumerate(available_jobs[:25])  # Discord limit
                     ]
                 )
                 async def job_select(self, select_interaction: discord.Interaction, select: discord.ui.Select):
-                    if select_interaction.user.id != interaction.user.id:
+                    if select_interaction.user.id != self.user_id:
                         await select_interaction.response.send_message("❌ This is not your work selection!", ephemeral=True)
                         return
                     
                     job_index = int(select.values[0])
                     selected_job = available_jobs[job_index]
                     
-                    # Calculate earnings based on job and level
+                    # Calculate success rate
+                    success_rate = self.economy_cog.get_work_success_rate(self.user_id, selected_job)
+                    work_successful = random.random() < success_rate
+                    
+                    # Calculate earnings
                     base_earnings = random.randint(selected_job["min_pay"], selected_job["max_pay"])
-                    level_bonus = level * 2  # 2 coins per level bonus
-                    total_earnings = base_earnings + level_bonus
                     
-                    # Random success/failure for higher paying jobs (easier success for chosen jobs)
-                    success_chance = max(0.8, 1.0 - (job_index * 0.05))  # Better chance when choosing
+                    # Experience bonus based on work streak
+                    streak_bonus = min(20, job_stats["work_streak"] * 2)  # Up to 20 coins bonus
+                    total_earnings = base_earnings + streak_bonus if work_successful else 0
                     
-                    if random.random() < success_chance:
-                        # Success
-                        db.add_coins(interaction.user.id, total_earnings)
-                        db.update_last_work(interaction.user.id, self.current_time)
-                        
-                        new_balance = db.get_user_data(interaction.user.id).get('coins', 0)
-                        
+                    # Process work result
+                    result = self.economy_cog.process_work_result(
+                        self.user_id, selected_job, work_successful, total_earnings
+                    )
+                    
+                    if result.get("success") is False:
+                        await select_interaction.response.send_message(f"❌ Error processing work: {result.get('error')}", ephemeral=True)
+                        return
+                    
+                    # Create result embed
+                    if work_successful:
                         embed = discord.Embed(
-                            title="✅ **Work Complete!**",
+                            title="✅ **Work Successful!**",
                             description=f"**{selected_job['name']}** - {selected_job['full_description']}",
                             color=0x00d4aa,
                             timestamp=datetime.now()
                         )
-                        embed.add_field(name="💰 Earnings", value=f"**+{total_earnings}** coins", inline=True)
-                        embed.add_field(name="🪙 New Balance", value=f"{new_balance:,} coins", inline=True)
-                        embed.add_field(name="🎯 Level Bonus", value=f"+{level_bonus} coins", inline=True)
-                        embed.add_field(name="💡 Job Details", value=selected_job["requirements"], inline=False)
-                        embed.set_author(name=select_interaction.user.display_name, icon_url=select_interaction.user.display_avatar.url)
-                        embed.set_footer(text="💼 Great job! Come back in 30 minutes for more work.")
                         
-                        # Add achievement-style message for high earnings
-                        if total_earnings >= 100:
-                            embed.add_field(name="🏆 Achievement", value="High Earner! You made over 100 coins!", inline=False)
+                        embed.add_field(name="💰 Base Earnings", value=f"+{base_earnings} coins", inline=True)
+                        if streak_bonus > 0:
+                            embed.add_field(name="🔥 Streak Bonus", value=f"+{streak_bonus} coins", inline=True)
+                        embed.add_field(name="💵 Total Earned", value=f"**+{total_earnings} coins**", inline=True)
+                        
+                        # Career progress
+                        embed.add_field(
+                            name="� Career Progress",
+                            value=f"**Successful Works:** {result['successful_works']}\n**Work Streak:** {result['work_streak']}\n**Current Tier:** {result['new_tier'].title()}",
+                            inline=True
+                        )
+                        
+                        # Check for promotions/demotions
+                        if result.get("promoted"):
+                            embed.add_field(
+                                name="🎉 **PROMOTION!**",
+                                value=f"Congratulations! You've been promoted to **{result['new_tier'].title()} Level**!",
+                                inline=False
+                            )
+                        elif result.get("demoted"):
+                            embed.add_field(
+                                name="� **Demotion**",
+                                value=f"Due to missed work, you've been moved to **{result['new_tier'].title()} Level**.",
+                                inline=False
+                            )
+                        
+                        # Next promotion info
+                        promotion_eligible, promotion_info = self.economy_cog.check_promotion_eligibility(self.user_id)
+                        if not promotion_eligible and isinstance(promotion_info, str):
+                            embed.add_field(
+                                name="� Next Promotion",
+                                value=promotion_info,
+                                inline=False
+                            )
+                        
+                        embed.set_footer(text=f"💼 Come back in {WORK_COOLDOWN_HOURS} hours for more work!")
+                        
                     else:
-                        # Failure
-                        db.update_last_work(interaction.user.id, self.current_time)
-                        
                         embed = discord.Embed(
                             title="⚠️ **Work Failed**",
-                            description=f"**{selected_job['name']}** - You attempted this job but it didn't go as planned.",
+                            description=f"**{selected_job['name']}** - The job didn't go as planned this time.",
                             color=0xff9966,
                             timestamp=datetime.now()
                         )
-                        embed.add_field(name="💭 What happened", value=f"The {selected_job['name'].lower()} was more challenging than expected. Sometimes these things happen!", inline=False)
-                        embed.add_field(name="💡 Silver Lining", value="You gained experience! Higher level jobs have better success rates when you level up.", inline=False)
-                        embed.set_author(name=select_interaction.user.display_name, icon_url=select_interaction.user.display_avatar.url)
-                        embed.set_footer(text="💪 Don't give up! Try again in 30 minutes.")
+                        
+                        embed.add_field(
+                            name="💭 What Happened",
+                            value=f"The {selected_job['name'].lower()} was more challenging than expected. Don't worry, this happens!",
+                            inline=False
+                        )
+                        
+                        embed.add_field(
+                            name="� Your Stats",
+                            value=f"**Success Rate:** {success_rate:.1%}\n**Consecutive Works:** {result['consecutive_works']}\n**Total Works:** {result['total_works']}",
+                            inline=True
+                        )
+                        
+                        embed.add_field(
+                            name="💡 Improvement Tips",
+                            value="• Work consistently to build your streak\n• Try easier jobs to rebuild confidence\n• Consider buying work success boost from `/shop`",
+                            inline=False
+                        )
+                        
+                        embed.set_footer(text=f"💪 Try again in {WORK_COOLDOWN_HOURS} hours!")
+                    
+                    embed.set_author(
+                        name=f"{select_interaction.user.display_name}'s Work Report", 
+                        icon_url=select_interaction.user.display_avatar.url
+                    )
                     
                     await select_interaction.response.edit_message(embed=embed, view=None)
             
-            # Create initial embed
+            # Create main work embed
             embed = discord.Embed(
-                title="💼 **Work Opportunities**",
-                description=f"Choose your job wisely! You have **{len(available_jobs)}** available jobs based on your level.\n\n" +
-                           "**💡 Pro Tips:**\n" +
-                           "• Higher level jobs pay more but have lower success rates\n" +
-                           "• Choosing your job gives better success chance than random\n" +
-                           "• Level bonuses apply to all jobs (+2 coins per level)",
+                title="💼 **Career Progression System**",
+                description=f"Welcome to your independent career! Progress through jobs based on your work history, not XP levels.\n\n**🏆 Your Current Status:**",
                 color=0x7c3aed,
                 timestamp=datetime.now()
             )
             
-            # Add available jobs info
-            jobs_info = []
-            for i, job in enumerate(available_jobs):
-                emoji = job.get("emoji", "💼")
-                pay_range = f"{job['min_pay']}-{job['max_pay']} coins"
-                level_req = job["requirements"]
-                jobs_info.append(f"{emoji} **{job['name']}** - {pay_range}\n   _{level_req}_")
-            
+            # User stats section
+            current_tier_name = JOB_TIERS[job_stats["current_tier"]]["name"]
             embed.add_field(
-                name="🎯 **Available Jobs**",
-                value="\n\n".join(jobs_info),
-                inline=False
-            )
-            
-            embed.add_field(
-                name="📊 **Your Stats**",
-                value=f"**Level:** {level}\n**Level Bonus:** +{level * 2} coins\n**Jobs Unlocked:** {len(available_jobs)}/{len(JOB_OPPORTUNITIES)}",
+                name="📊 **Career Stats**",
+                value=f"**Current Tier:** {current_tier_name}\n**Successful Works:** {job_stats['successful_works']}\n**Work Streak:** {job_stats['work_streak']}\n**Success Rate:** {(job_stats['successful_works'] / max(1, job_stats['total_works']) * 100):.1f}%",
                 inline=True
             )
             
-            embed.set_author(name=f"{interaction.user.display_name}'s Work Dashboard", icon_url=interaction.user.display_avatar.url)
+            # Available jobs by tier
+            jobs_by_tier = {}
+            for job in available_jobs:
+                tier_name = job["tier_name"]
+                if tier_name not in jobs_by_tier:
+                    jobs_by_tier[tier_name] = []
+                jobs_by_tier[tier_name].append(job)
+            
+            job_list = []
+            for tier_name, tier_jobs in jobs_by_tier.items():
+                job_list.append(f"**{tier_name}:**")
+                for job in tier_jobs[:3]:  # Limit display
+                    success_rate = self.get_work_success_rate(interaction.user.id, job)
+                    job_list.append(f"{job['emoji']} {job['name']} - {job['min_pay']}-{job['max_pay']} coins ({success_rate:.0%} success)")
+                if len(tier_jobs) > 3:
+                    job_list.append(f"   _...and {len(tier_jobs) - 3} more_")
+                job_list.append("")
+            
+            embed.add_field(
+                name="🎯 **Available Jobs**",
+                value="\n".join(job_list[:15]) if job_list else "No jobs available",  # Limit length
+                inline=False
+            )
+            
+            # Promotion info
+            promotion_eligible, promotion_info = self.check_promotion_eligibility(interaction.user.id)
+            if promotion_eligible:
+                embed.add_field(
+                    name="🎉 **Promotion Ready!**",
+                    value=f"You're eligible for promotion to **{promotion_info.title()} Level**!",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="🎯 **Next Promotion**",
+                    value=promotion_info,
+                    inline=False
+                )
+            
+            embed.add_field(
+                name="💡 **System Features**",
+                value="• **Independent progression** - No XP requirements!\n• **Work streak bonuses** - Consistent work pays off\n• **Promotions & demotions** - Based on performance\n• **Difficulty scaling** - Higher tiers = better pay, lower success rate",
+                inline=False
+            )
+            
+            embed.set_author(
+                name=f"{interaction.user.display_name}'s Career Dashboard",
+                icon_url=interaction.user.display_avatar.url
+            )
             embed.set_footer(text="💼 Select a job from the dropdown below")
             
-            view = JobSelectionView(level, current_time)
+            view = JobSelectionView(self, interaction.user.id)
             await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
         except Exception as e:
+            print(f"Work command error: {e}")
             await interaction.response.send_message(f"❌ Error working: {str(e)}", ephemeral=True)
 
     def calculate_level_from_xp(self, xp: int) -> int:
