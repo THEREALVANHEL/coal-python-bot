@@ -267,6 +267,7 @@ async def load_cogs():
         'cogs.enhanced_moderation',  # Comprehensive A-Z logging system
         'cogs.settings',
         'cogs.tickets',
+        'cogs.cool_ticket_manager',  # Cool ticket management interface with all controls
         'cogs.comprehensive_fixes'  # All fixes in one place - jobs command and priority buttons
     ]
     
@@ -321,6 +322,7 @@ async def ensure_cogs_loaded():
         'cogs.enhanced_moderation',
         'cogs.settings',
         'cogs.tickets',
+        'cogs.cool_ticket_manager',
         'cogs.comprehensive_fixes'
     ]
     

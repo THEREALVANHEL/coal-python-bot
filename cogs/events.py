@@ -110,22 +110,26 @@ class Events(commands.Cog):
                 db.add_xp(message.author.id, xp_gain)
                 db.update_last_xp_time(message.author.id, current_time)
                 
-                # Update XP roles
-                try:
-                    from cogs.leveling import Leveling
-                    leveling_cog = self.bot.get_cog('Leveling')
-                    if leveling_cog and hasattr(message.author, 'guild'):
-                        await leveling_cog.update_xp_roles(message.author, new_level)
-                        
-                        # Update cookie roles using the cookies cog
-                        cookies_cog = self.bot.get_cog('Cookies')
-                        if cookies_cog:
-                            await cookies_cog.update_cookie_roles(message.author, old_cookies)
-                except Exception as e:
-                    print(f"Error updating roles: {e}")
-                
-                # Check for level up
+                # Only update roles when level actually changes to prevent spam
                 if new_level > old_level:
+                    # Update XP roles only on level up
+                    try:
+                        from cogs.leveling import Leveling
+                        leveling_cog = self.bot.get_cog('Leveling')
+                        if leveling_cog and hasattr(message.author, 'guild'):
+                            await leveling_cog.update_xp_roles(message.author, new_level)
+                            
+                            # Update cookie roles with current cookie count (not old)
+                            current_user_stats = db.get_live_user_stats(message.author.id)
+                            current_cookies = current_user_stats.get('cookies', 0)
+                            
+                            cookies_cog = self.bot.get_cog('Cookies')
+                            if cookies_cog:
+                                await cookies_cog.update_cookie_roles(message.author, current_cookies)
+                    except Exception as e:
+                        print(f"Error updating roles on level up: {e}")
+                    
+                    # Handle level up notification
                     await self.handle_level_up(message, new_level, old_level)
 
         except Exception as e:
