@@ -771,7 +771,7 @@ class Economy(commands.Cog):
             embed.set_footer(text="💼 Select a job from the dropdown below")
             
             view = JobSelectionView(self, interaction.user.id)
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=False)
 
         except Exception as e:
             print(f"Work command error: {e}")
@@ -1440,7 +1440,7 @@ class Economy(commands.Cog):
             
             embed.add_field(
                 name="🔗 **MongoDB Connection**",
-                value=f"**Status:** {connection_color} {connection_status}\n**Database:** {db.db.name if db.db else 'None'}\n**Collections:** {'Active' if db.users_collection else 'Inactive'}",
+                value=f"**Status:** {connection_color} {connection_status}\n**Database:** {db.db.name if db.db is not None else 'None'}\n**Collections:** {'Active' if db.users_collection is not None else 'Inactive'}",
                 inline=True
             )
             

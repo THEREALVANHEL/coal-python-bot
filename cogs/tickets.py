@@ -1194,61 +1194,7 @@ class Tickets(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="ticketstats", description="📊 View comprehensive ticket system statistics")
-    @app_commands.default_permissions(manage_channels=True)
-    async def ticket_stats(self, interaction: discord.Interaction):
-        """View ticket statistics for the server"""
-        
-        if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message("❌ You need 'Manage Channels' permission to view ticket statistics!", ephemeral=True)
-            return
-        
-        try:
-            guild_id = interaction.guild.id
-            stats = db.get_ticket_stats(guild_id)
-            
-            embed = discord.Embed(
-                title="📊 **Ticket System Statistics**",
-                description=f"Statistics for {interaction.guild.name}",
-                color=0x7c3aed,
-                timestamp=datetime.now()
-            )
-            
-            embed.add_field(
-                name="🎫 **Total Tickets**",
-                value=f"**{stats.get('total_tickets', 0)}** tickets created",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="🔒 **Closed Tickets**",
-                value=f"**{stats.get('closed_tickets', 0)}** tickets closed",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="🟢 **Open Tickets**",
-                value=f"**{stats.get('total_tickets', 0) - stats.get('closed_tickets', 0)}** currently open",
-                inline=True
-            )
-            
-            # Configuration status
-            server_settings = db.get_server_settings(guild_id)
-            ticket_support_roles = server_settings.get('ticket_support_roles', [])
-            
-            embed.add_field(
-                name="⚙️ **Configuration**",
-                value=f"**Support Roles:** {len(ticket_support_roles)} configured\n**Status:** {'✅ Active' if ticket_support_roles else '⚠️ Basic setup'}",
-                inline=False
-            )
-            
-            embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
-            embed.set_footer(text="Use /giveticketroleperms to configure support roles")
-            
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error getting ticket stats: {str(e)}", ephemeral=True)
+
 
     @app_commands.command(name="closealltickets", description="🚨 Emergency: Close all open tickets")
     @app_commands.default_permissions(administrator=True)
@@ -1429,7 +1375,7 @@ class Tickets(commands.Cog):
         # Action buttons for quick management
         embed.add_field(
             name="🛠️ **Quick Actions**",
-            value="• Use `/closealltickets` for emergency cleanup\n• Use `/ticketstats` for detailed analytics\n• Use `/giveticketroleperms` to manage staff access",
+            value="• Use `/closealltickets` for emergency cleanup\n• Use `/ticketdashboard` to refresh dashboard\n• Use `/giveticketroleperms` to manage staff access",
             inline=False
         )
         
