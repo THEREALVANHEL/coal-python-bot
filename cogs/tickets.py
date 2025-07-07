@@ -10,7 +10,7 @@ import asyncio
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 from permissions import has_special_permissions
-from cogs.ticket_controls import CoolTicketControls
+from cogs.ticket_controls import CoolTicketControls, DirectTicketPanel, DIRECT_TICKET_CATEGORIES
 
 # Enhanced ticket categories with subcategories and claim system
 TICKET_CATEGORIES = {
@@ -866,9 +866,8 @@ class Tickets(commands.Cog):
         # Add persistent views
         self.bot.add_view(TicketCategorySelectView())
         self.bot.add_view(TicketFormView())
-        # Add cool ticket controls as persistent view
-        self.bot.add_view(CoolTicketControls(0, "general", "General"))
-        print("[Tickets] Loaded successfully with persistent views.")
+        self.bot.add_view(DirectTicketPanel())
+        print("[Tickets] ✅ Loaded successfully with persistent views including direct ticket panel.")
 
     @app_commands.command(name="createticket", description="🎫 Create a support ticket instantly")
     async def create_ticket_quick(self, interaction: discord.Interaction):
@@ -903,9 +902,16 @@ class Tickets(commands.Cog):
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="ticketpanel", description="🎫 Create ticket panel in current channel (Admin only)")
-    @app_commands.describe(channel="Channel where the ticket panel will be posted (optional)")
+    @app_commands.describe(
+        channel="Channel where the ticket panel will be posted (optional)",
+        panel_type="Type of ticket panel to create"
+    )
+    @app_commands.choices(panel_type=[
+        app_commands.Choice(name="🎫 Full Panel (with form)", value="full"),
+        app_commands.Choice(name="⚡ Direct Panel (instant tickets)", value="direct")
+    ])
     @app_commands.default_permissions(administrator=True)
-    async def ticket_panel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
+    async def ticket_panel(self, interaction: discord.Interaction, channel: discord.TextChannel = None, panel_type: str = "direct"):
         """Create a ticket panel that everyone can use"""
         # Check permissions - allow special role or admin
         if not (interaction.user.guild_permissions.administrator or has_special_permissions(interaction)):
@@ -941,63 +947,120 @@ class Tickets(commands.Cog):
                 await interaction.followup.send(embed=embed, ephemeral=True)
                 return
             
-            # Create comprehensive ticket form embed
-            embed = discord.Embed(
-                title="🎫 **Support Ticket System**",
-                description="Welcome to our support system! Click the button below to create a ticket for any assistance you need.",
-                color=0x7c3aed,
-                timestamp=datetime.now()
-            )
+            if panel_type == "direct":
+                # Create direct ticket panel (instant tickets without forms)
+                embed = discord.Embed(
+                    title="⚡ **Instant Support Tickets**",
+                    description="Click any category below to instantly create a support ticket! No forms required - just click and get help.",
+                    color=0x00d4aa,
+                    timestamp=datetime.now()
+                )
+                
+                # Add direct categories with descriptions
+                direct_categories = ""
+                for category_key, category_info in DIRECT_TICKET_CATEGORIES.items():
+                    direct_categories += f"{category_info['emoji']} **{category_info['name']}**\n{category_info['description']}\n\n"
+                
+                embed.add_field(
+                    name="📋 **Available Categories**",
+                    value=direct_categories,
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="⚡ **How It Works**",
+                    value="1️⃣ Click any category button below\n2️⃣ Instant private channel created\n3️⃣ Support team automatically notified\n4️⃣ Get immediate assistance!",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="🚀 **Why Instant Tickets?**",
+                    value="• **No Forms** - Skip the paperwork\n• **Instant Creation** - Get help immediately\n• **Smart Categorization** - Pre-organized by type\n• **Auto-Notifications** - Staff alerted instantly",
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="🛡️ **Privacy & Security**",
+                    value="• **Private Channels** - Only you and staff\n• **Secure Support** - Confidential assistance\n• **Professional Service** - Dedicated team\n• **Quick Response** - Usually within 30 minutes",
+                    inline=True
+                )
+                
+                embed.set_footer(text="⚡ Instant Ticket System • Click any button below!")
+                embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+                
+                # Create direct ticket panel view
+                view = DirectTicketPanel()
+                
+                await target_channel.send(embed=embed, view=view)
+                
+            else:
+                # Create comprehensive ticket form embed (original system)
+                embed = discord.Embed(
+                    title="🎫 **Support Ticket System**",
+                    description="Welcome to our support system! Click the button below to create a ticket for any assistance you need.",
+                    color=0x7c3aed,
+                    timestamp=datetime.now()
+                )
+                
+                # Add all ticket categories with their descriptions
+                categories_text = ""
+                for category_key, category_info in TICKET_CATEGORIES.items():
+                    categories_text += f"{category_info['emoji']} **{category_info['name']}**\n{category_info['description']}\n\n"
+                
+                embed.add_field(
+                    name="📋 **Available Categories**",
+                    value=categories_text,
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="🚀 **How It Works**",
+                    value="1️⃣ Click **'Create Ticket'** below\n2️⃣ Select your ticket category\n3️⃣ Choose specific subcategory\n4️⃣ Fill out the ticket form\n5️⃣ Get help from our support team!",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="⚡ **Response Times**",
+                    value="• **Urgent:** Within 1 hour\n• **High:** Within 4 hours\n• **Medium:** Within 24 hours\n• **Low:** Within 48 hours",
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="🛡️ **Privacy**",
+                    value="• Private channels created for each ticket\n• Only you and staff can see your ticket\n• Secure and confidential support",
+                    inline=True
+                )
+                
+                embed.set_footer(text="🎯 Professional Ticket System • Create a ticket anytime!")
+                embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+                
+                # Create the view with ticket button
+                view = TicketFormView()
+                
+                # Send the ticket form
+                await target_channel.send(embed=embed, view=view)
             
-            # Add all ticket categories with their descriptions
-            categories_text = ""
-            for category_key, category_info in TICKET_CATEGORIES.items():
-                categories_text += f"{category_info['emoji']} **{category_info['name']}**\n{category_info['description']}\n\n"
-            
-            embed.add_field(
-                name="📋 **Available Categories**",
-                value=categories_text,
-                inline=False
-            )
-            
-            embed.add_field(
-                name="🚀 **How It Works**",
-                value="1️⃣ Click **'Create Ticket'** below\n2️⃣ Select your ticket category\n3️⃣ Choose specific subcategory\n4️⃣ Fill out the ticket form\n5️⃣ Get help from our support team!",
-                inline=False
-            )
-            
-            embed.add_field(
-                name="⚡ **Response Times**",
-                value="• **Urgent:** Within 1 hour\n• **High:** Within 4 hours\n• **Medium:** Within 24 hours\n• **Low:** Within 48 hours",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="🛡️ **Privacy**",
-                value="• Private channels created for each ticket\n• Only you and staff can see your ticket\n• Secure and confidential support",
-                inline=True
-            )
-            
-            embed.set_footer(text="🎯 Professional Ticket System • Create a ticket anytime!")
-            embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
-            
-            # Create the view with ticket button
-            view = TicketFormView()
-            
-            # Send the ticket form
-            await target_channel.send(embed=embed, view=view)
-            
-            # Success response
+            # Success response based on panel type
+            panel_name = "Direct Ticket Panel" if panel_type == "direct" else "Full Ticket Panel"
             success_embed = discord.Embed(
                 title="✅ **Ticket Panel Created Successfully!**",
-                description=f"The ticket panel has been posted in {target_channel.mention}",
+                description=f"The {panel_name.lower()} has been posted in {target_channel.mention}",
                 color=0x00d4aa
             )
-            success_embed.add_field(
-                name="🎯 **What's Next?**",
-                value="Users can now click the button to create tickets for any support needs!",
-                inline=False
-            )
+            
+            if panel_type == "direct":
+                success_embed.add_field(
+                    name="⚡ **Direct Panel Features**",
+                    value="• **Instant ticket creation** - No forms required\n• **Category buttons** - Direct access to support types\n• **Auto-notifications** - Staff alerted immediately\n• **Smart organization** - Pre-categorized tickets",
+                    inline=False
+                )
+            else:
+                success_embed.add_field(
+                    name="🎯 **Full Panel Features**",
+                    value="• **Detailed forms** - Comprehensive ticket information\n• **Category selection** - Choose specific subcategories\n• **Priority setting** - Set urgency levels\n• **Rich descriptions** - Detailed issue reporting",
+                    inline=False
+                )
+            
             success_embed.set_footer(text="🎫 Ticket System Ready")
             
             await interaction.followup.send(embed=success_embed, ephemeral=True)

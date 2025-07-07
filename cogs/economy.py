@@ -368,7 +368,7 @@ class Economy(commands.Cog):
                 db.add_coins(user_id, earnings)
             
             # Update user data in database
-            if db.users_collection:
+            if db.users_collection is not None:
                 db.users_collection.update_one(
                     {"user_id": user_id},
                     {"$set": update_data},

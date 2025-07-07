@@ -241,11 +241,7 @@ class Settings(commands.Cog):
                 super().__init__(timeout=300)
                 self.bot = bot
 
-            @discord.ui.button(label="📋 Mod Logs", style=discord.ButtonStyle.primary, emoji="📋")
-            async def setup_modlog(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.response.send_modal(ChannelModal("modlog", "Mod Log"))
-
-            @discord.ui.button(label="💡 Suggestions", style=discord.ButtonStyle.primary, emoji="💡")
+            @discord.ui.button(label=" Suggestions", style=discord.ButtonStyle.primary, emoji="💡")
             async def setup_suggest(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.send_modal(ChannelModal("suggest", "Suggestions"))
 

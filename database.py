@@ -89,7 +89,7 @@ class DataSafetyManager:
             }
             
             # Backup critical collections
-            if users_collection:
+            if users_collection is not None:
                 # Get recent changes (last 2 hours)
                 recent_cutoff = current_time - 7200
                 recent_users = list(users_collection.find({
@@ -103,7 +103,7 @@ class DataSafetyManager:
                 backup_data["collections"]["users"] = recent_users
                 backup_data["metadata"]["total_users"] = users_collection.count_documents({})
             
-            if settings_collection:
+            if settings_collection is not None:
                 # Always backup all settings (small collection)
                 settings = list(settings_collection.find({}))
                 backup_data["collections"]["settings"] = settings
@@ -115,7 +115,7 @@ class DataSafetyManager:
             )
             
             # Store backup metadata in database
-            if backups_collection:
+            if backups_collection is not None:
                 backup_metadata = {
                     "timestamp": current_time,
                     "type": "incremental",
@@ -155,7 +155,7 @@ class DataSafetyManager:
             # Backup ALL collections completely
             for collection_name in ["users", "starboard", "tickets", "settings"]:
                 collection = db[collection_name] if db else None
-                if collection:
+                if collection is not None:
                     all_data = list(collection.find({}))
                     backup_data["collections"][collection_name] = all_data
                     backup_data["metadata"][f"{collection_name}_count"] = len(all_data)
@@ -165,7 +165,7 @@ class DataSafetyManager:
             backup_data["metadata"]["backup_size_estimate"] = total_docs * 1000  # Rough estimate
             
             # Store full backup metadata
-            if backups_collection:
+            if backups_collection is not None:
                 backup_metadata = {
                     "timestamp": current_time,
                     "type": "full_emergency",
@@ -199,7 +199,7 @@ class DataSafetyManager:
                 "health_score": 100
             }
             
-            if users_collection:
+            if users_collection is not None:
                 # Check user data integrity
                 user_issues = []
                 total_users = users_collection.count_documents({})
@@ -253,7 +253,7 @@ class DataSafetyManager:
     def get_recovery_options(self) -> Dict[str, Any]:
         """Get available recovery options and backup history"""
         try:
-            if not backups_collection:
+            if backups_collection is None:
                 return {"success": False, "error": "Backup collection not available"}
             
             # Get recent backups
@@ -321,7 +321,7 @@ def get_user_data_safe(user_id: int) -> Dict[str, Any]:
 def fix_user_data(user_id: int, fixes: Dict[str, Any]) -> bool:
     """Fix corrupted user data"""
     try:
-        if users_collection:
+        if users_collection is not None:
             users_collection.update_one(
                 {"user_id": user_id},
                 {"$set": fixes},
@@ -1363,7 +1363,7 @@ def get_live_user_stats(user_id):
     """Get real-time validated user statistics"""
     try:
         # Get data directly from database to prevent recursion
-        user_data = users_collection.find_one({"user_id": user_id}) if users_collection else None
+        user_data = users_collection.find_one({"user_id": user_id}) if users_collection is not None else None
         if not user_data:
             user_data = {"user_id": user_id, "xp": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
         
@@ -1395,7 +1395,7 @@ def auto_sync_user_data(user_id):
     """Automatically sync and validate user data in real-time"""
     try:
         # Get data directly from database to prevent recursion
-        current_data = users_collection.find_one({"user_id": user_id}) if users_collection else None
+        current_data = users_collection.find_one({"user_id": user_id}) if users_collection is not None else None
         if not current_data:
             return {"user_id": user_id, "xp": 0, "cookies": 0, "coins": 0}
         
@@ -1744,7 +1744,7 @@ def maintenance_cleanup():
 def get_database_stats():
     """Get database statistics with error handling"""
     try:
-        if not users_collection:
+        if users_collection is None:
             return {
                 "success": False,
                 "message": "Database not connected",
@@ -1858,7 +1858,7 @@ def quick_db_health_check():
         client.admin.command('ping')
         
         # Quick count check (with timeout)
-        if users_collection:
+        if users_collection is not None:
             count = users_collection.count_documents({})
             return {
                 "success": True, 
