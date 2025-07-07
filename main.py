@@ -264,6 +264,7 @@ async def load_cogs():
         'cogs.events',
         'cogs.community',
         'cogs.moderation',
+        'cogs.enhanced_moderation',  # Comprehensive A-Z logging system
         'cogs.settings',
         'cogs.tickets'
     ]
@@ -316,6 +317,7 @@ async def ensure_cogs_loaded():
         'cogs.events',
         'cogs.community',
         'cogs.moderation',
+        'cogs.enhanced_moderation',
         'cogs.settings',
         'cogs.tickets'
     ]
