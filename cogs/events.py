@@ -248,17 +248,21 @@ class Events(commands.Cog):
                 removed_roles = [role for role in before.roles if role not in after.roles]
                 
                 if added_roles or removed_roles:
-                    description = []
-                    if added_roles:
-                        description.append(f"**Added:** {', '.join([role.mention for role in added_roles])}")
-                    if removed_roles:
-                        description.append(f"**Removed:** {', '.join([role.mention for role in removed_roles])}")
+                    # Only log significant role changes (not XP/cookie roles)
+                    significant_changes = []
+                    for role in added_roles:
+                        if not any(keyword in role.name.lower() for keyword in ['level', 'xp', 'cookie', 'rank']):
+                            significant_changes.append(f"+{role.name}")
+                    for role in removed_roles:
+                        if not any(keyword in role.name.lower() for keyword in ['level', 'xp', 'cookie', 'rank']):
+                            significant_changes.append(f"-{role.name}")
                     
-                    await self.log_to_modlog(after.guild, "role_update", {
-                        "user": after,
-                        "description": f"role changes: {', '.join(description)}",
-                        "color": 0x7289da
-                    })
+                    if significant_changes:
+                        await self.log_to_modlog(after.guild, "role_update", {
+                            "user": after,
+                            "description": f"role changes: {', '.join(significant_changes)}",
+                            "color": 0x7289da
+                        })
 
             if before.nick != after.nick:
                 # Nickname change
@@ -408,7 +412,9 @@ class Events(commands.Cog):
             
             # Clean one-liner format
             if "user" in data:
-                description = f"{icon} **{data['user'].display_name}** {data.get('description', '').split('\n')[0]}"
+                desc_text = data.get('description', '')
+                first_line = desc_text.split('\n')[0] if desc_text else ''
+                description = f"{icon} **{data['user'].display_name}** {first_line}"
                 embed.description = description
                 embed.set_thumbnail(url=data["user"].display_avatar.url)
             else:

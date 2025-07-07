@@ -31,16 +31,14 @@ class ElegantTicketControls(View):
         """Setup clean and simple button layout"""
         self.clear_items()
         
-        # Row 1: Main actions - simplified
+        # Claim/Transfer button - always shown for staff
         if self.is_claimed:
-            unclaim_btn = Button(
-                label="Remove Claim",
+            claim_btn = Button(
+                label="Transfer to Me", 
                 emoji="🔄",
-                style=discord.ButtonStyle.secondary,
-                custom_id="elegant_unclaim"
+                style=discord.ButtonStyle.primary,
+                custom_id="elegant_transfer"
             )
-            unclaim_btn.callback = self._unclaim_ticket
-            self.add_item(unclaim_btn)
         else:
             claim_btn = Button(
                 label="Claim", 
@@ -48,15 +46,15 @@ class ElegantTicketControls(View):
                 style=discord.ButtonStyle.success,
                 custom_id="elegant_claim"
             )
-            claim_btn.callback = self._claim_ticket
-            self.add_item(claim_btn)
+        claim_btn.callback = self._claim_ticket
+        self.add_item(claim_btn)
         
         # Lock/Unlock button
         if self.is_locked:
             unlock_btn = Button(
                 label="Unlock",
                 emoji="🔓", 
-                style=discord.ButtonStyle.primary,
+                style=discord.ButtonStyle.secondary,
                 custom_id="elegant_unlock"
             )
             unlock_btn.callback = self._unlock_ticket
@@ -187,7 +185,7 @@ class ElegantTicketControls(View):
         return embed
 
     async def _claim_ticket(self, interaction: discord.Interaction):
-        """Handle ticket claiming"""
+        """Handle ticket claiming and transfers"""
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -197,10 +195,11 @@ class ElegantTicketControls(View):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
-        if self.is_claimed:
+        # Check if user is trying to claim their own claimed ticket
+        if self.is_claimed and self.claimer_id == interaction.user.id:
             embed = await self._create_elegant_embed(
-                "Already Claimed", 
-                "⚠️ This ticket is already claimed.",
+                "Already Yours", 
+                "⚠️ You already have this ticket claimed.",
                 0xff9966
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -211,12 +210,30 @@ class ElegantTicketControls(View):
             await self._update_channel_status(interaction.channel, "claimed", interaction.user)
             
             # Update state
+            old_claimer_id = self.claimer_id
             self.is_claimed = True
             self.claimer_id = interaction.user.id
             self._setup_elegant_buttons()
             
-            # Send claim notification (MEE6 style)
-            await interaction.response.send_message(f"**@{interaction.user.display_name} claimed the ticket.**")
+            # Send notification (claim or transfer) with better error handling
+            if old_claimer_id:
+                old_claimer = interaction.guild.get_member(old_claimer_id)
+                old_name = old_claimer.display_name if old_claimer else "Unknown"
+                message = f"🔄 **Ticket transferred from @{old_name} to @{interaction.user.display_name}**"
+            else:
+                message = f"✅ **@{interaction.user.display_name} claimed the ticket.**"
+            
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(message)
+                else:
+                    await interaction.channel.send(message)
+            except discord.NotFound:
+                # Interaction expired, send in channel
+                await interaction.channel.send(message)
+            except Exception:
+                # Fallback to channel message
+                await interaction.channel.send(message)
             
             # Edit the original pinned message with updated buttons
             try:
@@ -234,61 +251,15 @@ class ElegantTicketControls(View):
                 0xff6b6b
             )
             try:
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+                else:
+                    await interaction.followup.send(embed=embed, ephemeral=True)
             except:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+                # Last resort
+                await interaction.channel.send(f"❌ {interaction.user.mention} Claim failed: {str(e)[:50]}")
 
-    async def _unclaim_ticket(self, interaction: discord.Interaction):
-        """Handle ticket unclaiming"""
-        if not self._has_permissions(interaction.user, interaction.guild):
-            embed = await self._create_elegant_embed(
-                "Access Denied",
-                "❌ You don't have permission to unclaim tickets.",
-                0xff6b6b
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        if not self.is_claimed:
-            embed = await self._create_elegant_embed(
-                "Not Claimed",
-                "⚠️ This ticket is not claimed.",
-                0xff9966
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        try:
-            # Update channel
-            await self._update_channel_status(interaction.channel, "open")
-            
-            # Update state
-            self.is_claimed = False
-            self.claimer_id = None
-            self._setup_elegant_buttons()
-            
-            # Send unclaim notification
-            await interaction.response.send_message(f"**@{interaction.user.display_name} unclaimed the ticket.**")
-            
-            # Edit the original pinned message with updated buttons
-            try:
-                async for message in interaction.channel.history(limit=50):
-                    if message.pinned and message.author.bot and message.embeds:
-                        await message.edit(view=self)
-                        break
-            except:
-                pass
-            
-        except Exception as e:
-            embed = await self._create_elegant_embed(
-                "Unclaim Failed",
-                f"❌ Error: {str(e)[:50]}",
-                0xff6b6b
-            )
-            try:
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-            except:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+
 
     async def _lock_ticket(self, interaction: discord.Interaction):
         """Handle ticket locking"""
@@ -946,28 +917,43 @@ class ElegantTicketPanel(View):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
-            # Create professional MEE6-style welcome embed with BLEKNEPHEW branding
+            # Create cool looking welcome embed with better styling
             welcome_embed = discord.Embed(
-                title=f"📫 BlackOps Group Support / Ticket #{ticket_number}",
-                description=f"**Ticket #{ticket_number}** - Type: {category_info['emoji']} {category_info['name']} - Created by: @{user.display_name}",
-                color=0x7289da
+                title="🎫 BlackOps Group Support Center",
+                color=0x2b2d31
             )
             
-            # Professional welcome message
-            welcome_message = (
-                f"Welcome to BlackOps Group support. Your ticket has been received by us and you have entered our queue. "
-                f"A dedicated staff member will be with you shortly. Response times may vary.\n\n"
-                f"**❕ Important Information**\n"
-                f"You can already provide a description of your question or issue to help speed-up the process. "
-                f"If you provide a description before your ticket is claimed, we can address your concerns faster."
-            )
-            
+            # Cool header section
             welcome_embed.add_field(
-                name="",
-                value=welcome_message,
+                name=f"🎯 **Ticket #{ticket_number}** • {category_info['emoji']} {category_info['name']}",
+                value=f"**Created by:** {user.mention}\n**Status:** 🟢 Open & Waiting\n**Priority:** Standard",
                 inline=False
             )
             
+            # Cooler welcome message with better formatting
+            welcome_embed.add_field(
+                name="👋 **Welcome to Support**",
+                value=(
+                    f"Hey {user.mention}! Your ticket has been created and you're now in our support queue.\n"
+                    f"💡 **Pro Tip:** Describe your issue in detail to help our staff assist you faster!"
+                ),
+                inline=False
+            )
+            
+            # Status indicators
+            welcome_embed.add_field(
+                name="⏰ **Response Time**",
+                value="🚀 Usually within **5-15 minutes**\n📊 Current Queue: **Low**",
+                inline=True
+            )
+            
+            welcome_embed.add_field(
+                name="🎭 **Staff Status**",
+                value="🟢 **Online** - Ready to help\n👥 **3 Staff Members** available",
+                inline=True
+            )
+            
+            welcome_embed.set_footer(text=f"🎫 BLEKNEPHEW Support System • Ticket #{ticket_number}")
             welcome_embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
             
             # Create elegant controls
@@ -1029,14 +1015,28 @@ class ElegantTicketPanel(View):
             except:
                 pass
             
-            # Simple success response
+            # Simple success response with better error handling
             success_embed = discord.Embed(
-                title="✅ Ticket Created",
-                description=f"Your ticket: {channel.mention}",
+                title="✅ Ticket Created Successfully",
+                description=f"🎫 Your ticket: {channel.mention}\n🚀 **Staff will be with you shortly!**",
                 color=0x00d4aa
             )
             
-            await interaction.response.send_message(embed=success_embed, ephemeral=True)
+            try:
+                await interaction.response.send_message(embed=success_embed, ephemeral=True)
+            except discord.NotFound:
+                # Interaction expired, send follow-up
+                try:
+                    await interaction.followup.send(embed=success_embed, ephemeral=True)
+                except:
+                    # If all else fails, send in the ticket channel
+                    await channel.send(f"{user.mention} Your ticket was created successfully!")
+            except Exception:
+                # Fallback to channel message
+                try:
+                    await channel.send(f"✅ {user.mention} Your ticket was created successfully!")
+                except:
+                    pass
             
         except Exception as e:
             embed = discord.Embed(
@@ -1045,9 +1045,13 @@ class ElegantTicketPanel(View):
                 color=0xff6b6b
             )
             try:
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+                else:
+                    await interaction.followup.send(embed=embed, ephemeral=True)
             except:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+                # Last resort - just print error
+                print(f"Ticket creation failed for {interaction.user}: {e}")
 
 async def setup(bot: commands.Bot):
     # Add persistent views
