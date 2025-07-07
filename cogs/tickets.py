@@ -10,27 +10,32 @@ import asyncio
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 from permissions import has_special_permissions
-from cogs.ticket_controls import CoolTicketControls, DirectTicketPanel, DIRECT_TICKET_CATEGORIES
+from cogs.ticket_controls import ElegantTicketControls, ElegantTicketPanel, ELEGANT_TICKET_CATEGORIES
 
 class Tickets(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     async def cog_load(self):
-        # Add persistent views for the unified direct ticket system only
-        self.bot.add_view(DirectTicketPanel())
-        print("✅ Tickets loaded with unified direct button system only")
+        # Add persistent views for the elegant ticket system
+        self.bot.add_view(ElegantTicketPanel())
+        print("✅ Elegant Ticket System loaded with beautiful interface and duplicate prevention")
 
-    @app_commands.command(name="ticketpanel", description="🎫 Create direct ticket panel in current channel (Admin only)")
+    @app_commands.command(name="ticketpanel", description="🎫 Create elegant ticket panel in current channel (Admin only)")
     @app_commands.describe(
         channel="Channel where the ticket panel will be posted (optional)"
     )
     @app_commands.default_permissions(administrator=True)
     async def ticket_panel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
-        """Create a direct ticket panel (unified system only)"""
+        """Create an elegant ticket panel"""
         
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Only administrators can create ticket panels!", ephemeral=True)
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="Only administrators can create ticket panels!",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
         try:
@@ -48,7 +53,7 @@ class Tickets(commands.Cog):
                     missing_perms.append("Manage Channels")
                 
                 embed = discord.Embed(
-                    title="❌ **Missing Permissions**",
+                    title="❌ Missing Permissions",
                     description=f"I need the following permissions in {target_channel.mention}:",
                     color=0xff6b6b
                 )
@@ -56,72 +61,91 @@ class Tickets(commands.Cog):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
 
-            # Create the unified direct ticket panel
+            # Create the elegant ticket panel
             panel_embed = discord.Embed(
-                title="🎫 **Support Ticket System**",
-                description="**Need help? Create a support ticket instantly!**\n\nClick one of the buttons below to create a ticket for your specific need. Our support team will assist you shortly.",
+                title="✨ Professional Support Center",
+                description="**Welcome to our Support Center!** 🎫\n\nOur professional support team is here to help you with any questions or issues. Click the category below that best matches your needs to create an instant support ticket.",
                 color=0x7c3aed,
                 timestamp=datetime.now()
             )
             
-            # Add category information
+            # Add beautiful category information
+            category_info = ""
+            for category_key, cat_data in ELEGANT_TICKET_CATEGORIES.items():
+                category_info += f"{cat_data['emoji']} **{cat_data['name']}**\n└ {cat_data['description']}\n\n"
+            
             panel_embed.add_field(
-                name="📋 **Available Support Categories**",
-                value=(
-                    "🆘 **General Support** - Questions, account help, bot commands\n"
-                    "🔧 **Technical Issues** - Bug reports, Discord problems, errors\n"
-                    "💳 **VIP & Billing** - Premium features, subscriptions, perks\n"
-                    "🚨 **Report User/Content** - Report violations or inappropriate content\n"
-                    "⚖️ **Appeals** - Appeal bans, warnings, or other punishments\n"
-                    "🤝 **Partnership** - Server partnerships, business inquiries"
-                ),
+                name="🎯 Support Categories",
+                value=category_info,
                 inline=False
             )
             
             panel_embed.add_field(
-                name="⚡ **How It Works**",
-                value="1. Click the button for your issue type\n2. Your ticket channel is created instantly\n3. Describe your issue in detail\n4. Our staff will help you promptly",
+                name="⚡ How It Works",
+                value="1. **Choose Category** - Click the button for your issue type\n2. **Instant Creation** - Your private ticket channel is created instantly\n3. **Describe Issue** - Provide clear details about your problem\n4. **Get Help** - Our professional staff will assist you promptly",
                 inline=True
             )
             
             panel_embed.add_field(
-                name="📝 **Important Notes**",
-                value="• One ticket per person at a time\n• Be specific and detailed\n• Staff typically respond within 30 minutes\n• Keep conversations in your ticket channel",
+                name="📝 Important Guidelines",
+                value="• **One Ticket Rule** - Only one active ticket per person\n• **Be Specific** - Provide detailed descriptions\n• **Response Time** - Typically 15-30 minutes\n• **Stay Active** - Keep the conversation in your ticket",
                 inline=True
             )
             
-            panel_embed.set_footer(text="✨ Professional Support • Click any button below to get started")
-            panel_embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+            panel_embed.add_field(
+                name="🏆 Why Choose Our Support?",
+                value="• **Professional Team** - Experienced support staff\n• **Fast Response** - Quick resolution times\n• **Private Channels** - Confidential assistance\n• **24/7 Monitoring** - Always available when you need us",
+                inline=False
+            )
             
-            # Create the direct ticket panel view
-            view = DirectTicketPanel()
+            panel_embed.set_footer(text="✨ Professional Support Experience • Click any button below to get started")
+            panel_embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+            panel_embed.set_author(
+                name="Support Center", 
+                icon_url=interaction.guild.icon.url if interaction.guild.icon else None
+            )
+            
+            # Create the elegant panel view
+            view = ElegantTicketPanel()
             
             # Send the panel
-            await target_channel.send(embed=panel_embed, view=view)
+            panel_msg = await target_channel.send(embed=panel_embed, view=view)
+            
+            # Try to pin the panel
+            try:
+                await panel_msg.pin()
+            except:
+                pass
             
             # Success response
             success_embed = discord.Embed(
-                title="✅ **Direct Ticket Panel Created!**",
-                description=f"The direct ticket panel has been posted in {target_channel.mention}",
-                color=0x00d4aa
+                title="✅ Elegant Ticket Panel Created!",
+                description=f"The professional ticket panel has been posted in {target_channel.mention}",
+                color=0x00d4aa,
+                timestamp=datetime.now()
             )
             success_embed.add_field(
-                name="🎯 **What's Next?**",
-                value="Users can now click the buttons to create instant tickets for any support needs!",
+                name="🎯 What's Next?",
+                value="• Users can now create instant tickets\n• Beautiful interface with modern design\n• Professional support experience\n• Duplicate prevention system active",
                 inline=False
             )
-            success_embed.set_footer(text="🎫 Unified Ticket System Ready")
+            success_embed.add_field(
+                name="🛠️ Panel Features",
+                value="• **Elegant Design** - Modern, professional interface\n• **Instant Creation** - No forms, just click and go\n• **Smart Prevention** - Stops duplicate tickets\n• **Beautiful Embeds** - Consistent styling throughout",
+                inline=False
+            )
+            success_embed.set_footer(text="🎫 Elegant Ticket System Ready")
 
             await interaction.response.send_message(embed=success_embed, ephemeral=True)
 
         except Exception as e:
             error_embed = discord.Embed(
-                title="❌ **Panel Creation Failed**",
+                title="❌ Panel Creation Failed",
                 description=f"Unable to create the ticket panel.",
                 color=0xff6b6b
             )
             error_embed.add_field(
-                name="🔍 **Error Details**",
+                name="🔍 Error Details",
                 value=f"```{str(e)[:100]}```",
                 inline=False
             )
@@ -146,7 +170,12 @@ class Tickets(commands.Cog):
         """Manage ticket support role permissions"""
         
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Only administrators can manage ticket role permissions!", ephemeral=True)
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="Only administrators can manage ticket role permissions!",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
         guild_id = interaction.guild.id
@@ -155,12 +184,17 @@ class Tickets(commands.Cog):
         
         if action == "add":
             if not role:
-                await interaction.response.send_message("❌ Please specify a role to add!", ephemeral=True)
+                embed = discord.Embed(
+                    title="❌ Missing Role",
+                    description="Please specify a role to add!",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             if role.id in ticket_support_roles:
                 embed = discord.Embed(
-                    title="⚠️ **Role Already Has Permissions**",
+                    title="⚠️ Role Already Configured",
                     description=f"{role.mention} already has ticket support permissions.",
                     color=0xff9966
                 )
@@ -171,25 +205,30 @@ class Tickets(commands.Cog):
             db.set_guild_setting(guild_id, 'ticket_support_roles', ticket_support_roles)
             
             embed = discord.Embed(
-                title="✅ **Ticket Permissions Granted**",
-                description=f"Successfully granted ticket support permissions to {role.mention}",
+                title="✅ Permissions Granted Successfully",
+                description=f"Successfully granted elegant ticket support permissions to {role.mention}",
                 color=0x00d4aa,
                 timestamp=datetime.now()
             )
             embed.add_field(
-                name="🎫 **Permissions Granted**",
-                value="• Can view all tickets\n• Can claim and unclaim tickets\n• Can lock/unlock tickets\n• Can close and reopen tickets\n• Can manage ticket system",
+                name="🎫 Granted Permissions",
+                value="• **View All Tickets** - Access to all support channels\n• **Claim/Unclaim** - Manage ticket assignments\n• **Lock/Unlock** - Control messaging permissions\n• **Close/Reopen** - Manage ticket lifecycle\n• **Set Priority** - Organize tickets by importance\n• **Professional Interface** - Access to all elegant controls",
                 inline=False
             )
             
         elif action == "remove":
             if not role:
-                await interaction.response.send_message("❌ Please specify a role to remove!", ephemeral=True)
+                embed = discord.Embed(
+                    title="❌ Missing Role",
+                    description="Please specify a role to remove!",
+                    color=0xff6b6b
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             if role.id not in ticket_support_roles:
                 embed = discord.Embed(
-                    title="⚠️ **Role Doesn't Have Permissions**",
+                    title="⚠️ Role Not Configured",
                     description=f"{role.mention} doesn't have ticket support permissions.",
                     color=0xff9966
                 )
@@ -200,7 +239,7 @@ class Tickets(commands.Cog):
             db.set_guild_setting(guild_id, 'ticket_support_roles', ticket_support_roles)
             
             embed = discord.Embed(
-                title="✅ **Ticket Permissions Removed**",
+                title="✅ Permissions Removed Successfully",
                 description=f"Successfully removed ticket support permissions from {role.mention}",
                 color=0x00d4aa,
                 timestamp=datetime.now()
@@ -208,8 +247,8 @@ class Tickets(commands.Cog):
             
         elif action == "list":
             embed = discord.Embed(
-                title="🎫 **Ticket Support Roles**",
-                description="Roles with ticket support permissions:",
+                title="🎫 Ticket Support Configuration",
+                description="Current roles with elegant ticket support permissions:",
                 color=0x7c3aed,
                 timestamp=datetime.now()
             )
@@ -219,25 +258,25 @@ class Tickets(commands.Cog):
                 for role_id in ticket_support_roles:
                     role = interaction.guild.get_role(role_id)
                     if role:
-                        role_list.append(f"• {role.mention} ({role.name})")
+                        role_list.append(f"• {role.mention} (`{role.name}`)")
                     else:
                         role_list.append(f"• <@&{role_id}> (deleted role)")
                 
                 embed.add_field(
-                    name="👥 **Support Roles**",
+                    name="👥 Configured Support Roles",
                     value="\n".join(role_list),
                     inline=False
                 )
             else:
                 embed.add_field(
-                    name="👥 **Support Roles**",
+                    name="👥 Configured Support Roles",
                     value="No ticket support roles configured.\nUse `/giveticketroleperms add` to add roles.",
                     inline=False
                 )
             
             embed.add_field(
-                name="💡 **Note**",
-                value="Administrators and users with 'Manage Channels' permission always have ticket access.",
+                name="💡 Automatic Permissions",
+                value="• **Administrators** - Always have full access\n• **Manage Channels** - Built-in ticket permissions\n• **Role Names** - Roles with 'mod', 'staff', 'support' in name",
                 inline=False
             )
         
@@ -249,7 +288,12 @@ class Tickets(commands.Cog):
         """Emergency command to close all open tickets"""
         
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Only administrators can use this emergency command!", ephemeral=True)
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="Only administrators can use this emergency command!",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
         await interaction.response.defer()
@@ -257,20 +301,20 @@ class Tickets(commands.Cog):
         guild = interaction.guild
         closed_count = 0
         
-        # Find all ticket channels (unified system)
+        # Find all ticket channels (elegant system)
         ticket_channels = []
         for channel in guild.text_channels:
             channel_name = channel.name.lower()
-            # Look for any ticket channel patterns
+            # Look for elegant ticket patterns
             if any(pattern in channel_name for pattern in [
-                "open-ticket-", "claimed-by-", "ticket-", "support-"
+                "🟢・open・", "🟡・", "🔒・closed・", "ticket", "support"
             ]):
                 ticket_channels.append(channel)
         
         if not ticket_channels:
             embed = discord.Embed(
-                title="ℹ️ **No Open Tickets**",
-                description="No open ticket channels found.",
+                title="ℹ️ No Active Tickets",
+                description="No open ticket channels found in the elegant system.",
                 color=0x7c3aed
             )
             await interaction.followup.send(embed=embed)
@@ -285,27 +329,32 @@ class Tickets(commands.Cog):
                 pass
         
         embed = discord.Embed(
-            title="🚨 **Emergency Ticket Closure Complete**",
+            title="🚨 Emergency Ticket Closure Complete",
             description=f"Successfully closed **{closed_count}** ticket channels.",
             color=0xff6b6b,
             timestamp=datetime.now()
         )
         embed.add_field(
-            name="⚠️ **Note**",
-            value="This was an emergency action. Consider informing users about the closure.",
+            name="⚠️ Important Note",
+            value="This was an emergency action. Consider informing users about the closure and why it was necessary.",
             inline=False
         )
-        embed.set_footer(text=f"Action performed by {interaction.user.display_name}")
+        embed.add_field(
+            name="📊 Closure Summary",
+            value=f"**Channels Affected:** {closed_count}\n**Action By:** {interaction.user.display_name}\n**Reason:** Emergency closure\n**System:** Elegant Ticket System",
+            inline=False
+        )
+        embed.set_footer(text=f"Emergency action performed by {interaction.user.display_name}")
         
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="ticketdashboard", description="🎛️ View live ticket dashboard with real-time stats")
+    @app_commands.command(name="ticketdashboard", description="🎛️ View elegant ticket dashboard with real-time stats")
     @app_commands.default_permissions(manage_channels=True)
     async def ticket_dashboard(self, interaction: discord.Interaction):
-        """Display a real-time ticket dashboard"""
+        """Display a beautiful real-time ticket dashboard"""
         guild = interaction.guild
         
-        # Count different types of tickets (unified system)
+        # Count different types of tickets (elegant system)
         all_channels = guild.text_channels
         
         # Ticket counters
@@ -319,33 +368,36 @@ class Tickets(commands.Cog):
         for channel in all_channels:
             channel_name = channel.name.lower()
             
-            # Check if it's a ticket channel (unified system)
+            # Check if it's an elegant ticket channel
             if any(pattern in channel_name for pattern in [
-                "open-ticket-", "claimed-by-", "closed-ticket-"
+                "🟢・open・", "🟡・", "🔒・closed・"
             ]):
                 total_tickets += 1
                 
-                # Check status
-                if channel_name.startswith("claimed-by-"):
+                # Determine status from elegant naming
+                if "🟡・" in channel_name:
                     claimed_tickets += 1
-                    # Extract claimer name from channel name
+                    # Extract claimer from elegant name format
                     try:
-                        claimer_part = channel_name.split("claimed-by-")[1]
-                        status = f"🟡 Claimed by {claimer_part.title()}"
+                        parts = channel_name.split("・")
+                        if len(parts) >= 2:
+                            claimer_name = parts[1].replace("-", " ").title()
+                            status = f"🟡 Claimed by {claimer_name}"
+                        else:
+                            status = "🟡 Claimed"
                     except:
                         status = "🟡 Claimed"
-                elif channel_name.startswith("closed-ticket-"):
+                elif "🔒・closed・" in channel_name:
                     closed_tickets += 1
-                    status = "⚫ Closed"
+                    status = "🔒 Closed"
                 else:
                     unclaimed_tickets += 1
                     status = "🟢 Open"
                 
-                # Extract user info from channel topic if available
+                # Extract user info from channel topic
                 user_name = "Unknown"
                 if channel.topic:
                     try:
-                        # Look for User: {id} in topic
                         if "User:" in channel.topic:
                             user_id = channel.topic.split("User:")[1].strip().split()[0]
                             user = guild.get_member(int(user_id))
@@ -361,88 +413,109 @@ class Tickets(commands.Cog):
                     "created": channel.created_at
                 })
         
-        # Create dashboard embed
+        # Create elegant dashboard embed
         embed = discord.Embed(
-            title="🎛️ **Live Ticket Dashboard**",
-            description=f"Real-time overview of all support tickets in **{guild.name}**",
+            title="🎛️ Elegant Ticket Dashboard",
+            description=f"**Professional Support Analytics** for **{guild.name}**\n\nReal-time overview of the elegant ticket system with beautiful interface and advanced features.",
             color=0x7c3aed,
             timestamp=datetime.now()
         )
         
         # Statistics section
         embed.add_field(
-            name="📊 **Ticket Statistics**",
-            value=f"**Total Active:** {total_tickets}\n**🟡 Claimed:** {claimed_tickets}\n**🟢 Open:** {unclaimed_tickets}\n**⚫ Closed:** {closed_tickets}",
+            name="📊 Live Statistics",
+            value=f"**🎫 Total Active:** {total_tickets}\n**🟡 Staff Claimed:** {claimed_tickets}\n**🟢 Awaiting Staff:** {unclaimed_tickets}\n**🔒 Recently Closed:** {closed_tickets}",
             inline=True
         )
         
-        # Response time estimate
-        avg_response = "< 30 minutes" if unclaimed_tickets < 3 else "< 1 hour" if unclaimed_tickets < 10 else "< 2 hours"
+        # Response analytics
+        if unclaimed_tickets == 0:
+            response_status = "🟢 Excellent"
+            response_time = "< 15 minutes"
+        elif unclaimed_tickets < 3:
+            response_status = "🟢 Great"
+            response_time = "< 30 minutes"
+        elif unclaimed_tickets < 8:
+            response_status = "🟡 Good"
+            response_time = "< 1 hour"
+        else:
+            response_status = "🔴 Busy"
+            response_time = "< 2 hours"
+        
         embed.add_field(
-            name="⏰ **Response Time**",
-            value=f"**Estimated:** {avg_response}\n**Load:** {'🟢 Normal' if total_tickets < 5 else '🟡 Busy' if total_tickets < 15 else '🔴 High'}",
+            name="⏰ Response Analytics",
+            value=f"**Estimated Time:** {response_time}\n**Service Level:** {response_status}\n**Load Status:** {'🟢 Normal' if total_tickets < 10 else '🟡 Busy' if total_tickets < 25 else '🔴 High'}",
             inline=True
         )
         
         embed.add_field(
-            name="🎯 **System Status**",
-            value=f"**Type:** Unified Direct System\n**Category:** ✨ Support Tickets\n**Status:** {'🟢 Operational' if total_tickets < 20 else '🟡 High Load'}",
+            name="✨ System Status",
+            value=f"**Type:** Elegant Ticket System\n**Category:** ✨ Support Center\n**Interface:** Professional & Modern\n**Status:** {'🟢 Operational' if total_tickets < 30 else '🟡 High Volume'}",
             inline=True
         )
         
-        # Recent tickets (last 5)
+        # Recent activity (last 5 tickets)
         if ticket_details:
             recent_tickets = sorted(ticket_details, key=lambda x: x["created"], reverse=True)[:5]
             recent_text = ""
             for ticket in recent_tickets:
                 time_ago = f"<t:{int(ticket['created'].timestamp())}:R>"
-                recent_text += f"{ticket['status']} **{ticket['user']}** - {time_ago}\n"
+                recent_text += f"{ticket['status']} **{ticket['user']}** • {time_ago}\n"
             
             embed.add_field(
-                name="🕒 **Recent Tickets**",
-                value=recent_text or "No recent tickets",
+                name="🕒 Recent Activity",
+                value=recent_text or "No recent activity",
                 inline=False
             )
         
-        # Action buttons for quick management
+        # Management actions
         embed.add_field(
-            name="🛠️ **Quick Actions**",
-            value="• Use `/closealltickets` for emergency cleanup\n• Use `/ticketdashboard` to refresh dashboard\n• Use `/giveticketroleperms` to manage staff access",
+            name="🛠️ Quick Management",
+            value="• Use `/closealltickets` for emergency cleanup\n• Use `/ticketdashboard` to refresh this view\n• Use `/giveticketroleperms` to manage staff\n• Use `/ticketmanager` for advanced controls",
             inline=False
         )
         
-        embed.set_footer(text="🎛️ Dashboard updates in real-time • Unified ticket system")
+        embed.set_footer(text="🎛️ Real-time dashboard • Elegant ticket system • Updates automatically")
         embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+        embed.set_author(
+            name="Support Dashboard", 
+            icon_url=interaction.user.display_avatar.url
+        )
         
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="ticketmanager", description="🎯 Advanced ticket management interface for staff")
+    @app_commands.command(name="ticketmanager", description="🎯 Advanced elegant ticket management interface")
     @app_commands.default_permissions(manage_channels=True)
     async def ticket_manager(self, interaction: discord.Interaction):
-        """Display an advanced ticket management interface"""
+        """Display an advanced elegant ticket management interface"""
         guild = interaction.guild
         
-        # Get all ticket channels (unified system)
+        # Get all elegant ticket channels
         ticket_channels = []
         for channel in guild.text_channels:
             channel_name = channel.name.lower()
             if any(pattern in channel_name for pattern in [
-                "open-ticket-", "claimed-by-", "closed-ticket-"
+                "🟢・open・", "🟡・", "🔒・closed・"
             ]):
                 
-                # Determine status
-                if channel_name.startswith("claimed-by-"):
-                    claimer = channel_name.split("claimed-by-")[1].title()
-                    status = f"🟡 {claimer}"
-                    status_color = "🟡"
-                elif channel_name.startswith("closed-ticket-"):
-                    status = "⚫ Closed"
-                    status_color = "⚫"
+                # Determine status from elegant naming
+                if "🟡・" in channel_name:
+                    try:
+                        parts = channel_name.split("・")
+                        claimer_name = parts[1].replace("-", " ").title() if len(parts) >= 2 else "Unknown"
+                        status = f"🟡 {claimer_name}"
+                        status_color = "🟡"
+                    except:
+                        status = "🟡 Claimed"
+                        status_color = "🟡"
+                elif "🔒・closed・" in channel_name:
+                    status = "🔒 Closed"
+                    status_color = "🔒"
                 else:
                     status = "🟢 Open"
                     status_color = "🟢"
                 
-                # Extract user info from topic if available
+                # Extract user info from topic
                 user_name = "Unknown"
                 if channel.topic:
                     try:
@@ -464,23 +537,30 @@ class Tickets(commands.Cog):
                     "link": f"https://discord.com/channels/{guild.id}/{channel.id}"
                 })
         
-        # Sort by status (open first, then claimed, then closed)
-        status_order = {"🟢 Open": 0, "🟡": 1, "⚫ Closed": 2}
-        ticket_channels.sort(key=lambda x: (status_order.get(x["status"][:2], 3), x["created"]))
+        # Sort by priority (open first, then claimed, then closed)
+        status_priority = {"🟢 Open": 0, "🟡": 1, "🔒 Closed": 2}
+        ticket_channels.sort(key=lambda x: (status_priority.get(x["status"][:2], 3), x["created"]))
         
         if not ticket_channels:
             embed = discord.Embed(
-                title="🎯 **Ticket Manager**",
-                description="✨ **No active tickets found!**\n\nAll tickets have been resolved. Great job, team!",
-                color=0x00d4aa
+                title="🎯 Elegant Ticket Manager",
+                description="✨ **No active tickets found!**\n\nAll tickets have been resolved. Excellent work from the support team!",
+                color=0x00d4aa,
+                timestamp=datetime.now()
             )
+            embed.add_field(
+                name="🏆 System Status",
+                value="• **All Clear** - No pending tickets\n• **Professional Service** - Users are being helped\n• **Elegant System** - Working perfectly\n• **Ready for Action** - Waiting for new tickets",
+                inline=False
+            )
+            embed.set_footer(text="🎯 Elegant Ticket Management System")
             await interaction.response.send_message(embed=embed)
             return
         
-        # Create management embed
+        # Create elegant management embed
         embed = discord.Embed(
-            title="🎯 **Advanced Ticket Manager**",
-            description=f"**{len(ticket_channels)} tickets** in unified system",
+            title="🎯 Advanced Ticket Manager",
+            description=f"**{len(ticket_channels)} active tickets** in the elegant system\n\nProfessional interface for managing support tickets with beautiful design.",
             color=0x7c3aed,
             timestamp=datetime.now()
         )
@@ -488,17 +568,17 @@ class Tickets(commands.Cog):
         # Group tickets by status
         open_tickets = [t for t in ticket_channels if t["status"] == "🟢 Open"]
         claimed_tickets = [t for t in ticket_channels if t["status_color"] == "🟡"]
-        closed_tickets = [t for t in ticket_channels if t["status"] == "⚫ Closed"]
+        closed_tickets = [t for t in ticket_channels if t["status"] == "🔒 Closed"]
         
-        # Add status sections
+        # Add elegant status sections
         if open_tickets:
             open_text = ""
             for ticket in open_tickets[:5]:  # Show top 5
                 time_ago = f"<t:{int(ticket['created'].timestamp())}:R>"
-                open_text += f"🟢 **{ticket['user']}** • {time_ago}\n└ [{ticket['name'][:35]}...]({ticket['link']})\n\n"
+                open_text += f"🟢 **{ticket['user']}** • {time_ago}\n└ [{ticket['name'][:30]}...]({ticket['link']})\n\n"
             
             embed.add_field(
-                name="🟢 **Open Tickets** (Need Attention)",
+                name="🟢 Open Tickets (Need Immediate Attention)",
                 value=open_text or "None",
                 inline=False
             )
@@ -510,7 +590,7 @@ class Tickets(commands.Cog):
                 claimed_text += f"🟡 **{ticket['user']}** • {time_ago}\n└ {ticket['status']}\n\n"
             
             embed.add_field(
-                name="🟡 **Claimed Tickets** (Being Handled)",
+                name="🟡 Claimed Tickets (Being Handled)",
                 value=claimed_text or "None",
                 inline=True
             )
@@ -519,23 +599,27 @@ class Tickets(commands.Cog):
             closed_text = ""
             for ticket in closed_tickets[:3]:
                 time_ago = f"<t:{int(ticket['created'].timestamp())}:R>"
-                closed_text += f"⚫ **{ticket['user']}** • {time_ago}\n"
+                closed_text += f"🔒 **{ticket['user']}** • {time_ago}\n"
             
             embed.add_field(
-                name="⚫ **Recently Closed**",
+                name="🔒 Recently Closed",
                 value=closed_text or "None",
                 inline=True
             )
         
-        # Quick stats
+        # Elegant summary
         embed.add_field(
-            name="📊 **Summary**",
-            value=f"**🟢 Open:** {len(open_tickets)}\n**🟡 Claimed:** {len(claimed_tickets)}\n**⚫ Closed:** {len(closed_tickets)}\n**🎯 Total:** {len(ticket_channels)}",
+            name="📊 Professional Summary",
+            value=f"**🟢 Needs Staff:** {len(open_tickets)}\n**🟡 Being Helped:** {len(claimed_tickets)}\n**🔒 Resolved:** {len(closed_tickets)}\n**🎯 Total Active:** {len(ticket_channels)}",
             inline=True
         )
         
-        embed.set_footer(text="🎯 Unified Ticket Management System")
+        embed.set_footer(text="🎯 Elegant Ticket Management • Professional Interface")
         embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+        embed.set_author(
+            name="Support Manager", 
+            icon_url=interaction.user.display_avatar.url
+        )
         
         await interaction.response.send_message(embed=embed)
 
