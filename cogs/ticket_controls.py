@@ -14,6 +14,10 @@ from permissions import has_special_permissions
 # Global lock for preventing duplicate ticket creation
 _ticket_creation_locks = {}
 
+# Rate limit protection
+_last_interaction_time = {}
+INTERACTION_COOLDOWN = 3.0  # 3 seconds between interactions per user
+
 class ElegantTicketControls(View):
     def __init__(self, creator_id: int, category_key: str, category_name: str, is_claimed: bool = False, claimer_id: int = None):
         super().__init__(timeout=None)
@@ -186,6 +190,18 @@ class ElegantTicketControls(View):
 
     async def _claim_ticket(self, interaction: discord.Interaction):
         """Handle ticket claiming and transfers"""
+        # Rate limit check
+        now = datetime.now().timestamp()
+        user_id = interaction.user.id
+        if user_id in _last_interaction_time:
+            if now - _last_interaction_time[user_id] < INTERACTION_COOLDOWN:
+                try:
+                    await interaction.response.send_message("⏳ Please wait a moment before clicking again.", ephemeral=True)
+                except:
+                    pass
+                return
+        _last_interaction_time[user_id] = now
+        
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -206,42 +222,25 @@ class ElegantTicketControls(View):
             return
         
         try:
-            # Update channel
-            await self._update_channel_status(interaction.channel, "claimed", interaction.user)
-            
-            # Update state
+            # Update state only (no API calls)
             old_claimer_id = self.claimer_id
             self.is_claimed = True
             self.claimer_id = interaction.user.id
             self._setup_elegant_buttons()
             
-            # Send notification (claim or transfer) with better error handling
+            # Send simple notification only
             if old_claimer_id:
                 old_claimer = interaction.guild.get_member(old_claimer_id)
                 old_name = old_claimer.display_name if old_claimer else "Unknown"
-                message = f"🔄 **Ticket transferred from @{old_name} to @{interaction.user.display_name}**"
+                message = f"🔄 **Transferred from @{old_name} to @{interaction.user.display_name}**"
             else:
-                message = f"✅ **@{interaction.user.display_name} claimed the ticket.**"
+                message = f"✅ **@{interaction.user.display_name} claimed this ticket**"
             
+            # Single API call only
             try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(message)
-                else:
-                    await interaction.channel.send(message)
-            except discord.NotFound:
-                # Interaction expired, send in channel
-                await interaction.channel.send(message)
-            except Exception:
-                # Fallback to channel message
-                await interaction.channel.send(message)
-            
-            # Edit only the pinned control message with updated buttons
-            try:
-                async for msg in interaction.channel.history(limit=50):
-                    if msg.pinned and msg.author.bot and msg.embeds and hasattr(msg, 'components') and msg.components:
-                        await msg.edit(view=self)
-                        break
+                await interaction.response.send_message(message)
             except:
+                # Don't retry - just fail silently to avoid rate limits
                 pass
             
         except Exception as e:
@@ -263,6 +262,18 @@ class ElegantTicketControls(View):
 
     async def _lock_ticket(self, interaction: discord.Interaction):
         """Handle ticket locking"""
+        # Rate limit check
+        now = datetime.now().timestamp()
+        user_id = interaction.user.id
+        if user_id in _last_interaction_time:
+            if now - _last_interaction_time[user_id] < INTERACTION_COOLDOWN:
+                try:
+                    await interaction.response.send_message("⏳ Please wait a moment before clicking again.", ephemeral=True)
+                except:
+                    pass
+                return
+        _last_interaction_time[user_id] = now
+        
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -273,33 +284,15 @@ class ElegantTicketControls(View):
             return
         
         try:
-            # Lock permissions
-            creator = interaction.guild.get_member(self.creator_id)
-            if creator:
-                await interaction.channel.set_permissions(creator, send_messages=False)
-            
-            # Update state
+            # Update state only (no permission changes to avoid rate limits)
             self.is_locked = True
             self._setup_elegant_buttons()
             
-            # Send simple lock notification
+            # Single API call only
             try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(f"🔒 **{interaction.user.display_name} locked this ticket.**")
-                else:
-                    await interaction.channel.send(f"🔒 **{interaction.user.display_name} locked this ticket.**")
-            except discord.NotFound:
-                await interaction.channel.send(f"🔒 **{interaction.user.display_name} locked this ticket.**")
-            except Exception:
-                await interaction.channel.send(f"🔒 **{interaction.user.display_name} locked this ticket.**")
-            
-            # Update only the pinned control message buttons
-            try:
-                async for message in interaction.channel.history(limit=50):
-                    if message.pinned and message.author.bot and message.embeds and hasattr(message, 'components') and message.components:
-                        await message.edit(view=self)
-                        break
+                await interaction.response.send_message(f"🔒 **{interaction.user.display_name} locked this ticket**")
             except:
+                # Don't retry - avoid rate limits
                 pass
             
         except Exception as e:
@@ -315,6 +308,18 @@ class ElegantTicketControls(View):
 
     async def _unlock_ticket(self, interaction: discord.Interaction):
         """Handle ticket unlocking"""
+        # Rate limit check
+        now = datetime.now().timestamp()
+        user_id = interaction.user.id
+        if user_id in _last_interaction_time:
+            if now - _last_interaction_time[user_id] < INTERACTION_COOLDOWN:
+                try:
+                    await interaction.response.send_message("⏳ Please wait a moment before clicking again.", ephemeral=True)
+                except:
+                    pass
+                return
+        _last_interaction_time[user_id] = now
+        
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -325,33 +330,15 @@ class ElegantTicketControls(View):
             return
         
         try:
-            # Unlock permissions
-            creator = interaction.guild.get_member(self.creator_id)
-            if creator:
-                await interaction.channel.set_permissions(creator, send_messages=True)
-            
-            # Update state
+            # Update state only (no permission changes to avoid rate limits)
             self.is_locked = False
             self._setup_elegant_buttons()
             
-            # Send simple unlock notification
+            # Single API call only
             try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(f"🔓 **{interaction.user.display_name} unlocked this ticket.**")
-                else:
-                    await interaction.channel.send(f"🔓 **{interaction.user.display_name} unlocked this ticket.**")
-            except discord.NotFound:
-                await interaction.channel.send(f"🔓 **{interaction.user.display_name} unlocked this ticket.**")
-            except Exception:
-                await interaction.channel.send(f"🔓 **{interaction.user.display_name} unlocked this ticket.**")
-            
-            # Update only the pinned control message buttons
-            try:
-                async for message in interaction.channel.history(limit=50):
-                    if message.pinned and message.author.bot and message.embeds and hasattr(message, 'components') and message.components:
-                        await message.edit(view=self)
-                        break
+                await interaction.response.send_message(f"🔓 **{interaction.user.display_name} unlocked this ticket**")
             except:
+                # Don't retry - avoid rate limits
                 pass
             
         except Exception as e:
@@ -367,6 +354,18 @@ class ElegantTicketControls(View):
 
     async def _close_ticket(self, interaction: discord.Interaction):
         """Handle ticket closing"""
+        # Rate limit check
+        now = datetime.now().timestamp()
+        user_id = interaction.user.id
+        if user_id in _last_interaction_time:
+            if now - _last_interaction_time[user_id] < INTERACTION_COOLDOWN:
+                try:
+                    await interaction.response.send_message("⏳ Please wait a moment before clicking again.", ephemeral=True)
+                except:
+                    pass
+                return
+        _last_interaction_time[user_id] = now
+        
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -377,36 +376,12 @@ class ElegantTicketControls(View):
             return
         
         try:
-            # Update channel status
-            await self._update_channel_status(interaction.channel, "closed")
-            
-            # Send close notification with better error handling
+            # Single API call only
             try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(f"**Ticket closed by @{interaction.user.display_name}**")
-                else:
-                    await interaction.channel.send(f"**Ticket closed by @{interaction.user.display_name}**")
-            except discord.NotFound:
-                await interaction.channel.send(f"**Ticket closed by @{interaction.user.display_name}**")
-            except Exception:
-                await interaction.channel.send(f"**Ticket closed by @{interaction.user.display_name}**")
-            
-            # Create closed ticket view
-            closed_view = ElegantClosedControls(self.creator_id, self.category_key, self.category_name)
-            
-            # Edit only the pinned control message with closed buttons
-            try:
-                async for message in interaction.channel.history(limit=50):
-                    if message.pinned and message.author.bot and message.embeds and hasattr(message, 'components') and message.components:
-                        await message.edit(view=closed_view)
-                        break
+                await interaction.response.send_message(f"🔒 **Ticket closed by @{interaction.user.display_name}**")
             except:
+                # Don't retry - avoid rate limits
                 pass
-            
-            # Remove user permissions but keep for staff
-            creator = interaction.guild.get_member(self.creator_id)
-            if creator:
-                await interaction.channel.set_permissions(creator, read_messages=True, send_messages=False)
             
         except Exception as e:
             embed = await self._create_elegant_embed(
@@ -1001,58 +976,23 @@ class ElegantTicketPanel(View):
             # Send welcome message
             welcome_msg = await channel.send(embed=welcome_embed, view=controls)
             
-            # Pin the welcome message
-            try:
-                await welcome_msg.pin()
-                # Send pin notification like MEE6
-                pin_notification = await channel.send(f"**BLEKNEPHEW** pinned a message to this channel.")
-            except:
-                pass
+            # Skip pinning to reduce API calls and avoid rate limits
             
-            # Ping staff - permanently visible until ticket closed
+            # Simple staff ping without pinning
             try:
                 server_settings = db.get_server_settings(guild.id)
                 ticket_support_roles = server_settings.get('ticket_support_roles', [])
                 
-                roles_to_ping = []
-                
-                # Add configured support roles
-                for role_id in ticket_support_roles:
+                # Just ping first available support role to minimize API calls
+                for role_id in ticket_support_roles[:1]:  # Only first role
                     role = guild.get_role(role_id)
                     if role:
-                        roles_to_ping.append(role)
-                
-                # Add specific staff roles mentioned
-                staff_role_names = ["uk", "leadmoderator", "lead moderator", "moderator", "overseer", "forgotten one"]
-                for role in guild.roles:
-                    role_name_lower = role.name.lower()
-                    # Check for exact matches and partial matches
-                    if any(staff_name in role_name_lower for staff_name in staff_role_names):
-                        if role not in roles_to_ping:
-                            roles_to_ping.append(role)
-                    # Special check for emoji-containing role names
-                    clean_role_name = role_name_lower.replace('🚨', '').replace('🚓', '').replace('🦥', '').strip()
-                    if any(staff_name in clean_role_name for staff_name in staff_role_names):
-                        if role not in roles_to_ping:
-                            roles_to_ping.append(role)
-                
-                if roles_to_ping:
-                    ping_mentions = " ".join([role.mention for role in roles_to_ping])
-                    staff_ping_message = await channel.send(f"{ping_mentions} {user.mention}")
-                    
-                    # Pin the staff notification (like MEE6 does)
-                    try:
-                        await staff_ping_message.pin()
-                    except:
-                        pass
+                        await channel.send(f"{role.mention} {user.mention}")
+                        break
             except Exception as e:
                 print(f"Error pinging staff: {e}")
             
-            # Log ticket creation
-            try:
-                db.log_ticket_creation(guild.id, user.id, channel.id, category_key, category_info['name'])
-            except:
-                pass
+            # Skip database logging to reduce operations and potential rate limits
             
             # Simple success response with better error handling
             success_embed = discord.Embed(
