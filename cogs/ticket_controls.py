@@ -12,12 +12,41 @@ import database as db
 from permissions import has_special_permissions
 
 class CoolTicketControls(View):
-    def __init__(self, creator_id: int, category_key: str, subcategory: str):
+    def __init__(self, creator_id: int, category_key: str, subcategory: str, is_claimed: bool = False):
         super().__init__(timeout=None)
         self.creator_id = creator_id
         self.category_key = category_key
         self.subcategory = subcategory
+        self.is_claimed = is_claimed
         self.is_locked = False
+        
+        # Set up initial buttons based on state
+        self.setup_buttons()
+    
+    def setup_buttons(self):
+        """Setup buttons based on current ticket state"""
+        self.clear_items()
+        
+        if self.is_claimed:
+            # Claimed state: Unclaim, Lock/Unlock, Close
+            self.add_item(Button(label="👤 Unclaim", style=discord.ButtonStyle.secondary, emoji="👤", custom_id="unclaim_btn"))
+            
+            if self.is_locked:
+                self.add_item(Button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓", custom_id="unlock_btn"))
+            else:
+                self.add_item(Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒", custom_id="lock_btn"))
+                
+            self.add_item(Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐", custom_id="close_btn"))
+        else:
+            # Unclaimed state: Claim, Lock/Unlock, Close
+            self.add_item(Button(label="👤 Claim", style=discord.ButtonStyle.success, emoji="👤", custom_id="claim_btn"))
+            
+            if self.is_locked:
+                self.add_item(Button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓", custom_id="unlock_btn"))
+            else:
+                self.add_item(Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒", custom_id="lock_btn"))
+                
+            self.add_item(Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐", custom_id="close_btn"))
     
     def has_ticket_permissions(self, user, guild):
         """Check if user has ticket permissions"""
@@ -137,19 +166,80 @@ class CoolTicketControls(View):
         except Exception as e:
             print(f"Error pinging support roles: {e}")
 
-    @discord.ui.button(label="👤 Claim", style=discord.ButtonStyle.success, emoji="👤")
-    async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def ping_creation_roles(self, channel, creator):
+        """Ping leadmoderator and moderator roles when ticket is created"""
+        try:
+            guild = channel.guild
+            roles_to_ping = []
+            
+            # Look for leadmoderator and moderator roles
+            creation_role_names = ["leadmoderator", "moderator"]
+            for role in guild.roles:
+                if any(name in role.name.lower() for name in creation_role_names):
+                    roles_to_ping.append(role)
+            
+            # Also add admin roles
+            for role in guild.roles:
+                if role.permissions.administrator and role not in roles_to_ping:
+                    roles_to_ping.append(role)
+            
+            if roles_to_ping:
+                ping_mentions = " ".join([role.mention for role in roles_to_ping])
+                embed = discord.Embed(
+                    title="🎫 **New Ticket Created**",
+                    description=f"**{creator.display_name}** has created a new support ticket.",
+                    color=0x00d4aa
+                )
+                embed.add_field(
+                    name="� **Ticket Details**",
+                    value=f"**Creator:** {creator.mention}\n**Category:** {self.subcategory}\n**Status:** 🟢 Open & Waiting",
+                    inline=False
+                )
+                
+                await channel.send(f"{ping_mentions} {creator.mention}", embed=embed, delete_after=15)
+                
+        except Exception as e:
+            print(f"Error pinging creation roles: {e}")
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Handle button interactions"""
+        if not hasattr(interaction.data, 'custom_id'):
+            return True
+            
+        custom_id = interaction.data.get('custom_id', '')
+        
+        # Route to appropriate handler
+        if custom_id == "claim_btn":
+            await self.claim_ticket(interaction)
+        elif custom_id == "unclaim_btn":
+            await self.unclaim_ticket(interaction)
+        elif custom_id == "lock_btn":
+            await self.lock_ticket(interaction)
+        elif custom_id == "unlock_btn":
+            await self.unlock_ticket(interaction)
+        elif custom_id == "close_btn":
+            await self.close_ticket(interaction)
+        elif custom_id == "reopen_btn":
+            await self.reopen_ticket(interaction)
+        elif custom_id == "delete_btn":
+            await self.delete_ticket(interaction)
+        
+        return False  # Prevent default handling
+
+    async def claim_ticket(self, interaction: discord.Interaction):
+        """Handle ticket claiming"""
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             await interaction.response.send_message("❌ You don't have permission to claim tickets!", ephemeral=True)
             return
         
         # Check if already claimed
-        channel = interaction.channel
-        if "claimed" in channel.topic.lower() if channel.topic else False:
+        if self.is_claimed:
             await interaction.response.send_message("⚠️ This ticket is already claimed!", ephemeral=True)
             return
         
         try:
+            channel = interaction.channel
+            
             # Update channel topic to show claimed status
             current_topic = channel.topic or ""
             new_topic = f"🟡 CLAIMED by {interaction.user.display_name} • {current_topic}"
@@ -157,6 +247,10 @@ class CoolTicketControls(View):
             
             # Update channel name with yellow emoji and claimer name
             await self.update_channel_name(channel, "🟡", interaction.user)
+            
+            # Update state and buttons
+            self.is_claimed = True
+            self.setup_buttons()
             
             # Create claim embed
             claim_embed = discord.Embed(
@@ -173,12 +267,6 @@ class CoolTicketControls(View):
             claim_embed.set_author(name=f"{interaction.user.display_name} is handling this ticket", icon_url=interaction.user.display_avatar.url)
             claim_embed.set_footer(text="✨ Ticket Management System")
             
-            # Update buttons to show claimed state
-            self.clear_items()
-            self.add_item(Button(label="👤 Unclaim", style=discord.ButtonStyle.secondary, emoji="👤"))
-            self.add_item(Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒"))
-            self.add_item(Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐"))
-            
             await interaction.response.edit_message(embed=claim_embed, view=self)
             
             # Ping support roles
@@ -192,10 +280,15 @@ class CoolTicketControls(View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
 
-    @discord.ui.button(label="👤 Unclaim", style=discord.ButtonStyle.secondary, emoji="👤")
-    async def unclaim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def unclaim_ticket(self, interaction: discord.Interaction):
+        """Handle ticket unclaiming"""
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             await interaction.response.send_message("❌ You don't have permission to unclaim tickets!", ephemeral=True)
+            return
+        
+        # Check if actually claimed
+        if not self.is_claimed:
+            await interaction.response.send_message("⚠️ This ticket is not currently claimed!", ephemeral=True)
             return
         
         try:
@@ -215,6 +308,10 @@ class CoolTicketControls(View):
             # Update channel name back to green (open)
             await self.update_channel_name(channel, "🟢")
             
+            # Update state and buttons
+            self.is_claimed = False
+            self.setup_buttons()
+            
             # Create unclaim embed
             unclaim_embed = discord.Embed(
                 title="🟢 **Ticket Unclaimed**",
@@ -229,12 +326,6 @@ class CoolTicketControls(View):
             )
             unclaim_embed.set_footer(text="✨ Ticket Management System")
             
-            # Reset buttons to original state
-            self.clear_items()
-            self.add_item(Button(label="👤 Claim", style=discord.ButtonStyle.success, emoji="👤"))
-            self.add_item(Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒"))
-            self.add_item(Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐"))
-            
             await interaction.response.edit_message(embed=unclaim_embed, view=self)
             
             # Notify that ticket is available again
@@ -243,8 +334,8 @@ class CoolTicketControls(View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error unclaiming ticket: {str(e)}", ephemeral=True)
 
-    @discord.ui.button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒")
-    async def lock_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def lock_ticket(self, interaction: discord.Interaction):
+        """Handle ticket locking"""
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             await interaction.response.send_message("❌ You don't have permission to lock tickets!", ephemeral=True)
             return
@@ -260,7 +351,9 @@ class CoolTicketControls(View):
             # Lock for @everyone
             await channel.set_permissions(interaction.guild.default_role, send_messages=False)
             
+            # Update state and buttons
             self.is_locked = True
+            self.setup_buttons()
             
             # Update embed
             lock_embed = discord.Embed(
@@ -275,27 +368,6 @@ class CoolTicketControls(View):
                 inline=False
             )
             
-            # Update buttons to show unlock option
-            self.clear_items()
-            current_buttons = []
-            
-            # Determine what buttons to show based on state
-            if "claimed" in channel.topic.lower() if channel.topic else False:
-                current_buttons.extend([
-                    Button(label="👤 Unclaim", style=discord.ButtonStyle.secondary, emoji="👤"),
-                    Button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓"),
-                    Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐")
-                ])
-            else:
-                current_buttons.extend([
-                    Button(label="👤 Claim", style=discord.ButtonStyle.success, emoji="👤"),
-                    Button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓"),
-                    Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐")
-                ])
-            
-            for btn in current_buttons:
-                self.add_item(btn)
-            
             await interaction.response.edit_message(embed=lock_embed, view=self)
             
             # Notify about lock
@@ -304,8 +376,8 @@ class CoolTicketControls(View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error locking ticket: {str(e)}", ephemeral=True)
 
-    @discord.ui.button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓")
-    async def unlock_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def unlock_ticket(self, interaction: discord.Interaction):
+        """Handle ticket unlocking"""
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             await interaction.response.send_message("❌ You don't have permission to unlock tickets!", ephemeral=True)
             return
@@ -318,8 +390,9 @@ class CoolTicketControls(View):
             if creator:
                 await channel.set_permissions(creator, send_messages=True)
             
-            # Unlock for relevant users (keep default_role restricted)
+            # Update state and buttons
             self.is_locked = False
+            self.setup_buttons()
             
             # Update embed
             unlock_embed = discord.Embed(
@@ -334,27 +407,6 @@ class CoolTicketControls(View):
                 inline=False
             )
             
-            # Update buttons to show lock option
-            self.clear_items()
-            current_buttons = []
-            
-            # Determine what buttons to show based on state
-            if "claimed" in channel.topic.lower() if channel.topic else False:
-                current_buttons.extend([
-                    Button(label="👤 Unclaim", style=discord.ButtonStyle.secondary, emoji="👤"),
-                    Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒"),
-                    Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐")
-                ])
-            else:
-                current_buttons.extend([
-                    Button(label="👤 Claim", style=discord.ButtonStyle.success, emoji="👤"),
-                    Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒"),
-                    Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐")
-                ])
-            
-            for btn in current_buttons:
-                self.add_item(btn)
-            
             await interaction.response.edit_message(embed=unlock_embed, view=self)
             
             # Notify about unlock
@@ -363,8 +415,8 @@ class CoolTicketControls(View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error unlocking ticket: {str(e)}", ephemeral=True)
 
-    @discord.ui.button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐")
-    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def close_ticket(self, interaction: discord.Interaction):
+        """Handle ticket closing"""
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             await interaction.response.send_message("❌ You don't have permission to close tickets!", ephemeral=True)
             return
@@ -399,12 +451,28 @@ class CoolTicketControls(View):
             )
             close_embed.set_footer(text="✨ Ticket closed - Use reopen button if needed")
             
-            # Create reopen button
-            self.clear_items()
-            self.add_item(Button(label="♻️ Reopen", style=discord.ButtonStyle.primary, emoji="♻️"))
-            self.add_item(Button(label="🗑️ Delete", style=discord.ButtonStyle.danger, emoji="🗑️"))
+            # Create closed state view
+            closed_view = View(timeout=None)
+            closed_view.add_item(Button(label="♻️ Reopen", style=discord.ButtonStyle.primary, emoji="♻️", custom_id="reopen_btn"))
+            closed_view.add_item(Button(label="🗑️ Delete", style=discord.ButtonStyle.danger, emoji="🗑️", custom_id="delete_btn"))
             
-            await interaction.response.edit_message(embed=close_embed, view=self)
+            # Copy necessary attributes for closed view
+            closed_view.creator_id = self.creator_id
+            closed_view.category_key = self.category_key
+            closed_view.subcategory = self.subcategory
+            
+            # Add interaction check for closed view
+            async def closed_interaction_check(closed_interaction):
+                custom_id = closed_interaction.data.get('custom_id', '')
+                if custom_id == "reopen_btn":
+                    await self.reopen_ticket(closed_interaction)
+                elif custom_id == "delete_btn":
+                    await self.delete_ticket(closed_interaction)
+                return False
+            
+            closed_view.interaction_check = closed_interaction_check
+            
+            await interaction.response.edit_message(embed=close_embed, view=closed_view)
             
             # Log closure
             try:
@@ -421,8 +489,8 @@ class CoolTicketControls(View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error closing ticket: {str(e)}", ephemeral=True)
 
-    @discord.ui.button(label="♻️ Reopen", style=discord.ButtonStyle.primary, emoji="♻️")
-    async def reopen_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def reopen_ticket(self, interaction: discord.Interaction):
+        """Handle ticket reopening"""
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             await interaction.response.send_message("❌ You don't have permission to reopen tickets!", ephemeral=True)
             return
@@ -443,6 +511,11 @@ class CoolTicketControls(View):
             if creator:
                 await channel.set_permissions(creator, read_messages=True, send_messages=True)
             
+            # Reset state
+            self.is_claimed = False
+            self.is_locked = False
+            self.setup_buttons()
+            
             # Create reopen embed
             reopen_embed = discord.Embed(
                 title="🟢 **Ticket Reopened**",
@@ -457,12 +530,6 @@ class CoolTicketControls(View):
             )
             reopen_embed.set_footer(text="✨ Ticket reopened - Continue the conversation")
             
-            # Reset buttons to original state
-            self.clear_items()
-            self.add_item(Button(label="👤 Claim", style=discord.ButtonStyle.success, emoji="👤"))
-            self.add_item(Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒"))
-            self.add_item(Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐"))
-            
             await interaction.response.edit_message(embed=reopen_embed, view=self)
             
             # Notify parties
@@ -472,8 +539,8 @@ class CoolTicketControls(View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error reopening ticket: {str(e)}", ephemeral=True)
 
-    @discord.ui.button(label="🗑️ Delete", style=discord.ButtonStyle.danger, emoji="🗑️")
-    async def delete_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def delete_ticket(self, interaction: discord.Interaction):
+        """Handle ticket deletion"""
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
             await interaction.response.send_message("❌ You don't have permission to delete tickets!", ephemeral=True)
             return
@@ -712,10 +779,13 @@ class DirectTicketPanel(View):
             welcome_embed.set_author(name=f"Support Ticket #{channel.id}", icon_url=guild.icon.url if guild.icon else None)
             welcome_embed.set_footer(text="✨ Thank you for contacting support!")
             
-            # Create ticket controls
-            controls = CoolTicketControls(user.id, category_key, category_info['name'])
+            # Create ticket controls (initially unclaimed)
+            controls = CoolTicketControls(user.id, category_key, category_info['name'], is_claimed=False)
             
             await channel.send(embed=welcome_embed, view=controls)
+            
+            # Ping creation roles (leadmoderator, moderator + creator)
+            await controls.ping_creation_roles(channel, user)
             
             # Log ticket creation
             try:
@@ -742,6 +812,6 @@ class DirectTicketPanel(View):
 
 async def setup(bot: commands.Bot):
     # Add persistent views
-    bot.add_view(CoolTicketControls(0, "general", "General"))
+    bot.add_view(CoolTicketControls(0, "general", "General", is_claimed=False))
     bot.add_view(DirectTicketPanel())
-    print("✅ Ticket controls loaded with enhanced claim system and lock/unlock features")
+    print("✅ Ticket controls loaded with enhanced state management and creation role pings")
