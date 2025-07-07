@@ -30,11 +30,11 @@ JOB_TIERS = {
             },
             {
                 "name": "Data Entry", 
-                "emoji": "⌨️",
+                "emoji": "�",
                 "min_pay": 20, 
                 "max_pay": 35, 
                 "description": "entering data accurately",
-                "full_description": "⌨️ You carefully input information into computer systems, ensuring accuracy and attention to detail.",
+                "full_description": "� You carefully input information into computer systems, ensuring accuracy and attention to detail.",
                 "skill": "admin"
             },
             {
@@ -107,11 +107,11 @@ JOB_TIERS = {
             },
             {
                 "name": "Project Coordinator", 
-                "emoji": "📊",
+                "emoji": "�",
                 "min_pay": 50, 
                 "max_pay": 85, 
                 "description": "coordinating team projects",
-                "full_description": "📊 You ensure projects run smoothly by coordinating teams and managing timelines.",
+                "full_description": "� You ensure projects run smoothly by coordinating teams and managing timelines.",
                 "skill": "management"
             }
         ]

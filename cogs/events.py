@@ -42,10 +42,20 @@ class Events(commands.Cog):
                     if "temporary_roles" in user_data:
                         for role_data in user_data["temporary_roles"]:
                             role_id = role_data["role_id"]
+                            
+                            # IMPORTANT: Only remove roles that are explicitly temporary purchases
+                            # Never remove XP roles, Cookie roles, or other permanent roles
                             if role_id not in active_role_ids:
-                                # Role expired, remove it
                                 role = guild.get_role(role_id)
                                 if role and role in member.roles:
+                                    # Safety check: Don't remove important roles
+                                    role_name = role.name.lower()
+                                    if any(keyword in role_name for keyword in [
+                                        'xp', 'level', 'cookie', 'admin', 'mod', 'staff', 
+                                        'vip', 'member', 'verified', 'booster'
+                                    ]):
+                                        continue  # Skip removing important roles
+                                    
                                     try:
                                         await member.remove_roles(role, reason="Temporary role expired")
                                     except:

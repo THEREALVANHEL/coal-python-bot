@@ -10,6 +10,7 @@ import asyncio
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 from permissions import has_special_permissions
+from cogs.ticket_controls import CoolTicketControls
 
 # Enhanced ticket categories with subcategories and claim system
 TICKET_CATEGORIES = {
@@ -433,7 +434,7 @@ class TicketCreationModal(Modal):
             welcome_embed.set_thumbnail(url=user.display_avatar.url)
             
             # Create simple ticket controls
-            control_view = TicketControlView(user.id, self.category_key, self.subcategory)
+            control_view = CoolTicketControls(user.id, self.category_key, self.subcategory)
             
             # Simple welcome message with role pings
             support_role_mentions = []
@@ -865,6 +866,8 @@ class Tickets(commands.Cog):
         # Add persistent views
         self.bot.add_view(TicketCategorySelectView())
         self.bot.add_view(TicketFormView())
+        # Add cool ticket controls as persistent view
+        self.bot.add_view(CoolTicketControls(0, "general", "General"))
         print("[Tickets] Loaded successfully with persistent views.")
 
     @app_commands.command(name="createticket", description="🎫 Create a support ticket instantly")
