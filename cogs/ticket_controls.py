@@ -512,11 +512,15 @@ class ElegantClosedControls(View):
 
     def _has_permissions(self, user, guild):
         """Check if user has ticket permissions"""
+        # Creator always has permissions
         if user.id == self.creator_id:
             return True
+        
+        # Administrator permissions
         if user.guild_permissions.administrator:
             return True
         
+        # Check configured support roles
         try:
             server_settings = db.get_server_settings(guild.id)
             ticket_support_roles = server_settings.get('ticket_support_roles', [])
@@ -526,9 +530,19 @@ class ElegantClosedControls(View):
         except:
             pass
         
-        staff_keywords = ["admin", "administrator", "mod", "moderator", "staff", "support", "helper", "ticket"]
+        # Check specific staff role names (case-insensitive)
+        staff_keywords = [
+            "admin", "administrator", "mod", "moderator", "staff", "support", "helper", "ticket",
+            "uk", "leadmoderator", "lead moderator", "overseer", "forgotten one"
+        ]
+        
         for role in user.roles:
-            if any(keyword in role.name.lower() for keyword in staff_keywords):
+            role_name_lower = role.name.lower()
+            # Check for exact matches and partial matches
+            if any(keyword in role_name_lower for keyword in staff_keywords):
+                return True
+            # Special check for emoji-containing role names
+            if any(keyword in role_name_lower.replace('🚨', '').replace('🚓', '').replace('🦥', '').strip() for keyword in staff_keywords):
                 return True
         
         return False
@@ -555,27 +569,12 @@ class ElegantClosedControls(View):
             if creator:
                 await interaction.channel.set_permissions(creator, read_messages=True, send_messages=True)
             
-            # Create elegant reopen embed
+            # Simple reopen embed
             embed = discord.Embed(
-                title="✨ Ticket Reopened Successfully",
-                description=f"🎉 This ticket has been reopened by **{interaction.user.display_name}**. The conversation can continue.",
-                color=0x28a745,
-                timestamp=datetime.now()
+                title="🔓 Ticket Reopened",
+                description=f"Reopened by **{interaction.user.display_name}**",
+                color=0x28a745
             )
-            
-            embed.add_field(
-                name="📋 Reopen Details",
-                value=f"**Reopened By:** {interaction.user.display_name}\n**Time:** <t:{int(datetime.now().timestamp())}:F>\n**Status:** 🟢 Active Again",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="💡 What's Next?",
-                value="• Continue your conversation\n• Staff will assist you\n• Provide any new details\n• Use the buttons for actions",
-                inline=True
-            )
-            
-            embed.set_footer(text="🎫 Professional Ticket System")
             
             # Reset to normal controls
             controls = ElegantTicketControls(self.creator_id, self.category_key, self.category_name, is_claimed=False)
@@ -584,15 +583,12 @@ class ElegantClosedControls(View):
             
             # Notify creator if different user
             if creator and creator.id != interaction.user.id:
-                await interaction.followup.send(
-                    f"🎉 {creator.mention} Your ticket has been reopened! You can continue the conversation here.",
-                    ephemeral=False
-                )
+                await interaction.followup.send(f"{creator.mention} Your ticket has been reopened.")
             
         except Exception as e:
             embed = discord.Embed(
-                title="❌ Reopen Failed",
-                description=f"Error reopening ticket: {str(e)[:100]}",
+                title="❌ Error",
+                description="Failed to reopen ticket",
                 color=0xff6b6b
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -695,7 +691,7 @@ ELEGANT_TICKET_CATEGORIES = {
     "technical": {
         "name": "Technical Issues", 
         "description": "Bot problems and technical difficulties",
-        "emoji": "�",
+        "emoji": "🔧",
         "color": 0xff6b6b
     },
     "account": {
@@ -929,38 +925,14 @@ class ElegantTicketPanel(View):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
-            # Create beautiful welcome embed
+            # Create simple, elegant welcome embed
             welcome_embed = discord.Embed(
-                title=f"{category_info['emoji']} Welcome to {category_info['name']}",
-                description=f"**Hello {user.display_name}!** 👋\n\nThank you for contacting our support team. This is your private support channel where our professional staff will assist you.",
-                color=category_info['color'],
-                timestamp=datetime.now()
+                title=f"🎫 {category_info['name']} Ticket",
+                description=f"**{user.display_name}** • Support staff will assist you shortly.",
+                color=category_info['color']
             )
             
-            welcome_embed.add_field(
-                name="📋 Ticket Information",
-                value=f"**Category:** {category_info['name']}\n**Created:** <t:{int(datetime.now().timestamp())}:F>\n**Status:** 🟢 Open & Awaiting Staff",
-                inline=True
-            )
-            
-            welcome_embed.add_field(
-                name="⏱️ Response Time",
-                value="**Typical Response:** 15-30 minutes\n**Priority Support:** Available\n**24/7 Monitoring:** Active",
-                inline=True
-            )
-            
-            welcome_embed.add_field(
-                name="💡 How to Get the Best Help",
-                value="• **Be Specific:** Describe your issue clearly\n• **Include Details:** Screenshots, error messages, etc.\n• **Stay Patient:** Our team will respond promptly\n• **Use Buttons:** Control your ticket with the buttons below",
-                inline=False
-            )
-            
-            welcome_embed.set_author(
-                name=f"Support Ticket #{str(channel.id)[-4:]}",
-                icon_url=user.display_avatar.url
-            )
-            welcome_embed.set_footer(text="✨ Professional Support Experience")
-            welcome_embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+            welcome_embed.set_footer(text="Describe your issue and wait for staff")
             
             # Create elegant controls
             controls = ElegantTicketControls(user.id, category_key, category_info['name'], is_claimed=False)
@@ -974,40 +946,38 @@ class ElegantTicketPanel(View):
             except:
                 pass
             
-            # Notify staff (elegant notification)
+            # Ping staff - permanently visible until ticket closed
             try:
                 server_settings = db.get_server_settings(guild.id)
                 ticket_support_roles = server_settings.get('ticket_support_roles', [])
                 
                 roles_to_ping = []
+                
+                # Add configured support roles
                 for role_id in ticket_support_roles:
                     role = guild.get_role(role_id)
                     if role:
                         roles_to_ping.append(role)
                 
-                # Also ping mod roles
+                # Add specific staff roles mentioned
+                staff_role_names = ["uk", "leadmoderator", "lead moderator", "moderator", "overseer", "forgotten one"]
                 for role in guild.roles:
-                    if any(name in role.name.lower() for name in ["leadmoderator", "moderator"]) and role not in roles_to_ping:
-                        roles_to_ping.append(role)
+                    role_name_lower = role.name.lower()
+                    # Check for exact matches and partial matches
+                    if any(staff_name in role_name_lower for staff_name in staff_role_names):
+                        if role not in roles_to_ping:
+                            roles_to_ping.append(role)
+                    # Special check for emoji-containing role names
+                    clean_role_name = role_name_lower.replace('🚨', '').replace('🚓', '').replace('🦥', '').strip()
+                    if any(staff_name in clean_role_name for staff_name in staff_role_names):
+                        if role not in roles_to_ping:
+                            roles_to_ping.append(role)
                 
                 if roles_to_ping:
                     ping_mentions = " ".join([role.mention for role in roles_to_ping])
-                    
-                    staff_embed = discord.Embed(
-                        title="🎫 New Support Ticket",
-                        description=f"**{user.display_name}** has created a new {category_info['name'].lower()} ticket.",
-                        color=category_info['color']
-                    )
-                    staff_embed.add_field(
-                        name="Quick Details",
-                        value=f"**User:** {user.mention}\n**Category:** {category_info['name']}\n**Channel:** {channel.mention}",
-                        inline=False
-                    )
-                    staff_embed.set_footer(text="Professional Support Team")
-                    
-                    await channel.send(ping_mentions, embed=staff_embed, delete_after=20)
-            except:
-                pass
+                    await channel.send(f"📢 **Staff Alert:** {ping_mentions}\n**User:** {user.mention} needs help with {category_info['name'].lower()}")
+            except Exception as e:
+                print(f"Error pinging staff: {e}")
             
             # Log ticket creation
             try:
@@ -1015,27 +985,12 @@ class ElegantTicketPanel(View):
             except:
                 pass
             
-            # Beautiful success response
+            # Simple success response
             success_embed = discord.Embed(
-                title="✅ Ticket Created Successfully!",
-                description=f"Your **{category_info['name']}** ticket has been created: {channel.mention}",
-                color=0x00d4aa,
-                timestamp=datetime.now()
+                title="✅ Ticket Created",
+                description=f"Your ticket: {channel.mention}",
+                color=0x00d4aa
             )
-            
-            success_embed.add_field(
-                name="🎯 What Happens Next?",
-                value="1. **Go to your ticket** - Click the channel link above\n2. **Describe your issue** - Provide clear details\n3. **Wait for staff** - Our team will respond soon\n4. **Get help** - Professional assistance guaranteed",
-                inline=False
-            )
-            
-            success_embed.add_field(
-                name="⚡ Quick Tips",
-                value="• Include screenshots or error messages\n• Be as specific as possible\n• Use the ticket buttons for actions\n• Stay in the channel for updates",
-                inline=False
-            )
-            
-            success_embed.set_footer(text="🎫 Thank you for choosing our support!")
             
             await interaction.response.send_message(embed=success_embed, ephemeral=True)
             

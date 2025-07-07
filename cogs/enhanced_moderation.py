@@ -431,57 +431,7 @@ class EnhancedModeration(commands.Cog):
         except Exception as e:
             print(f"Error logging channel deletion: {e}")
 
-    @app_commands.command(name="modclear", description="🧹 Enhanced bulk delete with comprehensive logging")
-    @app_commands.describe(amount="Number of messages to delete (1-100)")
-    @app_commands.default_permissions(manage_messages=True)
-    async def mod_clear(self, interaction: discord.Interaction, amount: int):
-        """Enhanced modclear with detailed logging"""
-        if not interaction.user.guild_permissions.manage_messages:
-            await interaction.response.send_message("❌ You need **Manage Messages** permission!", ephemeral=True)
-            return
-        
-        if amount < 1 or amount > 100:
-            await interaction.response.send_message("❌ Amount must be between 1 and 100!", ephemeral=True)
-            return
-        
-        try:
-            await interaction.response.defer()
-            
-            # Fetch messages
-            messages = []
-            async for message in interaction.channel.history(limit=amount):
-                messages.append(message)
-            
-            if not messages:
-                await interaction.followup.send("❌ No messages to delete!", ephemeral=True)
-                return
-            
-            # Delete messages
-            deleted = await interaction.channel.purge(limit=amount)
-            actual_deleted = len(deleted)
-            
-            # Log the action
-            await self.log_comprehensive_event(interaction.guild, "bulk_delete_modclear", {
-                "user": interaction.user,
-                "channel": interaction.channel,
-                "description": f"**{interaction.user.display_name}** deleted {actual_deleted} messages in {interaction.channel.mention}",
-                "color": 0xff9966,
-                "embed_fields": [
-                    {"name": "📊 Summary", "value": f"**Deleted:** {actual_deleted} messages\n**Channel:** {interaction.channel.mention}", "inline": False}
-                ]
-            })
-            
-            # Send confirmation
-            embed = discord.Embed(
-                title="🧹 **Messages Cleared**",
-                description=f"Successfully deleted **{actual_deleted}** messages",
-                color=0x00d4aa
-            )
-            
-            await interaction.followup.send(embed=embed, ephemeral=True)
-            
-        except Exception as e:
-            await interaction.followup.send(f"❌ Error during modclear: {str(e)}", ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(EnhancedModeration(bot))
