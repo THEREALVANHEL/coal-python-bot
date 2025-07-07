@@ -61,49 +61,22 @@ class Tickets(commands.Cog):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
 
-            # Create the elegant ticket panel
+            # Create the simple ticket panel
             panel_embed = discord.Embed(
-                title="✨ Professional Support Center",
-                description="**Welcome to our Support Center!** 🎫\n\nOur professional support team is here to help you with any questions or issues. Click the category below that best matches your needs to create an instant support ticket.",
+                title="🎫 Support Center",
+                description="**Need help?** Click a button below to create a support ticket.",
                 color=0x7c3aed,
                 timestamp=datetime.now()
             )
             
-            # Add beautiful category information
-            category_info = ""
-            for category_key, cat_data in ELEGANT_TICKET_CATEGORIES.items():
-                category_info += f"{cat_data['emoji']} **{cat_data['name']}**\n└ {cat_data['description']}\n\n"
-            
             panel_embed.add_field(
-                name="🎯 Support Categories",
-                value=category_info,
+                name="📋 Quick Guide",
+                value="💬 **General** - Questions and help\n🔧 **Technical** - Bot issues and problems\n👤 **Account** - Profile and account support",
                 inline=False
             )
             
-            panel_embed.add_field(
-                name="⚡ How It Works",
-                value="1. **Choose Category** - Click the button for your issue type\n2. **Instant Creation** - Your private ticket channel is created instantly\n3. **Describe Issue** - Provide clear details about your problem\n4. **Get Help** - Our professional staff will assist you promptly",
-                inline=True
-            )
-            
-            panel_embed.add_field(
-                name="📝 Important Guidelines",
-                value="• **One Ticket Rule** - Only one active ticket per person\n• **Be Specific** - Provide detailed descriptions\n• **Response Time** - Typically 15-30 minutes\n• **Stay Active** - Keep the conversation in your ticket",
-                inline=True
-            )
-            
-            panel_embed.add_field(
-                name="🏆 Why Choose Our Support?",
-                value="• **Professional Team** - Experienced support staff\n• **Fast Response** - Quick resolution times\n• **Private Channels** - Confidential assistance\n• **24/7 Monitoring** - Always available when you need us",
-                inline=False
-            )
-            
-            panel_embed.set_footer(text="✨ Professional Support Experience • Click any button below to get started")
+            panel_embed.set_footer(text="🎫 Professional Support • Click any button to get started")
             panel_embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
-            panel_embed.set_author(
-                name="Support Center", 
-                icon_url=interaction.guild.icon.url if interaction.guild.icon else None
-            )
             
             # Create the elegant panel view
             view = ElegantTicketPanel()

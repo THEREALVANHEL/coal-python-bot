@@ -431,115 +431,6 @@ class EnhancedModeration(commands.Cog):
         except Exception as e:
             print(f"Error logging channel deletion: {e}")
 
-    @app_commands.command(name="addcoins", description="💰 Add coins to a user (Forgotten one only)")
-    @app_commands.describe(user="User to give coins to", amount="Amount of coins to add")
-    async def add_coins(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        """Add coins to a user - restricted to Forgotten one role"""
-        # Check for Forgotten one role (you'll need to provide the exact role ID)
-        forgotten_one_role = discord.utils.get(interaction.guild.roles, name="Forgotten one")
-        if not forgotten_one_role or forgotten_one_role not in interaction.user.roles:
-            await interaction.response.send_message("❌ Only the **Forgotten one** can use this command!", ephemeral=True)
-            return
-        
-        if amount <= 0:
-            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
-            return
-        
-        try:
-            # Add coins to user
-            db.add_coins(user.id, amount)
-            new_balance = db.get_user_data(user.id).get('coins', 0)
-            
-            # Create success embed
-            embed = discord.Embed(
-                title="💰 **Coins Added**",
-                description=f"Successfully added **{amount:,}** coins to {user.mention}",
-                color=0x00d4aa,
-                timestamp=datetime.now()
-            )
-            
-            embed.add_field(name="👤 User", value=user.mention, inline=True)
-            embed.add_field(name="➕ Amount Added", value=f"{amount:,} coins", inline=True)
-            embed.add_field(name="💰 New Balance", value=f"{new_balance:,} coins", inline=True)
-            
-            embed.set_author(name=f"Coins added by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="💎 Forgotten one Command")
-            
-            await interaction.response.send_message(embed=embed)
-            
-            # Log the action
-            await self.log_comprehensive_event(interaction.guild, "coins_added", {
-                "user": user,
-                "description": f"**{interaction.user.display_name}** added {amount:,} coins to **{user.display_name}**",
-                "color": 0x00d4aa,
-                "embed_fields": [
-                    {"name": "💰 Amount", "value": f"{amount:,} coins", "inline": True},
-                    {"name": "💎 Admin", "value": interaction.user.mention, "inline": True},
-                    {"name": "💰 New Balance", "value": f"{new_balance:,} coins", "inline": True}
-                ]
-            })
-            
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error adding coins: {str(e)}", ephemeral=True)
-
-    @app_commands.command(name="removecoins", description="💸 Remove coins from a user (Forgotten one only)")
-    @app_commands.describe(user="User to remove coins from", amount="Amount of coins to remove")
-    async def remove_coins(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        """Remove coins from a user - restricted to Forgotten one role"""
-        # Check for Forgotten one role
-        forgotten_one_role = discord.utils.get(interaction.guild.roles, name="Forgotten one")
-        if not forgotten_one_role or forgotten_one_role not in interaction.user.roles:
-            await interaction.response.send_message("❌ Only the **Forgotten one** can use this command!", ephemeral=True)
-            return
-        
-        if amount <= 0:
-            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
-            return
-        
-        try:
-            # Check current balance
-            current_balance = db.get_user_data(user.id).get('coins', 0)
-            
-            if current_balance < amount:
-                await interaction.response.send_message(f"❌ {user.display_name} only has {current_balance:,} coins!", ephemeral=True)
-                return
-            
-            # Remove coins from user
-            db.remove_coins(user.id, amount)
-            new_balance = db.get_user_data(user.id).get('coins', 0)
-            
-            # Create success embed
-            embed = discord.Embed(
-                title="💸 **Coins Removed**",
-                description=f"Successfully removed **{amount:,}** coins from {user.mention}",
-                color=0xff6b6b,
-                timestamp=datetime.now()
-            )
-            
-            embed.add_field(name="👤 User", value=user.mention, inline=True)
-            embed.add_field(name="➖ Amount Removed", value=f"{amount:,} coins", inline=True)
-            embed.add_field(name="💰 New Balance", value=f"{new_balance:,} coins", inline=True)
-            
-            embed.set_author(name=f"Coins removed by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="💎 Forgotten one Command")
-            
-            await interaction.response.send_message(embed=embed)
-            
-            # Log the action
-            await self.log_comprehensive_event(interaction.guild, "coins_removed", {
-                "user": user,
-                "description": f"**{interaction.user.display_name}** removed {amount:,} coins from **{user.display_name}**",
-                "color": 0xff6b6b,
-                "embed_fields": [
-                    {"name": "💸 Amount", "value": f"{amount:,} coins", "inline": True},
-                    {"name": "💎 Admin", "value": interaction.user.mention, "inline": True},
-                    {"name": "💰 New Balance", "value": f"{new_balance:,} coins", "inline": True}
-                ]
-            })
-            
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error removing coins: {str(e)}", ephemeral=True)
-
     @app_commands.command(name="modclear", description="🧹 Enhanced bulk delete with comprehensive logging")
     @app_commands.describe(amount="Number of messages to delete (1-100)")
     @app_commands.default_permissions(manage_messages=True)
@@ -565,62 +456,25 @@ class EnhancedModeration(commands.Cog):
                 await interaction.followup.send("❌ No messages to delete!", ephemeral=True)
                 return
             
-            # Analyze messages before deletion
-            analysis = {
-                "total": len(messages),
-                "by_user": {},
-                "with_attachments": 0,
-                "with_embeds": 0,
-                "with_reactions": 0,
-                "bots": 0,
-                "links": 0
-            }
-            
-            for msg in messages:
-                # User count
-                user_key = f"{msg.author.display_name} ({msg.author.id})"
-                analysis["by_user"][user_key] = analysis["by_user"].get(user_key, 0) + 1
-                
-                # Content analysis
-                if msg.attachments:
-                    analysis["with_attachments"] += 1
-                if msg.embeds:
-                    analysis["with_embeds"] += 1
-                if msg.reactions:
-                    analysis["with_reactions"] += 1
-                if msg.author.bot:
-                    analysis["bots"] += 1
-                if msg.content and any(word.startswith(('http://', 'https://')) for word in msg.content.split()):
-                    analysis["links"] += 1
-            
             # Delete messages
             deleted = await interaction.channel.purge(limit=amount)
             actual_deleted = len(deleted)
             
-            # Create detailed log
-            embed_fields = [
-                {"name": "📊 Deletion Summary", "value": f"**Requested:** {amount}\n**Actually Deleted:** {actual_deleted}\n**Channel:** {interaction.channel.mention}", "inline": False},
-                {"name": "📈 Content Analysis", "value": f"**With Attachments:** {analysis['with_attachments']}\n**With Embeds:** {analysis['with_embeds']}\n**With Reactions:** {analysis['with_reactions']}\n**Bot Messages:** {analysis['bots']}\n**With Links:** {analysis['links']}", "inline": True}
-            ]
-            
-            # Top message authors
-            top_users = sorted(analysis["by_user"].items(), key=lambda x: x[1], reverse=True)[:5]
-            if top_users:
-                user_breakdown = "\n".join([f"**{user}:** {count} messages" for user, count in top_users])
-                embed_fields.append({"name": "👥 Top Message Authors", "value": user_breakdown, "inline": True})
-            
+            # Log the action
             await self.log_comprehensive_event(interaction.guild, "bulk_delete_modclear", {
                 "user": interaction.user,
                 "channel": interaction.channel,
-                "description": f"**{interaction.user.display_name}** used modclear in {interaction.channel.mention}",
+                "description": f"**{interaction.user.display_name}** deleted {actual_deleted} messages in {interaction.channel.mention}",
                 "color": 0xff9966,
-                "embed_fields": embed_fields
+                "embed_fields": [
+                    {"name": "📊 Summary", "value": f"**Deleted:** {actual_deleted} messages\n**Channel:** {interaction.channel.mention}", "inline": False}
+                ]
             })
             
             # Send confirmation
             embed = discord.Embed(
                 title="🧹 **Messages Cleared**",
-                description=f"Successfully deleted **{actual_deleted}** messages from {interaction.channel.mention}",
+                description=f"Successfully deleted **{actual_deleted}** messages",
                 color=0x00d4aa
             )
             

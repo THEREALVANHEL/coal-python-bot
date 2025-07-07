@@ -28,13 +28,13 @@ class ElegantTicketControls(View):
         self._setup_elegant_buttons()
     
     def _setup_elegant_buttons(self):
-        """Setup ultra-modern button layout with enhanced styling"""
+        """Setup clean and simple button layout"""
         self.clear_items()
         
-        # Row 1: Claim/Unclaim & Lock/Unlock with enhanced styling
+        # Row 1: Main actions - simplified
         if self.is_claimed:
             unclaim_btn = Button(
-                label="🔄 Unclaim",
+                label="Remove Claim",
                 emoji="🔄",
                 style=discord.ButtonStyle.secondary,
                 custom_id="elegant_unclaim"
@@ -43,7 +43,7 @@ class ElegantTicketControls(View):
             self.add_item(unclaim_btn)
         else:
             claim_btn = Button(
-                label="👤 Claim Ticket", 
+                label="Claim", 
                 emoji="👤",
                 style=discord.ButtonStyle.success,
                 custom_id="elegant_claim"
@@ -51,10 +51,10 @@ class ElegantTicketControls(View):
             claim_btn.callback = self._claim_ticket
             self.add_item(claim_btn)
         
-        # Lock/Unlock button with modern styling
+        # Lock/Unlock button
         if self.is_locked:
             unlock_btn = Button(
-                label="🔓 Unlock Chat",
+                label="Unlock",
                 emoji="🔓", 
                 style=discord.ButtonStyle.primary,
                 custom_id="elegant_unlock"
@@ -63,7 +63,7 @@ class ElegantTicketControls(View):
             self.add_item(unlock_btn)
         else:
             lock_btn = Button(
-                label="🔒 Lock Chat",
+                label="Lock",
                 emoji="🔒",
                 style=discord.ButtonStyle.secondary, 
                 custom_id="elegant_lock"
@@ -71,36 +71,15 @@ class ElegantTicketControls(View):
             lock_btn.callback = self._lock_ticket
             self.add_item(lock_btn)
         
-        # Row 2: Enhanced Close & Priority buttons
+        # Close button
         close_btn = Button(
-            label="🔐 Close & Resolve",
+            label="Close",
             emoji="🔐",
             style=discord.ButtonStyle.danger,
             custom_id="elegant_close"
         )
         close_btn.callback = self._close_ticket
         self.add_item(close_btn)
-        
-        # Add priority button if claimed with enhanced styling
-        if self.is_claimed:
-            priority_btn = Button(
-                label="⚡ Set Priority",
-                emoji="⚡",
-                style=discord.ButtonStyle.primary,
-                custom_id="elegant_priority"
-            )
-            priority_btn.callback = self._set_priority
-            self.add_item(priority_btn)
-        
-        # Add admin tools button for staff
-        admin_btn = Button(
-            label="🛠️ Admin Tools",
-            emoji="🛠️",
-            style=discord.ButtonStyle.secondary,
-            custom_id="elegant_admin_tools"
-        )
-        admin_btn.callback = self._show_admin_tools
-        self.add_item(admin_btn)
 
     def _has_permissions(self, user, guild):
         """Check if user has ticket permissions"""
@@ -184,45 +163,31 @@ class ElegantTicketControls(View):
             print(f"Error updating channel status: {e}")
 
     async def _create_elegant_embed(self, title, description, color, fields=None, footer=None):
-        """Create ultra-modern embed with enhanced styling and visual appeal"""
+        """Create clean and simple embed"""
         embed = discord.Embed(
-            title=f"✨ {title}",
-            description=f"**{description}**",
+            title=f"🎫 {title}",
+            description=description,
             color=color,
             timestamp=datetime.now()
-        )
-        
-        # Add stylish separator
-        embed.add_field(
-            name="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            value="",
-            inline=False
         )
         
         if fields:
             for field in fields:
                 embed.add_field(
-                    name=f"▫️ **{field.get('name', '')}**",
+                    name=field.get("name", ""),
                     value=field.get("value", ""),
                     inline=field.get("inline", False)
                 )
         
-        # Add another separator before footer
-        embed.add_field(
-            name="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            value="",
-            inline=False
-        )
-        
         if footer:
-            embed.set_footer(text=f"🎫 {footer} • Professional Support System", icon_url="https://cdn.discordapp.com/emojis/853028968609120266.png")
+            embed.set_footer(text=footer)
         else:
-            embed.set_footer(text="🎫 Professional Ticket System • Ultra-Modern Interface", icon_url="https://cdn.discordapp.com/emojis/853028968609120266.png")
+            embed.set_footer(text="🎫 Ticket System")
         
         return embed
 
     async def _claim_ticket(self, interaction: discord.Interaction):
-        """Handle elegant ticket claiming"""
+        """Handle ticket claiming"""
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -235,7 +200,7 @@ class ElegantTicketControls(View):
         if self.is_claimed:
             embed = await self._create_elegant_embed(
                 "Already Claimed", 
-                "⚠️ This ticket is already claimed by another staff member.",
+                "⚠️ This ticket is already claimed.",
                 0xff9966
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -250,50 +215,25 @@ class ElegantTicketControls(View):
             # Update channel
             await self._update_channel_status(interaction.channel, "claimed", interaction.user)
             
-            # Create elegant claim embed
+            # Simple claim embed
             embed = await self._create_elegant_embed(
-                "Ticket Claimed Successfully",
-                f"🎯 **{interaction.user.display_name}** has claimed this ticket and will provide assistance.",
-                0x00d4aa,
-                fields=[
-                    {
-                        "name": "👨‍💼 Assigned Staff",
-                        "value": f"**{interaction.user.display_name}**\n{interaction.user.mention}",
-                        "inline": True
-                    },
-                    {
-                        "name": "📊 Status Update", 
-                        "value": f"**Previous:** 🟢 Open\n**Current:** 🟡 Claimed\n**Time:** <t:{int(datetime.now().timestamp())}:R>",
-                        "inline": True
-                    },
-                    {
-                        "name": "💡 What's Next?",
-                        "value": "• Staff will analyze your issue\n• Expect response within 30 minutes\n• Feel free to provide more details",
-                        "inline": False
-                    }
-                ]
+                "Ticket Claimed",
+                f"✅ {interaction.user.display_name} has claimed this ticket.",
+                0x00d4aa
             )
             
             await interaction.response.edit_message(embed=embed, view=self)
             
-            # Notify creator
-            creator = interaction.guild.get_member(self.creator_id)
-            if creator and creator.id != interaction.user.id:
-                await interaction.followup.send(
-                    f"🎉 {creator.mention} Your ticket has been claimed by {interaction.user.mention} - help is on the way!",
-                    ephemeral=False
-                )
-            
         except Exception as e:
             embed = await self._create_elegant_embed(
                 "Claim Failed",
-                f"❌ Error claiming ticket: {str(e)[:100]}",
+                f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def _unclaim_ticket(self, interaction: discord.Interaction):
-        """Handle elegant ticket unclaiming"""
+        """Handle ticket unclaiming"""
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -306,7 +246,7 @@ class ElegantTicketControls(View):
         if not self.is_claimed:
             embed = await self._create_elegant_embed(
                 "Not Claimed",
-                "⚠️ This ticket is not currently claimed.",
+                "⚠️ This ticket is not claimed.",
                 0xff9966
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -321,43 +261,25 @@ class ElegantTicketControls(View):
             # Update channel
             await self._update_channel_status(interaction.channel, "open")
             
-            # Create elegant unclaim embed
+            # Simple unclaim embed
             embed = await self._create_elegant_embed(
                 "Ticket Unclaimed",
-                f"🔄 **{interaction.user.display_name}** has unclaimed this ticket. It's now available for other staff members.",
-                0x7c3aed,
-                fields=[
-                    {
-                        "name": "📊 Status Update",
-                        "value": f"**Previous:** 🟡 Claimed\n**Current:** 🟢 Open & Available\n**Unclaimed By:** {interaction.user.display_name}",
-                        "inline": True
-                    },
-                    {
-                        "name": "👥 Available For",
-                        "value": "• Any staff member\n• Quick response guaranteed\n• Professional assistance",
-                        "inline": True
-                    }
-                ]
+                f"🔄 {interaction.user.display_name} removed their claim. Ticket is now available.",
+                0x7c3aed
             )
             
             await interaction.response.edit_message(embed=embed, view=self)
             
-            # Notify that ticket is available
-            await interaction.followup.send(
-                "📢 **Ticket Available** - This ticket is now open for any staff member to claim!",
-                ephemeral=False
-            )
-            
         except Exception as e:
             embed = await self._create_elegant_embed(
                 "Unclaim Failed",
-                f"❌ Error unclaiming ticket: {str(e)[:100]}",
+                f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def _lock_ticket(self, interaction: discord.Interaction):
-        """Handle elegant ticket locking"""
+        """Handle ticket locking"""
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -377,18 +299,11 @@ class ElegantTicketControls(View):
             self.is_locked = True
             self._setup_elegant_buttons()
             
-            # Create elegant lock embed
+            # Simple lock embed
             embed = await self._create_elegant_embed(
                 "Ticket Locked",
-                f"🔒 This ticket has been locked by **{interaction.user.display_name}**. Only staff can send messages now.",
-                0x6c757d,
-                fields=[
-                    {
-                        "name": "🔐 Lock Details",
-                        "value": f"**Locked By:** {interaction.user.display_name}\n**Status:** 🔒 Read-only for user\n**Staff Override:** Active",
-                        "inline": False
-                    }
-                ]
+                f"🔒 {interaction.user.display_name} locked this ticket.",
+                0x6c757d
             )
             
             await interaction.response.edit_message(embed=embed, view=self)
@@ -396,13 +311,13 @@ class ElegantTicketControls(View):
         except Exception as e:
             embed = await self._create_elegant_embed(
                 "Lock Failed",
-                f"❌ Error locking ticket: {str(e)[:100]}",
+                f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def _unlock_ticket(self, interaction: discord.Interaction):
-        """Handle elegant ticket unlocking"""
+        """Handle ticket unlocking"""
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -422,18 +337,11 @@ class ElegantTicketControls(View):
             self.is_locked = False
             self._setup_elegant_buttons()
             
-            # Create elegant unlock embed
+            # Simple unlock embed
             embed = await self._create_elegant_embed(
                 "Ticket Unlocked",
-                f"🔓 This ticket has been unlocked by **{interaction.user.display_name}**. Normal messaging has resumed.",
-                0x28a745,
-                fields=[
-                    {
-                        "name": "🔓 Unlock Details",
-                        "value": f"**Unlocked By:** {interaction.user.display_name}\n**Status:** 🔓 Normal messaging\n**Access:** Creator + Staff",
-                        "inline": False
-                    }
-                ]
+                f"🔓 {interaction.user.display_name} unlocked this ticket.",
+                0x28a745
             )
             
             await interaction.response.edit_message(embed=embed, view=self)
@@ -441,13 +349,13 @@ class ElegantTicketControls(View):
         except Exception as e:
             embed = await self._create_elegant_embed(
                 "Unlock Failed",
-                f"❌ Error unlocking ticket: {str(e)[:100]}",
+                f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def _close_ticket(self, interaction: discord.Interaction):
-        """Handle elegant ticket closing"""
+        """Handle ticket closing"""
         if not self._has_permissions(interaction.user, interaction.guild):
             embed = await self._create_elegant_embed(
                 "Access Denied",
@@ -461,28 +369,11 @@ class ElegantTicketControls(View):
             # Update channel status
             await self._update_channel_status(interaction.channel, "closed")
             
-            # Create elegant close embed
+            # Simple close embed
             embed = await self._create_elegant_embed(
-                "Ticket Closed Successfully",
-                f"🎉 This ticket has been resolved and closed by **{interaction.user.display_name}**.",
-                0x6c757d,
-                fields=[
-                    {
-                        "name": "📋 Closure Summary",
-                        "value": f"**Closed By:** {interaction.user.display_name}\n**Resolution Time:** <t:{int(datetime.now().timestamp())}:F>\n**Status:** ✅ Resolved",
-                        "inline": True
-                    },
-                    {
-                        "name": "💭 Feedback",
-                        "value": "We hope we were able to help you! If you need further assistance, feel free to create a new ticket.",
-                        "inline": True
-                    },
-                    {
-                        "name": "♻️ Need More Help?",
-                        "value": "You can reopen this ticket using the button below if you need to continue this conversation.",
-                        "inline": False
-                    }
-                ]
+                "Ticket Closed",
+                f"✅ {interaction.user.display_name} closed this ticket.",
+                0x6c757d
             )
             
             # Create closed ticket view
@@ -495,16 +386,10 @@ class ElegantTicketControls(View):
             if creator:
                 await interaction.channel.set_permissions(creator, read_messages=True, send_messages=False)
             
-            # Log closure
-            try:
-                db.log_ticket_closure(interaction.guild.id, interaction.user.id, interaction.channel.id)
-            except:
-                pass
-            
         except Exception as e:
             embed = await self._create_elegant_embed(
                 "Close Failed",
-                f"❌ Error closing ticket: {str(e)[:100]}",
+                f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -799,203 +684,29 @@ class ElegantPriorityView(View):
         
         await interaction.response.edit_message(embed=embed, view=None)
 
-class ElegantAdminToolsView(View):
-    def __init__(self, creator_id: int, category_key: str, category_name: str):
-        super().__init__(timeout=300)
-        self.creator_id = creator_id
-        self.category_key = category_key
-        self.category_name = category_name
-    
-    @discord.ui.button(label="📝 Add Internal Note", style=discord.ButtonStyle.secondary, emoji="📝")
-    async def add_note(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Add internal staff note"""
-        # Create modal for note input
-        note_modal = InternalNoteModal()
-        await interaction.response.send_modal(note_modal)
-    
-    @discord.ui.button(label="🔄 Transfer Ticket", style=discord.ButtonStyle.primary, emoji="🔄")
-    async def transfer_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Transfer ticket to another staff member"""
-        embed = discord.Embed(
-            title="🔄 **Transfer Ticket**",
-            description="**Select a staff member to transfer this ticket to:**",
-            color=0x7c3aed
-        )
-        embed.add_field(
-            name="📋 **Instructions**",
-            value="• Use the dropdown below to select a staff member\n• The ticket will be reassigned automatically\n• Original creator will be notified",
-            inline=False
-        )
-        
-        # Create staff member selector
-        transfer_view = StaffTransferView(self.creator_id, self.category_key, self.category_name)
-        await interaction.response.send_message(embed=embed, view=transfer_view, ephemeral=True)
-    
-    @discord.ui.button(label="🚨 Escalate to Senior Staff", style=discord.ButtonStyle.danger, emoji="🚨")
-    async def escalate_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Escalate ticket to senior staff"""
-        embed = discord.Embed(
-            title="🚨 **Ticket Escalated**",
-            description="**This ticket has been escalated to senior staff members.**",
-            color=0xff4500,
-            timestamp=datetime.now()
-        )
-        embed.add_field(
-            name="⚡ **Escalation Details**",
-            value=f"**Escalated By:** {interaction.user.display_name}\n**Priority:** 🔴 High\n**Status:** Awaiting senior review",
-            inline=False
-        )
-        embed.add_field(
-            name="👥 **Notified Roles**",
-            value="• Senior Moderators\n• Lead Staff\n• Administrators",
-            inline=False
-        )
-        
-        # Ping senior staff roles
-        try:
-            senior_roles = []
-            for role in interaction.guild.roles:
-                if any(name in role.name.lower() for name in ["leadmoderator", "senior", "admin", "overseer"]):
-                    senior_roles.append(role.mention)
-            
-            if senior_roles:
-                await interaction.channel.send(f"🚨 **ESCALATION ALERT** {' '.join(senior_roles[:3])}")
-        except:
-            pass
-        
-        await interaction.response.send_message(embed=embed)
-    
-    @discord.ui.button(label="📊 Ticket Analytics", style=discord.ButtonStyle.secondary, emoji="📊")
-    async def ticket_analytics(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Show ticket analytics"""
-        embed = discord.Embed(
-            title="📊 **Ticket Analytics Dashboard**",
-            description="**Performance metrics for this support interaction**",
-            color=0x00d4aa,
-            timestamp=datetime.now()
-        )
-        
-        # Calculate some basic metrics
-        created_time = interaction.channel.created_at
-        current_time = datetime.now()
-        duration = current_time - created_time
-        
-        embed.add_field(
-            name="⏱️ **Response Metrics**",
-            value=f"**Duration:** {duration.seconds // 60} minutes\n**Status:** {'🟡 In Progress' if not self.category_key.endswith('closed') else '✅ Resolved'}\n**Category:** {self.category_name}",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="👥 **Engagement Stats**",
-            value=f"**Creator:** <@{self.creator_id}>\n**Messages:** Analyzing...\n**Staff Involved:** 1+",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="🎯 **Performance Score**",
-            value="**Rating:** ⭐⭐⭐⭐⭐\n**SLA Compliance:** ✅ Met\n**Customer Satisfaction:** Pending",
-            inline=False
-        )
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-class InternalNoteModal(discord.ui.Modal):
-    def __init__(self):
-        super().__init__(title="📝 Add Internal Staff Note")
-        
-        self.note_input = discord.ui.TextInput(
-            label="Internal Note (Staff Only)",
-            placeholder="Enter internal note that only staff can see...",
-            style=discord.TextStyle.paragraph,
-            max_length=1000,
-            required=True
-        )
-        self.add_item(self.note_input)
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📝 **Internal Staff Note Added**",
-            description=f"**Note:** {self.note_input.value}",
-            color=0x7c3aed,
-            timestamp=datetime.now()
-        )
-        embed.add_field(
-            name="👤 **Added By**",
-            value=f"{interaction.user.display_name}\n{interaction.user.mention}",
-            inline=True
-        )
-        embed.add_field(
-            name="🔒 **Visibility**",
-            value="Staff Only\nHidden from user",
-            inline=True
-        )
-        embed.set_footer(text="📝 Internal Note • Staff Only")
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-class StaffTransferView(View):
-    def __init__(self, creator_id: int, category_key: str, category_name: str):
-        super().__init__(timeout=300)
-        self.creator_id = creator_id
-        self.category_key = category_key
-        self.category_name = category_name
-    
-    @discord.ui.button(label="✅ Complete Transfer", style=discord.ButtonStyle.success, emoji="✅")
-    async def complete_transfer(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = discord.Embed(
-            title="✅ **Transfer Complete**",
-            description="**Ticket has been successfully transferred!**",
-            color=0x00d4aa,
-            timestamp=datetime.now()
-        )
-        embed.add_field(
-            name="📋 **Transfer Details**",
-            value=f"**From:** {interaction.user.display_name}\n**Status:** ✅ Completed\n**New Assignee:** Will be notified",
-            inline=False
-        )
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-# Enhanced ticket categories with cooler styling
+# Simplified ticket categories
 ELEGANT_TICKET_CATEGORIES = {
     "general": {
-        "name": "💬 General Support",
-        "description": "General questions, guidance, and basic assistance",
+        "name": "General Support",
+        "description": "General questions and assistance",
         "emoji": "💬",
         "color": 0x7c3aed
     },
     "technical": {
-        "name": "🔧 Technical Issues", 
-        "description": "Bot problems, server issues, and technical difficulties",
-        "emoji": "🔧",
+        "name": "Technical Issues", 
+        "description": "Bot problems and technical difficulties",
+        "emoji": "�",
         "color": 0xff6b6b
     },
     "account": {
-        "name": "👤 Account & Profile",
-        "description": "Profile issues, account problems, and user settings",
+        "name": "Account Help",
+        "description": "Profile issues and account problems",
         "emoji": "👤", 
         "color": 0x00d4aa
-    },
-    "moderation": {
-        "name": "🛡️ Moderation Appeal",
-        "description": "Appeals, reports, and moderation-related inquiries", 
-        "emoji": "🛡️",
-        "color": 0xffa500
-    },
-    "billing": {
-        "name": "💳 Billing & Premium",
-        "description": "Payment issues, premium features, and billing support",
-        "emoji": "💳",
-        "color": 0xffd700
-    },
-    "partnership": {
-        "name": "🤝 Partnership & Business",
-        "description": "Business inquiries, partnerships, and collaborations",
-        "emoji": "🤝",
-        "color": 0x5865f2
     }
 }
+
+
 
 def check_existing_ticket_strict(guild, user_id):
     """Strict checking for existing tickets to prevent duplicates"""
@@ -1022,15 +733,15 @@ def check_existing_ticket_strict(guild, user_id):
 class ElegantTicketPanel(View):
     def __init__(self):
         super().__init__(timeout=None)
-        self._setup_ultra_modern_buttons()
+        self._setup_simple_buttons()
     
-    def _setup_ultra_modern_buttons(self):
-        """Setup ultra-modern ticket creation buttons"""
+    def _setup_simple_buttons(self):
+        """Setup simple ticket creation buttons"""
         self.clear_items()
         
-        # Row 1: Primary support categories
+        # Simple 3-button layout
         general_btn = Button(
-            label="💬 General Support",
+            label="General Support",
             emoji="💬",
             style=discord.ButtonStyle.primary,
             custom_id="ticket_general"
@@ -1039,7 +750,7 @@ class ElegantTicketPanel(View):
         self.add_item(general_btn)
         
         technical_btn = Button(
-            label="🔧 Technical Issues",
+            label="Technical Issues",
             emoji="🔧", 
             style=discord.ButtonStyle.danger,
             custom_id="ticket_technical"
@@ -1048,41 +759,13 @@ class ElegantTicketPanel(View):
         self.add_item(technical_btn)
         
         account_btn = Button(
-            label="👤 Account Help",
+            label="Account Help",
             emoji="👤",
             style=discord.ButtonStyle.success,
             custom_id="ticket_account"
         )
         account_btn.callback = lambda i: self._create_elegant_ticket(i, "account")
         self.add_item(account_btn)
-        
-        # Row 2: Specialized categories
-        moderation_btn = Button(
-            label="🛡️ Moderation",
-            emoji="🛡️",
-            style=discord.ButtonStyle.secondary,
-            custom_id="ticket_moderation"
-        )
-        moderation_btn.callback = lambda i: self._create_elegant_ticket(i, "moderation")
-        self.add_item(moderation_btn)
-        
-        billing_btn = Button(
-            label="💳 Billing & Premium",
-            emoji="💳",
-            style=discord.ButtonStyle.secondary,
-            custom_id="ticket_billing"
-        )
-        billing_btn.callback = lambda i: self._create_elegant_ticket(i, "billing")
-        self.add_item(billing_btn)
-        
-        partnership_btn = Button(
-            label="🤝 Partnership",
-            emoji="🤝",
-            style=discord.ButtonStyle.secondary,
-            custom_id="ticket_partnership"
-        )
-        partnership_btn.callback = lambda i: self._create_elegant_ticket(i, "partnership")
-        self.add_item(partnership_btn)
 
     async def _create_elegant_ticket(self, interaction: discord.Interaction, category_key: str):
         """Create elegant ticket with duplicate prevention"""
