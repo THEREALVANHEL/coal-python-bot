@@ -92,11 +92,11 @@ class Events(commands.Cog):
             xp_gain = base_xp_gain * 2 if xp_boost_active else base_xp_gain
             
             # Use live user stats for accurate data
+            current_time = message.created_at.timestamp()
             user_stats = db.get_live_user_stats(message.author.id)
             last_xp_time = user_stats.get('last_xp_time', 0)
-            current_time = message.created_at.timestamp()
             
-            # 1 minute cooldown
+            # Only give XP every 60 seconds to prevent spam
             if current_time - last_xp_time >= 60:
                 old_xp = user_stats.get('xp', 0)
                 old_cookies = user_stats.get('cookies', 0)
@@ -110,19 +110,28 @@ class Events(commands.Cog):
                 db.add_xp(message.author.id, xp_gain)
                 db.update_last_xp_time(message.author.id, current_time)
                 
-                # Update XP roles
-                try:
-                    from cogs.leveling import Leveling
-                    leveling_cog = self.bot.get_cog('Leveling')
-                    if leveling_cog and hasattr(message.author, 'guild'):
-                        await leveling_cog.update_xp_roles(message.author, new_level)
-                        
-                        # Update cookie roles using the cookies cog
-                        cookies_cog = self.bot.get_cog('Cookies')
-                        if cookies_cog:
-                            await cookies_cog.update_cookie_roles(message.author, old_cookies)
-                except Exception as e:
-                    print(f"Error updating roles: {e}")
+                # Update roles only when level changes or on major milestones
+                level_changed = new_level != old_level
+                should_update_roles = level_changed or (new_xp % 1000 == 0)  # Every 1000 XP milestone
+                
+                if should_update_roles:
+                    try:
+                        from cogs.leveling import Leveling
+                        leveling_cog = self.bot.get_cog('Leveling')
+                        if leveling_cog and hasattr(message.author, 'guild'):
+                            # Only update XP roles if level actually changed
+                            if level_changed:
+                                await leveling_cog.update_xp_roles(message.author, new_level)
+                            
+                            # Update cookie roles with current cookies (not old_cookies!)
+                            current_user_data = db.get_user_data(message.author.id)
+                            current_cookies = current_user_data.get('cookies', 0)
+                            
+                            cookies_cog = self.bot.get_cog('Cookies')
+                            if cookies_cog and current_cookies != old_cookies:
+                                await cookies_cog.update_cookie_roles(message.author, current_cookies)
+                    except Exception as e:
+                        print(f"Error updating roles: {e}")
                 
                 # Check for level up
                 if new_level > old_level:
@@ -151,20 +160,43 @@ class Events(commands.Cog):
                     embed.set_image(url=WELCOME_GIF)
                     await channel.send(embed=embed)
 
-            # Sync roles on join (in case they're returning)
+            # Sync roles on join only if they have previous data and roles are missing
             try:
                 user_stats = db.get_live_user_stats(member.id)
                 level = user_stats.get('level', 0)
                 cookies = user_stats.get('cookies', 0)
                 
-                leveling_cog = self.bot.get_cog('Leveling')
-                if leveling_cog:
-                    await leveling_cog.update_xp_roles(member, level)
-                    
-                    # Update cookie roles using the cookies cog
-                    cookies_cog = self.bot.get_cog('Cookies')
-                    if cookies_cog:
-                        await cookies_cog.update_cookie_roles(member, cookies)
+                # Only sync if user has significant progress and is missing expected roles
+                if level > 0 or cookies > 100:
+                    leveling_cog = self.bot.get_cog('Leveling')
+                    if leveling_cog:
+                        # Check if user is missing expected XP roles
+                        from cogs.leveling import XP_ROLES, COOKIE_ROLES
+                        expected_xp_role = None
+                        expected_cookie_role = None
+                        
+                        # Find highest XP role they should have
+                        for level_req, role_id in XP_ROLES.items():
+                            if level >= level_req:
+                                expected_xp_role = role_id
+                        
+                        # Find highest cookie role they should have
+                        for cookie_req, role_id in COOKIE_ROLES.items():
+                            if cookies >= cookie_req:
+                                expected_cookie_role = role_id
+                        
+                        # Only update if missing expected roles
+                        member_role_ids = [role.id for role in member.roles]
+                        needs_xp_sync = expected_xp_role and expected_xp_role not in member_role_ids
+                        needs_cookie_sync = expected_cookie_role and expected_cookie_role not in member_role_ids
+                        
+                        if needs_xp_sync:
+                            await leveling_cog.update_xp_roles(member, level)
+                        
+                        if needs_cookie_sync:
+                            cookies_cog = self.bot.get_cog('Cookies')
+                            if cookies_cog:
+                                await cookies_cog.update_cookie_roles(member, cookies)
             except Exception as e:
                 print(f"Error syncing roles for new member {member}: {e}")
 

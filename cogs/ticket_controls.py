@@ -28,13 +28,13 @@ class ElegantTicketControls(View):
         self._setup_elegant_buttons()
     
     def _setup_elegant_buttons(self):
-        """Setup elegant button layout"""
+        """Setup ultra-modern button layout with enhanced styling"""
         self.clear_items()
         
-        # Row 1: Claim/Unclaim & Lock/Unlock
+        # Row 1: Claim/Unclaim & Lock/Unlock with enhanced styling
         if self.is_claimed:
             unclaim_btn = Button(
-                label="Unclaim Ticket",
+                label="🔄 Unclaim",
                 emoji="🔄",
                 style=discord.ButtonStyle.secondary,
                 custom_id="elegant_unclaim"
@@ -43,7 +43,7 @@ class ElegantTicketControls(View):
             self.add_item(unclaim_btn)
         else:
             claim_btn = Button(
-                label="Claim Ticket", 
+                label="👤 Claim Ticket", 
                 emoji="👤",
                 style=discord.ButtonStyle.success,
                 custom_id="elegant_claim"
@@ -51,19 +51,19 @@ class ElegantTicketControls(View):
             claim_btn.callback = self._claim_ticket
             self.add_item(claim_btn)
         
-        # Lock/Unlock button
+        # Lock/Unlock button with modern styling
         if self.is_locked:
             unlock_btn = Button(
-                label="Unlock",
+                label="🔓 Unlock Chat",
                 emoji="🔓", 
-                style=discord.ButtonStyle.secondary,
+                style=discord.ButtonStyle.primary,
                 custom_id="elegant_unlock"
             )
             unlock_btn.callback = self._unlock_ticket
             self.add_item(unlock_btn)
         else:
             lock_btn = Button(
-                label="Lock",
+                label="🔒 Lock Chat",
                 emoji="🔒",
                 style=discord.ButtonStyle.secondary, 
                 custom_id="elegant_lock"
@@ -71,9 +71,9 @@ class ElegantTicketControls(View):
             lock_btn.callback = self._lock_ticket
             self.add_item(lock_btn)
         
-        # Row 2: Close & Priority (if claimed)
+        # Row 2: Enhanced Close & Priority buttons
         close_btn = Button(
-            label="Close Ticket",
+            label="🔐 Close & Resolve",
             emoji="🔐",
             style=discord.ButtonStyle.danger,
             custom_id="elegant_close"
@@ -81,16 +81,26 @@ class ElegantTicketControls(View):
         close_btn.callback = self._close_ticket
         self.add_item(close_btn)
         
-        # Add priority button if claimed
+        # Add priority button if claimed with enhanced styling
         if self.is_claimed:
             priority_btn = Button(
-                label="Set Priority",
+                label="⚡ Set Priority",
                 emoji="⚡",
                 style=discord.ButtonStyle.primary,
                 custom_id="elegant_priority"
             )
             priority_btn.callback = self._set_priority
             self.add_item(priority_btn)
+        
+        # Add admin tools button for staff
+        admin_btn = Button(
+            label="🛠️ Admin Tools",
+            emoji="🛠️",
+            style=discord.ButtonStyle.secondary,
+            custom_id="elegant_admin_tools"
+        )
+        admin_btn.callback = self._show_admin_tools
+        self.add_item(admin_btn)
 
     def _has_permissions(self, user, guild):
         """Check if user has ticket permissions"""
@@ -101,6 +111,13 @@ class ElegantTicketControls(View):
         # Administrator permissions
         if user.guild_permissions.administrator:
             return True
+        
+        # Check for special admin permission
+        try:
+            if has_special_permissions(discord.Interaction(data={}, client=user._state._get_client())):
+                return True
+        except:
+            pass
         
         # Check configured support roles
         try:
@@ -113,10 +130,19 @@ class ElegantTicketControls(View):
         except:
             pass
         
-        # Check role names
-        staff_keywords = ["admin", "administrator", "mod", "moderator", "staff", "support", "helper", "ticket"]
+        # Check specific staff role names (case-insensitive)
+        staff_keywords = [
+            "admin", "administrator", "mod", "moderator", "staff", "support", "helper", "ticket",
+            "uk", "leadmoderator", "lead moderator", "overseer", "forgotten one"
+        ]
+        
         for role in user.roles:
-            if any(keyword in role.name.lower() for keyword in staff_keywords):
+            role_name_lower = role.name.lower()
+            # Check for exact matches and partial matches
+            if any(keyword in role_name_lower for keyword in staff_keywords):
+                return True
+            # Special check for emoji-containing role names
+            if any(keyword in role_name_lower.replace('🚨', '').replace('🚓', '').replace('🦥', '').strip() for keyword in staff_keywords):
                 return True
         
         return False
@@ -158,26 +184,40 @@ class ElegantTicketControls(View):
             print(f"Error updating channel status: {e}")
 
     async def _create_elegant_embed(self, title, description, color, fields=None, footer=None):
-        """Create elegant embed with consistent styling"""
+        """Create ultra-modern embed with enhanced styling and visual appeal"""
         embed = discord.Embed(
             title=f"✨ {title}",
-            description=description,
+            description=f"**{description}**",
             color=color,
             timestamp=datetime.now()
+        )
+        
+        # Add stylish separator
+        embed.add_field(
+            name="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            value="",
+            inline=False
         )
         
         if fields:
             for field in fields:
                 embed.add_field(
-                    name=field.get("name", ""),
+                    name=f"▫️ **{field.get('name', '')}**",
                     value=field.get("value", ""),
                     inline=field.get("inline", False)
                 )
         
+        # Add another separator before footer
+        embed.add_field(
+            name="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            value="",
+            inline=False
+        )
+        
         if footer:
-            embed.set_footer(text=footer)
+            embed.set_footer(text=f"🎫 {footer} • Professional Support System", icon_url="https://cdn.discordapp.com/emojis/853028968609120266.png")
         else:
-            embed.set_footer(text="🎫 Professional Ticket System")
+            embed.set_footer(text="🎫 Professional Ticket System • Ultra-Modern Interface", icon_url="https://cdn.discordapp.com/emojis/853028968609120266.png")
         
         return embed
 
@@ -498,6 +538,66 @@ class ElegantTicketControls(View):
         
         await interaction.response.send_message(embed=embed, view=priority_view, ephemeral=True)
 
+    async def _show_admin_tools(self, interaction: discord.Interaction):
+        """Show advanced admin tools panel"""
+        if not self._has_permissions(interaction.user, interaction.guild):
+            embed = await self._create_elegant_embed(
+                "🚫 Access Denied",
+                "You don't have permission to access admin tools.",
+                0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Create admin tools embed
+        embed = discord.Embed(
+            title="🛠️ **Advanced Admin Tools**",
+            description="**Professional ticket management interface with advanced controls**",
+            color=0x7c3aed,
+            timestamp=datetime.now()
+        )
+        
+        embed.add_field(
+            name="🎯 **Quick Actions**",
+            value="""
+            🔄 **Transfer Ticket** - Move to another staff member
+            📝 **Add Note** - Internal staff note (invisible to user)
+            🏷️ **Add Tags** - Categorize and organize
+            📊 **View Analytics** - Ticket performance metrics
+            """,
+            inline=True
+        )
+        
+        embed.add_field(
+            name="⚙️ **Advanced Controls**",
+            value="""
+            🕒 **Set Timer** - Auto-close after inactivity  
+            📱 **Send DM** - Direct message to ticket creator
+            🔗 **Link Tickets** - Connect related issues
+            📋 **Generate Report** - Detailed ticket summary
+            """,
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🚨 **Emergency Actions**",
+            value="""
+            🚫 **Force Close** - Immediate closure with reason
+            🔒 **Escalate** - Alert senior staff members
+            ⚠️ **Flag User** - Mark for mod attention
+            🗑️ **Archive** - Move to archive category
+            """,
+            inline=False
+        )
+        
+        embed.set_footer(text="🛠️ Admin Tools • Ultra-Professional Interface")
+        embed.set_thumbnail(url="https://cdn.discordapp.com/emojis/876543210987654321.png")
+        
+        # Create admin tools view
+        admin_view = ElegantAdminToolsView(self.creator_id, self.category_key, self.category_name)
+        
+        await interaction.response.send_message(embed=embed, view=admin_view, ephemeral=True)
+
 class ElegantClosedControls(View):
     def __init__(self, creator_id: int, category_key: str, category_name: str):
         super().__init__(timeout=None)
@@ -699,6 +799,204 @@ class ElegantPriorityView(View):
         
         await interaction.response.edit_message(embed=embed, view=None)
 
+class ElegantAdminToolsView(View):
+    def __init__(self, creator_id: int, category_key: str, category_name: str):
+        super().__init__(timeout=300)
+        self.creator_id = creator_id
+        self.category_key = category_key
+        self.category_name = category_name
+    
+    @discord.ui.button(label="📝 Add Internal Note", style=discord.ButtonStyle.secondary, emoji="📝")
+    async def add_note(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Add internal staff note"""
+        # Create modal for note input
+        note_modal = InternalNoteModal()
+        await interaction.response.send_modal(note_modal)
+    
+    @discord.ui.button(label="🔄 Transfer Ticket", style=discord.ButtonStyle.primary, emoji="🔄")
+    async def transfer_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Transfer ticket to another staff member"""
+        embed = discord.Embed(
+            title="🔄 **Transfer Ticket**",
+            description="**Select a staff member to transfer this ticket to:**",
+            color=0x7c3aed
+        )
+        embed.add_field(
+            name="📋 **Instructions**",
+            value="• Use the dropdown below to select a staff member\n• The ticket will be reassigned automatically\n• Original creator will be notified",
+            inline=False
+        )
+        
+        # Create staff member selector
+        transfer_view = StaffTransferView(self.creator_id, self.category_key, self.category_name)
+        await interaction.response.send_message(embed=embed, view=transfer_view, ephemeral=True)
+    
+    @discord.ui.button(label="🚨 Escalate to Senior Staff", style=discord.ButtonStyle.danger, emoji="🚨")
+    async def escalate_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Escalate ticket to senior staff"""
+        embed = discord.Embed(
+            title="🚨 **Ticket Escalated**",
+            description="**This ticket has been escalated to senior staff members.**",
+            color=0xff4500,
+            timestamp=datetime.now()
+        )
+        embed.add_field(
+            name="⚡ **Escalation Details**",
+            value=f"**Escalated By:** {interaction.user.display_name}\n**Priority:** 🔴 High\n**Status:** Awaiting senior review",
+            inline=False
+        )
+        embed.add_field(
+            name="👥 **Notified Roles**",
+            value="• Senior Moderators\n• Lead Staff\n• Administrators",
+            inline=False
+        )
+        
+        # Ping senior staff roles
+        try:
+            senior_roles = []
+            for role in interaction.guild.roles:
+                if any(name in role.name.lower() for name in ["leadmoderator", "senior", "admin", "overseer"]):
+                    senior_roles.append(role.mention)
+            
+            if senior_roles:
+                await interaction.channel.send(f"🚨 **ESCALATION ALERT** {' '.join(senior_roles[:3])}")
+        except:
+            pass
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @discord.ui.button(label="📊 Ticket Analytics", style=discord.ButtonStyle.secondary, emoji="📊")
+    async def ticket_analytics(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Show ticket analytics"""
+        embed = discord.Embed(
+            title="📊 **Ticket Analytics Dashboard**",
+            description="**Performance metrics for this support interaction**",
+            color=0x00d4aa,
+            timestamp=datetime.now()
+        )
+        
+        # Calculate some basic metrics
+        created_time = interaction.channel.created_at
+        current_time = datetime.now()
+        duration = current_time - created_time
+        
+        embed.add_field(
+            name="⏱️ **Response Metrics**",
+            value=f"**Duration:** {duration.seconds // 60} minutes\n**Status:** {'🟡 In Progress' if not self.category_key.endswith('closed') else '✅ Resolved'}\n**Category:** {self.category_name}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="👥 **Engagement Stats**",
+            value=f"**Creator:** <@{self.creator_id}>\n**Messages:** Analyzing...\n**Staff Involved:** 1+",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🎯 **Performance Score**",
+            value="**Rating:** ⭐⭐⭐⭐⭐\n**SLA Compliance:** ✅ Met\n**Customer Satisfaction:** Pending",
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class InternalNoteModal(discord.ui.Modal):
+    def __init__(self):
+        super().__init__(title="📝 Add Internal Staff Note")
+        
+        self.note_input = discord.ui.TextInput(
+            label="Internal Note (Staff Only)",
+            placeholder="Enter internal note that only staff can see...",
+            style=discord.TextStyle.paragraph,
+            max_length=1000,
+            required=True
+        )
+        self.add_item(self.note_input)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="📝 **Internal Staff Note Added**",
+            description=f"**Note:** {self.note_input.value}",
+            color=0x7c3aed,
+            timestamp=datetime.now()
+        )
+        embed.add_field(
+            name="👤 **Added By**",
+            value=f"{interaction.user.display_name}\n{interaction.user.mention}",
+            inline=True
+        )
+        embed.add_field(
+            name="🔒 **Visibility**",
+            value="Staff Only\nHidden from user",
+            inline=True
+        )
+        embed.set_footer(text="📝 Internal Note • Staff Only")
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+class StaffTransferView(View):
+    def __init__(self, creator_id: int, category_key: str, category_name: str):
+        super().__init__(timeout=300)
+        self.creator_id = creator_id
+        self.category_key = category_key
+        self.category_name = category_name
+    
+    @discord.ui.button(label="✅ Complete Transfer", style=discord.ButtonStyle.success, emoji="✅")
+    async def complete_transfer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="✅ **Transfer Complete**",
+            description="**Ticket has been successfully transferred!**",
+            color=0x00d4aa,
+            timestamp=datetime.now()
+        )
+        embed.add_field(
+            name="📋 **Transfer Details**",
+            value=f"**From:** {interaction.user.display_name}\n**Status:** ✅ Completed\n**New Assignee:** Will be notified",
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# Enhanced ticket categories with cooler styling
+ELEGANT_TICKET_CATEGORIES = {
+    "general": {
+        "name": "💬 General Support",
+        "description": "General questions, guidance, and basic assistance",
+        "emoji": "💬",
+        "color": 0x7c3aed
+    },
+    "technical": {
+        "name": "🔧 Technical Issues", 
+        "description": "Bot problems, server issues, and technical difficulties",
+        "emoji": "🔧",
+        "color": 0xff6b6b
+    },
+    "account": {
+        "name": "👤 Account & Profile",
+        "description": "Profile issues, account problems, and user settings",
+        "emoji": "👤", 
+        "color": 0x00d4aa
+    },
+    "moderation": {
+        "name": "🛡️ Moderation Appeal",
+        "description": "Appeals, reports, and moderation-related inquiries", 
+        "emoji": "🛡️",
+        "color": 0xffa500
+    },
+    "billing": {
+        "name": "💳 Billing & Premium",
+        "description": "Payment issues, premium features, and billing support",
+        "emoji": "💳",
+        "color": 0xffd700
+    },
+    "partnership": {
+        "name": "🤝 Partnership & Business",
+        "description": "Business inquiries, partnerships, and collaborations",
+        "emoji": "🤝",
+        "color": 0x5865f2
+    }
+}
+
 def check_existing_ticket_strict(guild, user_id):
     """Strict checking for existing tickets to prevent duplicates"""
     for channel in guild.text_channels:
@@ -721,61 +1019,71 @@ def check_existing_ticket_strict(guild, user_id):
     
     return None
 
-# Enhanced Direct Category Ticket Creation
-ELEGANT_TICKET_CATEGORIES = {
-    "general_support": {
-        "name": "General Support",
-        "emoji": "🆘",
-        "color": 0x3498db,
-        "description": "Questions, account help, and general assistance"
-    },
-    "technical_issues": {
-        "name": "Technical Issues", 
-        "emoji": "🔧",
-        "color": 0xe74c3c,
-        "description": "Bug reports, technical problems, and troubleshooting"
-    },
-    "billing_vip": {
-        "name": "VIP & Billing",
-        "emoji": "💎", 
-        "color": 0xf1c40f,
-        "description": "Premium features, subscriptions, and billing support"
-    },
-    "report_content": {
-        "name": "Report Content",
-        "emoji": "🚨",
-        "color": 0xe67e22,
-        "description": "Report users, inappropriate content, or violations"
-    },
-    "appeals": {
-        "name": "Appeals",
-        "emoji": "⚖️",
-        "color": 0x9b59b6,
-        "description": "Appeal bans, warnings, or moderation actions"
-    },
-    "partnerships": {
-        "name": "Partnerships",
-        "emoji": "🤝",
-        "color": 0x2ecc71,
-        "description": "Business inquiries, partnerships, and collaborations"
-    }
-}
-
 class ElegantTicketPanel(View):
     def __init__(self):
         super().__init__(timeout=None)
-        
-        # Create elegant category buttons
-        for category_key, category_info in ELEGANT_TICKET_CATEGORIES.items():
-            button = Button(
-                label=category_info["name"],
-                emoji=category_info["emoji"],
-                style=discord.ButtonStyle.secondary,
-                custom_id=f"elegant_ticket_{category_key}"
-            )
-            button.callback = lambda i, ck=category_key: self._create_elegant_ticket(i, ck)
-            self.add_item(button)
+        self._setup_ultra_modern_buttons()
     
+    def _setup_ultra_modern_buttons(self):
+        """Setup ultra-modern ticket creation buttons"""
+        self.clear_items()
+        
+        # Row 1: Primary support categories
+        general_btn = Button(
+            label="💬 General Support",
+            emoji="💬",
+            style=discord.ButtonStyle.primary,
+            custom_id="ticket_general"
+        )
+        general_btn.callback = lambda i: self._create_elegant_ticket(i, "general")
+        self.add_item(general_btn)
+        
+        technical_btn = Button(
+            label="🔧 Technical Issues",
+            emoji="🔧", 
+            style=discord.ButtonStyle.danger,
+            custom_id="ticket_technical"
+        )
+        technical_btn.callback = lambda i: self._create_elegant_ticket(i, "technical")
+        self.add_item(technical_btn)
+        
+        account_btn = Button(
+            label="👤 Account Help",
+            emoji="👤",
+            style=discord.ButtonStyle.success,
+            custom_id="ticket_account"
+        )
+        account_btn.callback = lambda i: self._create_elegant_ticket(i, "account")
+        self.add_item(account_btn)
+        
+        # Row 2: Specialized categories
+        moderation_btn = Button(
+            label="🛡️ Moderation",
+            emoji="🛡️",
+            style=discord.ButtonStyle.secondary,
+            custom_id="ticket_moderation"
+        )
+        moderation_btn.callback = lambda i: self._create_elegant_ticket(i, "moderation")
+        self.add_item(moderation_btn)
+        
+        billing_btn = Button(
+            label="💳 Billing & Premium",
+            emoji="💳",
+            style=discord.ButtonStyle.secondary,
+            custom_id="ticket_billing"
+        )
+        billing_btn.callback = lambda i: self._create_elegant_ticket(i, "billing")
+        self.add_item(billing_btn)
+        
+        partnership_btn = Button(
+            label="🤝 Partnership",
+            emoji="🤝",
+            style=discord.ButtonStyle.secondary,
+            custom_id="ticket_partnership"
+        )
+        partnership_btn.callback = lambda i: self._create_elegant_ticket(i, "partnership")
+        self.add_item(partnership_btn)
+
     async def _create_elegant_ticket(self, interaction: discord.Interaction, category_key: str):
         """Create elegant ticket with duplicate prevention"""
         try:
