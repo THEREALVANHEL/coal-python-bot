@@ -1233,5 +1233,334 @@ class Economy(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error retrieving your items: {str(e)}", ephemeral=True)
 
+    @app_commands.command(name="addcoins", description="💰 Add coins to a user (Admin only)")
+    @app_commands.describe(
+        user="User to add coins to",
+        amount="Amount of coins to add"
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def add_coins_admin(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        """Add coins to a user - admin only command"""
+        
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+            return
+        
+        if amount <= 0:
+            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+            return
+        
+        if amount > 1000000:  # Max limit for safety
+            await interaction.response.send_message("❌ Amount too large! Maximum is 1,000,000 coins per operation.", ephemeral=True)
+            return
+        
+        try:
+            # Get user's current balance
+            user_data = db.get_user_data(user.id)
+            old_balance = user_data.get('coins', 0)
+            
+            # Add coins using database function
+            success = db.add_coins(user.id, amount)
+            
+            if success:
+                # Get new balance
+                updated_data = db.get_user_data(user.id)
+                new_balance = updated_data.get('coins', 0)
+                
+                # Create success embed
+                embed = discord.Embed(
+                    title="💰 **Coins Added Successfully**",
+                    description=f"Successfully added **{amount:,}** coins to {user.mention}",
+                    color=0x00d4aa,
+                    timestamp=datetime.now()
+                )
+                
+                embed.add_field(
+                    name="💳 **Transaction Details**",
+                    value=f"**User:** {user.display_name}\n**Amount Added:** +{amount:,} coins\n**Previous Balance:** {old_balance:,} coins\n**New Balance:** {new_balance:,} coins",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="👤 **Admin Action**",
+                    value=f"**Performed by:** {interaction.user.display_name}\n**Action:** Add Coins\n**Status:** ✅ Completed",
+                    inline=False
+                )
+                
+                embed.set_author(name="Admin Coin Management", icon_url=interaction.user.display_avatar.url)
+                embed.set_footer(text="💼 Administrative Action • Coins added to user account")
+                
+                await interaction.response.send_message(embed=embed)
+                
+                # Send notification to the user (optional)
+                try:
+                    user_embed = discord.Embed(
+                        title="💰 **Coins Received!**",
+                        description=f"An administrator has added **{amount:,}** coins to your account!",
+                        color=0x00d4aa
+                    )
+                    user_embed.add_field(
+                        name="💳 **Your New Balance**",
+                        value=f"{new_balance:,} coins",
+                        inline=False
+                    )
+                    user_embed.set_footer(text="💫 Enjoy your coins!")
+                    
+                    await user.send(embed=user_embed)
+                except:
+                    pass  # User might have DMs disabled
+                
+            else:
+                await interaction.response.send_message("❌ Failed to add coins. Database error occurred.", ephemeral=True)
+                
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error adding coins: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="removecoins", description="💸 Remove coins from a user (Admin only)")
+    @app_commands.describe(
+        user="User to remove coins from",
+        amount="Amount of coins to remove"
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def remove_coins_admin(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        """Remove coins from a user - admin only command"""
+        
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+            return
+        
+        if amount <= 0:
+            await interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+            return
+        
+        try:
+            # Get user's current balance
+            user_data = db.get_user_data(user.id)
+            old_balance = user_data.get('coins', 0)
+            
+            if old_balance < amount:
+                await interaction.response.send_message(
+                    f"❌ {user.display_name} only has {old_balance:,} coins, but you're trying to remove {amount:,} coins.",
+                    ephemeral=True
+                )
+                return
+            
+            # Remove coins using database function
+            success = db.remove_coins(user.id, amount)
+            
+            if success:
+                # Get new balance
+                updated_data = db.get_user_data(user.id)
+                new_balance = updated_data.get('coins', 0)
+                
+                # Create success embed
+                embed = discord.Embed(
+                    title="💸 **Coins Removed Successfully**",
+                    description=f"Successfully removed **{amount:,}** coins from {user.mention}",
+                    color=0xff6b6b,
+                    timestamp=datetime.now()
+                )
+                
+                embed.add_field(
+                    name="💳 **Transaction Details**",
+                    value=f"**User:** {user.display_name}\n**Amount Removed:** -{amount:,} coins\n**Previous Balance:** {old_balance:,} coins\n**New Balance:** {new_balance:,} coins",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="👤 **Admin Action**",
+                    value=f"**Performed by:** {interaction.user.display_name}\n**Action:** Remove Coins\n**Status:** ✅ Completed",
+                    inline=False
+                )
+                
+                embed.set_author(name="Admin Coin Management", icon_url=interaction.user.display_avatar.url)
+                embed.set_footer(text="💼 Administrative Action • Coins removed from user account")
+                
+                await interaction.response.send_message(embed=embed)
+                
+                # Send notification to the user (optional)
+                try:
+                    user_embed = discord.Embed(
+                        title="💸 **Coins Removed**",
+                        description=f"An administrator has removed **{amount:,}** coins from your account.",
+                        color=0xff6b6b
+                    )
+                    user_embed.add_field(
+                        name="💳 **Your New Balance**",
+                        value=f"{new_balance:,} coins",
+                        inline=False
+                    )
+                    user_embed.set_footer(text="💼 Administrative action")
+                    
+                    await user.send(embed=user_embed)
+                except:
+                    pass  # User might have DMs disabled
+                
+            else:
+                await interaction.response.send_message("❌ Failed to remove coins. Database error occurred.", ephemeral=True)
+                
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error removing coins: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="dbhealth", description="🔍 Check database sync status (Admin only)")
+    @app_commands.default_permissions(administrator=True)
+    async def database_health_check(self, interaction: discord.Interaction):
+        """Check MongoDB connection and data sync status - admin only"""
+        
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Only administrators can use this command!", ephemeral=True)
+            return
+        
+        try:
+            await interaction.response.defer()
+            
+            # Get database health information
+            health_info = db.get_database_health()
+            
+            embed = discord.Embed(
+                title="🔍 **Database Health Check**",
+                description="Real-time MongoDB connection and sync status",
+                color=0x00d4aa if health_info.get('success', True) else 0xff6b6b,
+                timestamp=datetime.now()
+            )
+            
+            # Connection status
+            if db.client is not None:
+                try:
+                    # Test connection
+                    db.client.admin.command('ping')
+                    connection_status = "✅ Connected"
+                    connection_color = "🟢"
+                except:
+                    connection_status = "❌ Connection Failed"
+                    connection_color = "🔴"
+            else:
+                connection_status = "❌ Not Connected"
+                connection_color = "🔴"
+            
+            embed.add_field(
+                name="🔗 **MongoDB Connection**",
+                value=f"**Status:** {connection_color} {connection_status}\n**Database:** {db.db.name if db.db else 'None'}\n**Collections:** {'Active' if db.users_collection else 'Inactive'}",
+                inline=True
+            )
+            
+            # Data sync test
+            try:
+                # Test user data operations
+                test_user_id = interaction.user.id
+                user_data = db.get_user_data(test_user_id)
+                
+                # Test coin operations
+                original_coins = user_data.get('coins', 0)
+                test_result = db.add_coins(test_user_id, 0)  # Add 0 coins (no change)
+                
+                sync_status = "✅ Working" if test_result else "❌ Failed"
+                sync_color = "🟢" if test_result else "🔴"
+                
+            except Exception as e:
+                sync_status = f"❌ Error: {str(e)[:50]}"
+                sync_color = "🔴"
+            
+            embed.add_field(
+                name="🔄 **Data Sync Status**",
+                value=f"**Coins System:** {sync_color} {sync_status}\n**XP System:** {'🟢 Active' if hasattr(db, 'add_xp') else '🔴 Inactive'}\n**Work System:** {'🟢 Active' if hasattr(db, 'update_last_work') else '🔴 Inactive'}",
+                inline=True
+            )
+            
+            # Database statistics
+            try:
+                stats = db.get_database_stats()
+                total_users = stats.get('total_users', 0)
+                total_xp = stats.get('total_xp', 0)
+                total_coins = stats.get('total_coins', 0)
+                
+                embed.add_field(
+                    name="📊 **Database Statistics**",
+                    value=f"**Total Users:** {total_users:,}\n**Total XP:** {total_xp:,}\n**Total Coins:** {total_coins:,}",
+                    inline=True
+                )
+            except:
+                embed.add_field(
+                    name="📊 **Database Statistics**",
+                    value="❌ Unable to retrieve stats",
+                    inline=True
+                )
+            
+            # Collection health
+            collections_status = []
+            collections = ['users', 'guild_settings', 'tickets', 'starboard']
+            
+            for collection_name in collections:
+                collection = getattr(db, f"{collection_name}_collection", None)
+                if collection is not None:
+                    try:
+                        count = collection.count_documents({})
+                        collections_status.append(f"**{collection_name.title()}:** ✅ {count:,} docs")
+                    except:
+                        collections_status.append(f"**{collection_name.title()}:** ❌ Error")
+                else:
+                    collections_status.append(f"**{collection_name.title()}:** 🔴 Not loaded")
+            
+            embed.add_field(
+                name="📂 **Collections Health**",
+                value="\n".join(collections_status),
+                inline=False
+            )
+            
+            # Recent activity test
+            try:
+                # Check for recent user activity
+                if db.users_collection is not None:
+                    recent_cutoff = datetime.now().timestamp() - 3600  # Last hour
+                    recent_users = db.users_collection.count_documents({
+                        "last_updated": {"$gte": recent_cutoff}
+                    })
+                    
+                    embed.add_field(
+                        name="⚡ **Recent Activity**",
+                        value=f"**Users active (1h):** {recent_users}\n**Last sync:** <t:{int(datetime.now().timestamp())}:R>\n**Status:** {'🟢 Live' if recent_users > 0 else '🟡 Quiet'}",
+                        inline=True
+                    )
+            except:
+                embed.add_field(
+                    name="⚡ **Recent Activity**",
+                    value="❌ Unable to check recent activity",
+                    inline=True
+                )
+            
+            # Overall health score
+            health_score = 100
+            if connection_status.startswith("❌"):
+                health_score -= 50
+            if sync_status.startswith("❌"):
+                health_score -= 30
+            if total_users == 0:
+                health_score -= 20
+            
+            health_emoji = "🟢" if health_score >= 80 else "🟡" if health_score >= 60 else "🔴"
+            
+            embed.add_field(
+                name="🎯 **Overall Health Score**",
+                value=f"{health_emoji} **{health_score}/100**\n{'Excellent' if health_score >= 90 else 'Good' if health_score >= 80 else 'Fair' if health_score >= 60 else 'Poor'}",
+                inline=True
+            )
+            
+            embed.set_author(name="Database Health Monitor", icon_url=interaction.user.display_avatar.url)
+            embed.set_footer(text="🔍 Real-time database diagnostics • Updated every check")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="❌ **Health Check Failed**",
+                description=f"Unable to perform database health check.\n\n**Error:** {str(e)}",
+                color=0xff6b6b
+            )
+            
+            try:
+                await interaction.followup.send(embed=error_embed)
+            except:
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Economy(bot))
