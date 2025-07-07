@@ -928,11 +928,14 @@ class ElegantTicketPanel(View):
             
             # Create the elegant ticket channel
             try:
+                # Generate unique ticket number using timestamp
+                ticket_number = str(int(datetime.now().timestamp()))[-4:]
+                
                 channel = await guild.create_text_channel(
                     name=channel_name,
                     category=category,
                     overwrites=overwrites,
-                    topic=f"Ticket #{str(channel.id)[-4:]} - Type: {category_info['emoji']} {category_info['name']} - Created by: @{user.display_name}"
+                    topic=f"Ticket #{ticket_number} - Type: {category_info['emoji']} {category_info['name']} - Created by: @{user.display_name}"
                 )
             except discord.Forbidden:
                 embed = discord.Embed(
@@ -945,8 +948,8 @@ class ElegantTicketPanel(View):
             
             # Create professional MEE6-style welcome embed with BLEKNEPHEW branding
             welcome_embed = discord.Embed(
-                title=f"📫 BlackOps Group Support / Ticket #{str(channel.id)[-4:]}",
-                description=f"**Ticket #{str(channel.id)[-4:]}** - Type: {category_info['emoji']} {category_info['name']} - Created by: @{user.display_name}",
+                title=f"📫 BlackOps Group Support / Ticket #{ticket_number}",
+                description=f"**Ticket #{ticket_number}** - Type: {category_info['emoji']} {category_info['name']} - Created by: @{user.display_name}",
                 color=0x7289da
             )
             

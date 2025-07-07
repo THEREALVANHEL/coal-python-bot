@@ -203,7 +203,7 @@ class Events(commands.Cog):
             # Log to mod log
             await self.log_to_modlog(member.guild, "member_join", {
                 "user": member,
-                "description": f"{member.mention} joined the server\n**Account Created:** <t:{int(member.created_at.timestamp())}:R>",
+                "description": f"joined the server",
                 "color": 0x00ff00
             })
 
@@ -231,7 +231,7 @@ class Events(commands.Cog):
             # Log to mod log
             await self.log_to_modlog(member.guild, "member_leave", {
                 "user": member,
-                "description": f"**{member.display_name}** left the server",
+                "description": f"left the server",
                 "color": 0xff6b6b
             })
 
@@ -256,7 +256,7 @@ class Events(commands.Cog):
                     
                     await self.log_to_modlog(after.guild, "role_update", {
                         "user": after,
-                        "description": f"{after.mention} role changes:\n" + "\n".join(description),
+                        "description": f"role changes: {', '.join(description)}",
                         "color": 0x7289da
                     })
 
@@ -264,7 +264,7 @@ class Events(commands.Cog):
                 # Nickname change
                 await self.log_to_modlog(after.guild, "nickname_update", {
                     "user": after,
-                    "description": f"{after.mention} nickname changed\n**Before:** {before.nick or 'None'}\n**After:** {after.nick or 'None'}",
+                    "description": f"changed nickname to '{after.nick or 'None'}'",
                     "color": 0xffa500
                 })
 
@@ -280,7 +280,7 @@ class Events(commands.Cog):
         try:
             await self.log_to_modlog(message.guild, "message_delete", {
                 "user": message.author,
-                "description": f"Message deleted in {message.channel.mention}\n**Content:** {message.content[:1000] if message.content else 'No text content'}",
+                "description": f"deleted message in {message.channel.mention}",
                 "color": 0xff0000
             })
         except Exception as e:
@@ -295,7 +295,7 @@ class Events(commands.Cog):
         try:
             await self.log_to_modlog(after.guild, "message_edit", {
                 "user": after.author,
-                "description": f"Message edited in {after.channel.mention}\n**Before:** {before.content[:500] if before.content else 'No content'}\n**After:** {after.content[:500] if after.content else 'No content'}",
+                "description": f"edited message in {after.channel.mention}",
                 "color": 0xffa500
             })
         except Exception as e:
@@ -311,14 +311,14 @@ class Events(commands.Cog):
                     if before.name != after.name:
                         await self.log_to_modlog(guild, "username_update", {
                             "user": after,
-                            "description": f"{after.mention} username changed\n**Before:** {before.name}\n**After:** {after.name}",
+                            "description": f"changed username to '{after.name}'",
                             "color": 0x7289da
                         })
                     
                     if before.avatar != after.avatar:
                         await self.log_to_modlog(guild, "avatar_update", {
                             "user": after,
-                            "description": f"{after.mention} changed their avatar",
+                            "description": f"changed their avatar",
                             "color": 0x7289da
                         })
                     break
@@ -330,7 +330,7 @@ class Events(commands.Cog):
         """Log channel creation"""
         try:
             await self.log_to_modlog(channel.guild, "channel_create", {
-                "description": f"Channel created: {channel.mention} ({channel.type})",
+                "description": f"Channel created: {channel.mention}",
                 "color": 0x00ff00
             })
         except Exception as e:
@@ -341,7 +341,7 @@ class Events(commands.Cog):
         """Log channel deletion"""
         try:
             await self.log_to_modlog(channel.guild, "channel_delete", {
-                "description": f"Channel deleted: **{channel.name}** ({channel.type})",
+                "description": f"Channel deleted: **{channel.name}**",
                 "color": 0xff0000
             })
         except Exception as e:
@@ -380,7 +380,7 @@ class Events(commands.Cog):
             print(f"Error in on_raw_reaction_add: {e}")
 
     async def log_to_modlog(self, guild, event_type, data):
-        """Log events to mod log channel"""
+        """Simple and cool mod log system"""
         try:
             modlog_channel_id = db.get_guild_setting(guild.id, "modlog_channel", None)
             if not modlog_channel_id:
@@ -390,16 +390,30 @@ class Events(commands.Cog):
             if not channel:
                 return
 
+            # Create simple event icons
+            event_icons = {
+                "member_join": "✅", "member_leave": "❌", "role_update": "🎭",
+                "nickname_update": "�", "message_delete": "🗑️", "message_edit": "✏️",
+                "username_update": "🏷️", "avatar_update": "🖼️", "channel_create": "➕",
+                "channel_delete": "🚫", "role_create": "🆕", "role_delete": "❌"
+            }
+            
+            icon = event_icons.get(event_type, "📋")
+            
+            # Simple clean embed - less clutter
             embed = discord.Embed(
-                title=f"📋 {event_type.replace('_', ' ').title()}",
-                description=data.get("description", "No description"),
-                color=data.get("color", 0x7289da),
+                color=data.get("color", 0x2b2d31),
                 timestamp=datetime.now()
             )
             
+            # Clean one-liner format
             if "user" in data:
-                embed.set_author(name=data["user"].display_name, icon_url=data["user"].display_avatar.url)
-                embed.add_field(name="User ID", value=data["user"].id, inline=True)
+                description = f"{icon} **{data['user'].display_name}** {data.get('description', '').split('\n')[0]}"
+                embed.description = description
+                embed.set_thumbnail(url=data["user"].display_avatar.url)
+            else:
+                description = f"{icon} {data.get('description', '')}"
+                embed.description = description
             
             await channel.send(embed=embed)
             
