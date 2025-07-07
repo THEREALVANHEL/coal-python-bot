@@ -29,24 +29,40 @@ class CoolTicketControls(View):
         
         if self.is_claimed:
             # Claimed state: Unclaim, Lock/Unlock, Close
-            self.add_item(Button(label="👤 Unclaim", style=discord.ButtonStyle.secondary, emoji="👤", custom_id="unclaim_btn"))
+            unclaim_btn = Button(label="👤 Unclaim", style=discord.ButtonStyle.secondary, emoji="👤")
+            unclaim_btn.callback = self.unclaim_ticket
+            self.add_item(unclaim_btn)
             
             if self.is_locked:
-                self.add_item(Button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓", custom_id="unlock_btn"))
+                unlock_btn = Button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓")
+                unlock_btn.callback = self.unlock_ticket
+                self.add_item(unlock_btn)
             else:
-                self.add_item(Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒", custom_id="lock_btn"))
+                lock_btn = Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒")
+                lock_btn.callback = self.lock_ticket
+                self.add_item(lock_btn)
                 
-            self.add_item(Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐", custom_id="close_btn"))
+            close_btn = Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐")
+            close_btn.callback = self.close_ticket
+            self.add_item(close_btn)
         else:
             # Unclaimed state: Claim, Lock/Unlock, Close
-            self.add_item(Button(label="👤 Claim", style=discord.ButtonStyle.success, emoji="👤", custom_id="claim_btn"))
+            claim_btn = Button(label="👤 Claim", style=discord.ButtonStyle.success, emoji="👤")
+            claim_btn.callback = self.claim_ticket
+            self.add_item(claim_btn)
             
             if self.is_locked:
-                self.add_item(Button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓", custom_id="unlock_btn"))
+                unlock_btn = Button(label="🔓 Unlock", style=discord.ButtonStyle.secondary, emoji="🔓")
+                unlock_btn.callback = self.unlock_ticket
+                self.add_item(unlock_btn)
             else:
-                self.add_item(Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒", custom_id="lock_btn"))
+                lock_btn = Button(label="🔒 Lock", style=discord.ButtonStyle.secondary, emoji="🔒")
+                lock_btn.callback = self.lock_ticket
+                self.add_item(lock_btn)
                 
-            self.add_item(Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐", custom_id="close_btn"))
+            close_btn = Button(label="🔐 Close", style=discord.ButtonStyle.danger, emoji="🔐")
+            close_btn.callback = self.close_ticket
+            self.add_item(close_btn)
     
     def has_ticket_permissions(self, user, guild):
         """Check if user has ticket permissions"""
@@ -106,12 +122,12 @@ class CoolTicketControls(View):
             
             clean_username = creator.display_name.lower().replace(' ', '').replace('-', '')[:10]
             
-            # Build new channel name with status and claimer
+            # Build new channel name based on claim status
             if claimed_by:
                 claimer_name = claimed_by.display_name.lower().replace(' ', '')[:8]
-                new_name = f"{status_emoji}-claimed-by-{claimer_name}"
+                new_name = f"claimed-by-{claimer_name}"
             else:
-                new_name = f"{status_emoji}-ticket-{clean_username}"
+                new_name = f"open-ticket-{clean_username}"
             
             # Ensure name length is within Discord limits
             if len(new_name) > 100:
@@ -191,7 +207,7 @@ class CoolTicketControls(View):
                     color=0x00d4aa
                 )
                 embed.add_field(
-                    name="� **Ticket Details**",
+                    name="📋 **Ticket Details**",
                     value=f"**Creator:** {creator.mention}\n**Category:** {self.subcategory}\n**Status:** 🟢 Open & Waiting",
                     inline=False
                 )
@@ -245,7 +261,7 @@ class CoolTicketControls(View):
             new_topic = f"🟡 CLAIMED by {interaction.user.display_name} • {current_topic}"
             await channel.edit(topic=new_topic)
             
-            # Update channel name with yellow emoji and claimer name
+            # Update channel name to show claimer
             await self.update_channel_name(channel, "🟡", interaction.user)
             
             # Update state and buttons
@@ -305,7 +321,7 @@ class CoolTicketControls(View):
             
             await channel.edit(topic=new_topic)
             
-            # Update channel name back to green (open)
+            # Update channel name back to open ticket
             await self.update_channel_name(channel, "🟢")
             
             # Update state and buttons
@@ -424,8 +440,11 @@ class CoolTicketControls(View):
         try:
             channel = interaction.channel
             
-            # Update channel name with black emoji (closed)
-            await self.update_channel_name(channel, "⚫")
+            # Update channel name to closed
+            creator = interaction.guild.get_member(self.creator_id)
+            if creator:
+                clean_username = creator.display_name.lower().replace(' ', '').replace('-', '')[:10]
+                await channel.edit(name=f"closed-ticket-{clean_username}")
             
             # Update channel topic
             current_topic = channel.topic or ""
@@ -452,25 +471,7 @@ class CoolTicketControls(View):
             close_embed.set_footer(text="✨ Ticket closed - Use reopen button if needed")
             
             # Create closed state view
-            closed_view = View(timeout=None)
-            closed_view.add_item(Button(label="♻️ Reopen", style=discord.ButtonStyle.primary, emoji="♻️", custom_id="reopen_btn"))
-            closed_view.add_item(Button(label="🗑️ Delete", style=discord.ButtonStyle.danger, emoji="🗑️", custom_id="delete_btn"))
-            
-            # Copy necessary attributes for closed view
-            closed_view.creator_id = self.creator_id
-            closed_view.category_key = self.category_key
-            closed_view.subcategory = self.subcategory
-            
-            # Add interaction check for closed view
-            async def closed_interaction_check(closed_interaction):
-                custom_id = closed_interaction.data.get('custom_id', '')
-                if custom_id == "reopen_btn":
-                    await self.reopen_ticket(closed_interaction)
-                elif custom_id == "delete_btn":
-                    await self.delete_ticket(closed_interaction)
-                return False
-            
-            closed_view.interaction_check = closed_interaction_check
+            closed_view = ClosedTicketView(self.creator_id, self.category_key, self.subcategory)
             
             await interaction.response.edit_message(embed=close_embed, view=closed_view)
             
@@ -481,13 +482,53 @@ class CoolTicketControls(View):
                 pass
             
             # Remove permissions for ticket creator (but keep for staff)
-            creator = interaction.guild.get_member(self.creator_id)
             if creator:
                 await channel.set_permissions(creator, read_messages=False, send_messages=False)
                 await channel.send(f"📬 {creator.mention}, your ticket has been closed. If you need further assistance, please create a new ticket or ask staff to reopen this one.")
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error closing ticket: {str(e)}", ephemeral=True)
+
+class ClosedTicketView(View):
+    def __init__(self, creator_id: int, category_key: str, subcategory: str):
+        super().__init__(timeout=None)
+        self.creator_id = creator_id
+        self.category_key = category_key
+        self.subcategory = subcategory
+        
+        reopen_btn = Button(label="♻️ Reopen", style=discord.ButtonStyle.primary, emoji="♻️")
+        reopen_btn.callback = self.reopen_ticket
+        self.add_item(reopen_btn)
+        
+        delete_btn = Button(label="🗑️ Delete", style=discord.ButtonStyle.danger, emoji="🗑️")
+        delete_btn.callback = self.delete_ticket
+        self.add_item(delete_btn)
+    
+    def has_ticket_permissions(self, user, guild):
+        """Check if user has ticket permissions"""
+        # Check if user is the ticket creator
+        if user.id == self.creator_id:
+            return True
+        
+        # Check if user has admin/mod permissions
+        if user.guild_permissions.administrator:
+            return True
+        
+        # Check if user has ticket support roles
+        server_settings = db.get_server_settings(guild.id)
+        ticket_support_roles = server_settings.get('ticket_support_roles', [])
+        
+        user_role_ids = [role.id for role in user.roles]
+        if any(role_id in user_role_ids for role_id in ticket_support_roles):
+            return True
+        
+        # Check for mod/admin roles by name
+        mod_role_names = ["admin", "administrator", "mod", "moderator", "staff", "support", "helper", "ticket"]
+        for role in user.roles:
+            if any(name in role.name.lower() for name in mod_role_names):
+                return True
+        
+        return False
 
     async def reopen_ticket(self, interaction: discord.Interaction):
         """Handle ticket reopening"""
@@ -498,8 +539,11 @@ class CoolTicketControls(View):
         try:
             channel = interaction.channel
             
-            # Update channel name back to green (reopened)
-            await self.update_channel_name(channel, "🟢")
+            # Update channel name back to open
+            creator = interaction.guild.get_member(self.creator_id)
+            if creator:
+                clean_username = creator.display_name.lower().replace(' ', '').replace('-', '')[:10]
+                await channel.edit(name=f"open-ticket-{clean_username}")
             
             # Update channel topic
             current_topic = channel.topic or ""
@@ -507,14 +551,8 @@ class CoolTicketControls(View):
             await channel.edit(topic=new_topic)
             
             # Restore permissions for ticket creator
-            creator = interaction.guild.get_member(self.creator_id)
             if creator:
                 await channel.set_permissions(creator, read_messages=True, send_messages=True)
-            
-            # Reset state
-            self.is_claimed = False
-            self.is_locked = False
-            self.setup_buttons()
             
             # Create reopen embed
             reopen_embed = discord.Embed(
@@ -530,7 +568,10 @@ class CoolTicketControls(View):
             )
             reopen_embed.set_footer(text="✨ Ticket reopened - Continue the conversation")
             
-            await interaction.response.edit_message(embed=reopen_embed, view=self)
+            # Reset to normal ticket controls
+            controls = CoolTicketControls(self.creator_id, self.category_key, self.subcategory, is_claimed=False)
+            
+            await interaction.response.edit_message(embed=reopen_embed, view=controls)
             
             # Notify parties
             if creator:
@@ -571,6 +612,29 @@ class CoolTicketControls(View):
                 await cancel_interaction.response.edit_message(content="🚫 Deletion cancelled.", embed=None, view=None)
         
         await interaction.response.send_message(embed=confirm_embed, view=ConfirmDeleteView(), ephemeral=True)
+
+def check_existing_ticket(guild, user_id):
+    """Check if user already has an active ticket in any category"""
+    for channel in guild.text_channels:
+        channel_name = channel.name.lower()
+        # Check for any ticket channel patterns that might belong to this user
+        if any(pattern in channel_name for pattern in [
+            f"ticket-{user_id}",
+            f"-{user_id}",
+            f"open-ticket-",
+            f"claimed-by-",
+            f"closed-ticket-"
+        ]):
+            # Additional check - look at channel topic or permissions to confirm ownership
+            if channel.topic and str(user_id) in channel.topic:
+                return channel
+            # Check permissions - if user has special permissions in this channel, it's likely theirs
+            permissions = channel.permissions_for(guild.get_member(user_id)) if guild.get_member(user_id) else None
+            if permissions and permissions.read_messages and permissions.send_messages:
+                # Check if this is really a ticket channel by looking for ticket-like names
+                if any(word in channel_name for word in ["ticket", "support", "help"]):
+                    return channel
+    return None
 
 # Enhanced Direct Category Ticket Creation
 DIRECT_TICKET_CATEGORIES = {
@@ -640,21 +704,22 @@ class DirectTicketPanel(View):
             category_key = interaction.data["custom_id"].replace("direct_ticket_", "")
             category_info = DIRECT_TICKET_CATEGORIES[category_key]
             
-            # Check for existing ticket
+            # Check for existing ticket using enhanced check
             guild = interaction.guild
             user = interaction.user
             
-            existing_channel = None
-            for channel in guild.text_channels:
-                if channel.name.startswith(f"🟢-ticket-") and f"-{user.id}" in channel.name:
-                    existing_channel = channel
-                    break
+            existing_channel = check_existing_ticket(guild, user.id)
             
             if existing_channel:
                 embed = discord.Embed(
                     title="⚠️ **Active Ticket Found**",
                     description=f"You already have an open ticket: {existing_channel.mention}",
                     color=0xff9966
+                )
+                embed.add_field(
+                    name="💡 **What to do?**",
+                    value="Please close your existing ticket first or continue the conversation there.",
+                    inline=False
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
@@ -671,7 +736,7 @@ class DirectTicketPanel(View):
             guild = interaction.guild
             user = interaction.user
             
-            # Create category if needed
+            # Use single unified category for ALL tickets
             category_name = "✨ Support Tickets"
             category = discord.utils.get(guild.categories, name=category_name)
             if not category:
@@ -683,9 +748,9 @@ class DirectTicketPanel(View):
                 except discord.Forbidden:
                     category = None
             
-            # Simple channel naming with status emoji
+            # Unified channel naming - starts as "open ticket"
             clean_username = user.display_name.lower().replace(' ', '').replace('-', '')[:10]
-            channel_name = f"🟢-ticket-{clean_username}"
+            channel_name = f"open-ticket-{clean_username}"
             
             # Enhanced permissions
             overwrites = {
@@ -744,7 +809,7 @@ class DirectTicketPanel(View):
                     name=channel_name,
                     category=category,
                     overwrites=overwrites,
-                    topic=f"🟢 Open • {category_info['name']} • Created: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                    topic=f"🟢 Open • {category_info['name']} • Created: {datetime.now().strftime('%Y-%m-%d %H:%M')} • User: {user.id}"
                 )
             except discord.Forbidden:
                 await interaction.response.send_message("❌ I don't have permission to create channels!", ephemeral=True)
@@ -814,4 +879,4 @@ async def setup(bot: commands.Bot):
     # Add persistent views
     bot.add_view(CoolTicketControls(0, "general", "General", is_claimed=False))
     bot.add_view(DirectTicketPanel())
-    print("✅ Ticket controls loaded with enhanced state management and creation role pings")
+    print("✅ Ticket controls loaded with unified system and enhanced one-ticket-per-person checking")
