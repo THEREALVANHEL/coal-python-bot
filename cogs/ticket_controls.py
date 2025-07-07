@@ -207,22 +207,25 @@ class ElegantTicketControls(View):
             return
         
         try:
+            # Update channel
+            await self._update_channel_status(interaction.channel, "claimed", interaction.user)
+            
             # Update state
             self.is_claimed = True
             self.claimer_id = interaction.user.id
             self._setup_elegant_buttons()
             
-            # Update channel
-            await self._update_channel_status(interaction.channel, "claimed", interaction.user)
+            # Send claim notification (MEE6 style)
+            await interaction.response.send_message(f"**@{interaction.user.display_name} claimed the ticket.**")
             
-            # Simple claim embed
-            embed = await self._create_elegant_embed(
-                "Ticket Claimed",
-                f"✅ {interaction.user.display_name} has claimed this ticket.",
-                0x00d4aa
-            )
-            
-            await interaction.response.edit_message(embed=embed, view=self)
+            # Edit the original pinned message with updated buttons
+            try:
+                async for message in interaction.channel.history(limit=50):
+                    if message.pinned and message.author.bot and message.embeds:
+                        await message.edit(view=self)
+                        break
+            except:
+                pass
             
         except Exception as e:
             embed = await self._create_elegant_embed(
@@ -230,7 +233,10 @@ class ElegantTicketControls(View):
                 f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            try:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            except:
+                await interaction.followup.send(embed=embed, ephemeral=True)
 
     async def _unclaim_ticket(self, interaction: discord.Interaction):
         """Handle ticket unclaiming"""
@@ -253,22 +259,25 @@ class ElegantTicketControls(View):
             return
         
         try:
+            # Update channel
+            await self._update_channel_status(interaction.channel, "open")
+            
             # Update state
             self.is_claimed = False
             self.claimer_id = None
             self._setup_elegant_buttons()
             
-            # Update channel
-            await self._update_channel_status(interaction.channel, "open")
+            # Send unclaim notification
+            await interaction.response.send_message(f"**@{interaction.user.display_name} unclaimed the ticket.**")
             
-            # Simple unclaim embed
-            embed = await self._create_elegant_embed(
-                "Ticket Unclaimed",
-                f"🔄 {interaction.user.display_name} removed their claim. Ticket is now available.",
-                0x7c3aed
-            )
-            
-            await interaction.response.edit_message(embed=embed, view=self)
+            # Edit the original pinned message with updated buttons
+            try:
+                async for message in interaction.channel.history(limit=50):
+                    if message.pinned and message.author.bot and message.embeds:
+                        await message.edit(view=self)
+                        break
+            except:
+                pass
             
         except Exception as e:
             embed = await self._create_elegant_embed(
@@ -276,7 +285,10 @@ class ElegantTicketControls(View):
                 f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            try:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            except:
+                await interaction.followup.send(embed=embed, ephemeral=True)
 
     async def _lock_ticket(self, interaction: discord.Interaction):
         """Handle ticket locking"""
@@ -369,17 +381,20 @@ class ElegantTicketControls(View):
             # Update channel status
             await self._update_channel_status(interaction.channel, "closed")
             
-            # Simple close embed
-            embed = await self._create_elegant_embed(
-                "Ticket Closed",
-                f"✅ {interaction.user.display_name} closed this ticket.",
-                0x6c757d
-            )
+            # Send close notification  
+            await interaction.response.send_message(f"**Ticket closed by @{interaction.user.display_name}**")
             
             # Create closed ticket view
             closed_view = ElegantClosedControls(self.creator_id, self.category_key, self.category_name)
             
-            await interaction.response.edit_message(embed=embed, view=closed_view)
+            # Edit the original pinned message with closed buttons
+            try:
+                async for message in interaction.channel.history(limit=50):
+                    if message.pinned and message.author.bot and message.embeds:
+                        await message.edit(view=closed_view)
+                        break
+            except:
+                pass
             
             # Remove user permissions but keep for staff
             creator = interaction.guild.get_member(self.creator_id)
@@ -392,7 +407,10 @@ class ElegantTicketControls(View):
                 f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            try:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            except:
+                await interaction.followup.send(embed=embed, ephemeral=True)
 
     async def _set_priority(self, interaction: discord.Interaction):
         """Handle priority setting"""
@@ -914,7 +932,7 @@ class ElegantTicketPanel(View):
                     name=channel_name,
                     category=category,
                     overwrites=overwrites,
-                    topic=f"🟢 OPEN • {category_info['name']} • User: {user.id} • Created: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                    topic=f"Ticket #{str(channel.id)[-4:]} - Type: {category_info['emoji']} {category_info['name']} - Created by: @{user.display_name}"
                 )
             except discord.Forbidden:
                 embed = discord.Embed(
@@ -925,14 +943,29 @@ class ElegantTicketPanel(View):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
-            # Create simple, elegant welcome embed
+            # Create professional MEE6-style welcome embed with BLEKNEPHEW branding
             welcome_embed = discord.Embed(
-                title=f"🎫 {category_info['name']} Ticket",
-                description=f"**{user.display_name}** • Support staff will assist you shortly.",
-                color=category_info['color']
+                title=f"📫 BlackOps Group Support / Ticket #{str(channel.id)[-4:]}",
+                description=f"**Ticket #{str(channel.id)[-4:]}** - Type: {category_info['emoji']} {category_info['name']} - Created by: @{user.display_name}",
+                color=0x7289da
             )
             
-            welcome_embed.set_footer(text="Describe your issue and wait for staff")
+            # Professional welcome message
+            welcome_message = (
+                f"Welcome to BlackOps Group support. Your ticket has been received by us and you have entered our queue. "
+                f"A dedicated staff member will be with you shortly. Response times may vary.\n\n"
+                f"**❕ Important Information**\n"
+                f"You can already provide a description of your question or issue to help speed-up the process. "
+                f"If you provide a description before your ticket is claimed, we can address your concerns faster."
+            )
+            
+            welcome_embed.add_field(
+                name="",
+                value=welcome_message,
+                inline=False
+            )
+            
+            welcome_embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
             
             # Create elegant controls
             controls = ElegantTicketControls(user.id, category_key, category_info['name'], is_claimed=False)
@@ -943,6 +976,8 @@ class ElegantTicketPanel(View):
             # Pin the welcome message
             try:
                 await welcome_msg.pin()
+                # Send pin notification like MEE6
+                pin_notification = await channel.send(f"**BLEKNEPHEW** pinned a message to this channel.")
             except:
                 pass
             
@@ -975,7 +1010,13 @@ class ElegantTicketPanel(View):
                 
                 if roles_to_ping:
                     ping_mentions = " ".join([role.mention for role in roles_to_ping])
-                    await channel.send(f"📢 **Staff Alert:** {ping_mentions}\n**User:** {user.mention} needs help with {category_info['name'].lower()}")
+                    staff_ping_message = await channel.send(f"{ping_mentions} {user.mention}")
+                    
+                    # Pin the staff notification (like MEE6 does)
+                    try:
+                        await staff_ping_message.pin()
+                    except:
+                        pass
             except Exception as e:
                 print(f"Error pinging staff: {e}")
             
