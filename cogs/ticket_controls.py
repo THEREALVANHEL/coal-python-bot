@@ -135,8 +135,8 @@ class ElegantTicketControls(View):
             
             # Update channel name based on status
             if status_type == "claimed" and user:
-                claimer_name = user.display_name.lower().replace(' ', '')[:6]
-                new_name = f"🟡・{claimer_name}・{clean_username}"
+                claimer_name = user.display_name.lower().replace(' ', '').replace('-', '')[:8]
+                new_name = f"🟡・claimed-by-{claimer_name}"
             elif status_type == "closed":
                 new_name = f"🔒・closed・{clean_username}"
             else:  # open
@@ -235,11 +235,11 @@ class ElegantTicketControls(View):
                 # Fallback to channel message
                 await interaction.channel.send(message)
             
-            # Edit the original pinned message with updated buttons
+            # Edit only the pinned control message with updated buttons
             try:
-                async for message in interaction.channel.history(limit=50):
-                    if message.pinned and message.author.bot and message.embeds:
-                        await message.edit(view=self)
+                async for msg in interaction.channel.history(limit=50):
+                    if msg.pinned and msg.author.bot and msg.embeds and hasattr(msg, 'components') and msg.components:
+                        await msg.edit(view=self)
                         break
             except:
                 pass
@@ -282,14 +282,25 @@ class ElegantTicketControls(View):
             self.is_locked = True
             self._setup_elegant_buttons()
             
-            # Simple lock embed
-            embed = await self._create_elegant_embed(
-                "Ticket Locked",
-                f"🔒 {interaction.user.display_name} locked this ticket.",
-                0x6c757d
-            )
+            # Send simple lock notification
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"🔒 **{interaction.user.display_name} locked this ticket.**")
+                else:
+                    await interaction.channel.send(f"🔒 **{interaction.user.display_name} locked this ticket.**")
+            except discord.NotFound:
+                await interaction.channel.send(f"🔒 **{interaction.user.display_name} locked this ticket.**")
+            except Exception:
+                await interaction.channel.send(f"🔒 **{interaction.user.display_name} locked this ticket.**")
             
-            await interaction.response.edit_message(embed=embed, view=self)
+            # Update only the pinned control message buttons
+            try:
+                async for message in interaction.channel.history(limit=50):
+                    if message.pinned and message.author.bot and message.embeds and hasattr(message, 'components') and message.components:
+                        await message.edit(view=self)
+                        break
+            except:
+                pass
             
         except Exception as e:
             embed = await self._create_elegant_embed(
@@ -297,7 +308,10 @@ class ElegantTicketControls(View):
                 f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            try:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            except:
+                await interaction.channel.send(f"❌ {interaction.user.mention} Lock failed: {str(e)[:50]}")
 
     async def _unlock_ticket(self, interaction: discord.Interaction):
         """Handle ticket unlocking"""
@@ -320,14 +334,25 @@ class ElegantTicketControls(View):
             self.is_locked = False
             self._setup_elegant_buttons()
             
-            # Simple unlock embed
-            embed = await self._create_elegant_embed(
-                "Ticket Unlocked",
-                f"🔓 {interaction.user.display_name} unlocked this ticket.",
-                0x28a745
-            )
+            # Send simple unlock notification
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"🔓 **{interaction.user.display_name} unlocked this ticket.**")
+                else:
+                    await interaction.channel.send(f"🔓 **{interaction.user.display_name} unlocked this ticket.**")
+            except discord.NotFound:
+                await interaction.channel.send(f"🔓 **{interaction.user.display_name} unlocked this ticket.**")
+            except Exception:
+                await interaction.channel.send(f"🔓 **{interaction.user.display_name} unlocked this ticket.**")
             
-            await interaction.response.edit_message(embed=embed, view=self)
+            # Update only the pinned control message buttons
+            try:
+                async for message in interaction.channel.history(limit=50):
+                    if message.pinned and message.author.bot and message.embeds and hasattr(message, 'components') and message.components:
+                        await message.edit(view=self)
+                        break
+            except:
+                pass
             
         except Exception as e:
             embed = await self._create_elegant_embed(
@@ -335,7 +360,10 @@ class ElegantTicketControls(View):
                 f"❌ Error: {str(e)[:50]}",
                 0xff6b6b
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            try:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            except:
+                await interaction.channel.send(f"❌ {interaction.user.mention} Unlock failed: {str(e)[:50]}")
 
     async def _close_ticket(self, interaction: discord.Interaction):
         """Handle ticket closing"""
@@ -352,16 +380,24 @@ class ElegantTicketControls(View):
             # Update channel status
             await self._update_channel_status(interaction.channel, "closed")
             
-            # Send close notification  
-            await interaction.response.send_message(f"**Ticket closed by @{interaction.user.display_name}**")
+            # Send close notification with better error handling
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"**Ticket closed by @{interaction.user.display_name}**")
+                else:
+                    await interaction.channel.send(f"**Ticket closed by @{interaction.user.display_name}**")
+            except discord.NotFound:
+                await interaction.channel.send(f"**Ticket closed by @{interaction.user.display_name}**")
+            except Exception:
+                await interaction.channel.send(f"**Ticket closed by @{interaction.user.display_name}**")
             
             # Create closed ticket view
             closed_view = ElegantClosedControls(self.creator_id, self.category_key, self.category_name)
             
-            # Edit the original pinned message with closed buttons
+            # Edit only the pinned control message with closed buttons
             try:
                 async for message in interaction.channel.history(limit=50):
-                    if message.pinned and message.author.bot and message.embeds:
+                    if message.pinned and message.author.bot and message.embeds and hasattr(message, 'components') and message.components:
                         await message.edit(view=closed_view)
                         break
             except:
@@ -379,9 +415,12 @@ class ElegantTicketControls(View):
                 0xff6b6b
             )
             try:
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+                else:
+                    await interaction.followup.send(embed=embed, ephemeral=True)
             except:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+                await interaction.channel.send(f"❌ {interaction.user.mention} Close failed: {str(e)[:50]}")
 
     async def _set_priority(self, interaction: discord.Interaction):
         """Handle priority setting"""

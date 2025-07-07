@@ -384,7 +384,7 @@ class Events(commands.Cog):
             print(f"Error in on_raw_reaction_add: {e}")
 
     async def log_to_modlog(self, guild, event_type, data):
-        """Simple and cool mod log system"""
+        """Ultra-simple mod log - only important stuff"""
         try:
             modlog_channel_id = db.get_guild_setting(guild.id, "modlog_channel", None)
             if not modlog_channel_id:
@@ -394,34 +394,25 @@ class Events(commands.Cog):
             if not channel:
                 return
 
-            # Create simple event icons
-            event_icons = {
-                "member_join": "✅", "member_leave": "❌", "role_update": "🎭",
-                "nickname_update": "�", "message_delete": "🗑️", "message_edit": "✏️",
-                "username_update": "🏷️", "avatar_update": "🖼️", "channel_create": "➕",
-                "channel_delete": "🚫", "role_create": "🆕", "role_delete": "❌"
+            # Only log TRULY important events
+            important_events = {
+                "member_join": "✅", 
+                "member_leave": "❌"
             }
             
-            icon = event_icons.get(event_type, "📋")
+            # Skip if not important
+            if event_type not in important_events:
+                return
             
-            # Simple clean embed - less clutter
-            embed = discord.Embed(
-                color=data.get("color", 0x2b2d31),
-                timestamp=datetime.now()
-            )
+            icon = important_events[event_type]
             
-            # Clean one-liner format
+            # Ultra-simple one-line message (no embeds)
             if "user" in data:
-                desc_text = data.get('description', '')
-                first_line = desc_text.split('\n')[0] if desc_text else ''
-                description = f"{icon} **{data['user'].display_name}** {first_line}"
-                embed.description = description
-                embed.set_thumbnail(url=data["user"].display_avatar.url)
+                message = f"{icon} **{data['user'].display_name}** {data.get('description', '')}"
             else:
-                description = f"{icon} {data.get('description', '')}"
-                embed.description = description
+                message = f"{icon} {data.get('description', '')}"
             
-            await channel.send(embed=embed)
+            await channel.send(message)
             
         except Exception as e:
             print(f"Error logging to modlog: {e}")
