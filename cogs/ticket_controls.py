@@ -217,31 +217,6 @@ class CoolTicketControls(View):
         except Exception as e:
             print(f"Error pinging creation roles: {e}")
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        """Handle button interactions"""
-        if not hasattr(interaction.data, 'custom_id'):
-            return True
-            
-        custom_id = interaction.data.get('custom_id', '')
-        
-        # Route to appropriate handler
-        if custom_id == "claim_btn":
-            await self.claim_ticket(interaction)
-        elif custom_id == "unclaim_btn":
-            await self.unclaim_ticket(interaction)
-        elif custom_id == "lock_btn":
-            await self.lock_ticket(interaction)
-        elif custom_id == "unlock_btn":
-            await self.unlock_ticket(interaction)
-        elif custom_id == "close_btn":
-            await self.close_ticket(interaction)
-        elif custom_id == "reopen_btn":
-            await self.reopen_ticket(interaction)
-        elif custom_id == "delete_btn":
-            await self.delete_ticket(interaction)
-        
-        return False  # Prevent default handling
-
     async def claim_ticket(self, interaction: discord.Interaction):
         """Handle ticket claiming"""
         if not self.has_ticket_permissions(interaction.user, interaction.guild):
@@ -879,4 +854,4 @@ async def setup(bot: commands.Bot):
     # Add persistent views
     bot.add_view(CoolTicketControls(0, "general", "General", is_claimed=False))
     bot.add_view(DirectTicketPanel())
-    print("✅ Ticket controls loaded with unified system and enhanced one-ticket-per-person checking")
+    print("✅ Ticket controls loaded with working button interactions")

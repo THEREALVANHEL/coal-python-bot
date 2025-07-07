@@ -21,34 +21,6 @@ class Tickets(commands.Cog):
         self.bot.add_view(DirectTicketPanel())
         print("✅ Tickets loaded with unified direct button system only")
 
-    @app_commands.command(name="createticket", description="🎫 Create a support ticket instantly")
-    async def create_ticket_quick(self, interaction: discord.Interaction):
-        """Quick ticket creation using direct buttons"""
-        
-        embed = discord.Embed(
-            title="🎫 **Create Support Ticket**",
-            description="Choose a category that best matches your needs. Your ticket will be created instantly!",
-            color=0x7c3aed,
-            timestamp=datetime.now()
-        )
-        
-        embed.add_field(
-            name="📋 **Available Categories**",
-            value="• 🆘 **General Support** - Basic questions and help\n• 🔧 **Technical Issues** - Bug reports and problems\n• 💳 **VIP & Billing** - Premium features and membership\n• 🚨 **Report User/Content** - Report violations\n• ⚖️ **Appeals** - Appeal bans or warnings\n• 🤝 **Partnership** - Business and collaborations",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="💡 **Quick Tips**",
-            value="• Only one ticket per person at a time\n• Be specific about your issue\n• Staff will respond soon\n• Use buttons below for actions",
-            inline=False
-        )
-        
-        embed.set_footer(text="✨ Click a button below to create your ticket instantly")
-        
-        view = DirectTicketPanel()
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
     @app_commands.command(name="ticketpanel", description="🎫 Create direct ticket panel in current channel (Admin only)")
     @app_commands.describe(
         channel="Channel where the ticket panel will be posted (optional)"
