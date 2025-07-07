@@ -55,7 +55,7 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Junior Developer", 
-                "emoji": "",
+                "emoji": "💻",
                 "min_pay": 25, 
                 "max_pay": 50, 
                 "description": "writing simple code",
@@ -89,11 +89,11 @@ JOB_TIERS = {
         "jobs": [
             {
                 "name": "Software Developer", 
-                "emoji": "�",
+                "emoji": "🔨",
                 "min_pay": 40, 
                 "max_pay": 80, 
                 "description": "developing applications",
-                "full_description": "� You build robust applications and features, solving complex problems with code.",
+                "full_description": "🔨 You build robust applications and features, solving complex problems with code.",
                 "skill": "development"
             },
             {
