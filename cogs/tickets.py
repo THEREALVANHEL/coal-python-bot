@@ -43,7 +43,7 @@ class SimpleTicketView(View):
                 
         return False
     
-    @discord.ui.button(label="Claim", emoji="👤", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Claim", emoji="👤", style=discord.ButtonStyle.primary, custom_id="ticket_claim")
     async def claim_ticket(self, interaction: discord.Interaction, button: Button):
         if not self._is_staff(interaction.user):
             await interaction.response.send_message("❌ Only staff can claim tickets.", ephemeral=True)
@@ -69,7 +69,7 @@ class SimpleTicketView(View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
     
-    @discord.ui.button(label="Close", emoji="🔒", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Close", emoji="🔒", style=discord.ButtonStyle.danger, custom_id="ticket_close")
     async def close_ticket(self, interaction: discord.Interaction, button: Button):
         if not self._is_staff(interaction.user):
             await interaction.response.send_message("❌ Only staff can close tickets.", ephemeral=True)
@@ -105,15 +105,15 @@ class TicketCreateView(View):
                 return True
         return False
     
-    @discord.ui.button(label="💬 General Support", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="💬 General Support", style=discord.ButtonStyle.secondary, custom_id="ticket_general")
     async def general_support(self, interaction: discord.Interaction, button: Button):
         await self._create_ticket(interaction, "general", "💬")
     
-    @discord.ui.button(label="🔧 Technical Issue", style=discord.ButtonStyle.secondary) 
+    @discord.ui.button(label="🔧 Technical Issue", style=discord.ButtonStyle.secondary, custom_id="ticket_technical") 
     async def technical_issue(self, interaction: discord.Interaction, button: Button):
         await self._create_ticket(interaction, "technical", "🔧")
     
-    @discord.ui.button(label="👤 Account Help", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="👤 Account Help", style=discord.ButtonStyle.secondary, custom_id="ticket_account")
     async def account_help(self, interaction: discord.Interaction, button: Button):
         await self._create_ticket(interaction, "account", "👤")
     
