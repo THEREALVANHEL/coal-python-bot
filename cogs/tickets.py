@@ -13,6 +13,7 @@ from permissions import has_special_permissions
 
 # Define the 4 staff roles that can manage tickets
 STAFF_ROLES = ["lead moderator", "moderator", "overseer", "forgotten one"]
+STAFF_ROLE_IDS = [1371003310223654974, 1371003310223654974, 1371003310223654974, 1371003310223654974]  # Replace with actual role IDs
 
 class AdminControlPanel(View):
     """Private admin control panel with buttons for staff commands"""
@@ -107,8 +108,168 @@ class AdminControlPanel(View):
             except:
                 pass
 
+    @discord.ui.button(label="🚨 Emergency Ban", style=discord.ButtonStyle.danger, custom_id="admin_emergency_ban")
+    async def emergency_ban(self, interaction: discord.Interaction, button: Button):
+        if not self._is_staff(interaction.user):
+            await interaction.response.send_message("❌ Only staff can use this!", ephemeral=True)
+            return
+            
+        class QuickBanModal(Modal):
+            def __init__(self):
+                super().__init__(title="🚨 Emergency Ban")
+                
+            user_id = TextInput(
+                label="User ID to Ban",
+                placeholder="Enter the user ID of the person to ban",
+                required=True,
+                max_length=20
+            )
+            
+            reason = TextInput(
+                label="Ban Reason",
+                placeholder="Emergency ban reason",
+                required=True,
+                max_length=500,
+                style=discord.TextStyle.paragraph
+            )
+            
+            async def on_submit(self, modal_interaction):
+                try:
+                    user_id = int(self.user_id.value)
+                    user = modal_interaction.guild.get_member(user_id)
+                    
+                    if not user:
+                        # Try to fetch user even if not in guild
+                        try:
+                            user = await modal_interaction.client.fetch_user(user_id)
+                        except:
+                            await modal_interaction.response.send_message("❌ User not found!", ephemeral=True)
+                            return
+                    
+                    # Check if user can be banned (hierarchy check)
+                    if user == modal_interaction.user:
+                        await modal_interaction.response.send_message("❌ You cannot ban yourself!", ephemeral=True)
+                        return
+                    
+                    if isinstance(user, discord.Member) and user.top_role >= modal_interaction.user.top_role:
+                        await modal_interaction.response.send_message("❌ Cannot ban user with equal or higher role!", ephemeral=True)
+                        return
+                    
+                    # Execute ban
+                    reason = f"Emergency ban by {modal_interaction.user}: {self.reason.value}"
+                    await modal_interaction.guild.ban(user, reason=reason, delete_message_days=1)
+                    
+                    embed = discord.Embed(
+                        title="🚨 Emergency Ban Executed",
+                        description=f"**User:** {user.mention} (`{user.id}`)\n**Reason:** {self.reason.value}\n**Banned by:** {modal_interaction.user.mention}",
+                        color=0xff0000,
+                        timestamp=datetime.now()
+                    )
+                    await modal_interaction.response.send_message(embed=embed)
+                    
+                except ValueError:
+                    await modal_interaction.response.send_message("❌ Invalid user ID format!", ephemeral=True)
+                except discord.Forbidden:
+                    await modal_interaction.response.send_message("❌ Missing permissions to ban this user!", ephemeral=True)
+                except Exception as e:
+                    await modal_interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+        
+        await interaction.response.send_modal(QuickBanModal())
+
+    @discord.ui.button(label="⚠️ Quick Warn", style=discord.ButtonStyle.secondary, custom_id="admin_quick_warn")
+    async def quick_warn(self, interaction: discord.Interaction, button: Button):
+        if not self._is_staff(interaction.user):
+            await interaction.response.send_message("❌ Only staff can use this!", ephemeral=True)
+            return
+            
+        class QuickWarnModal(Modal):
+            def __init__(self):
+                super().__init__(title="⚠️ Quick Warn")
+                
+            user_id = TextInput(
+                label="User ID to Warn",
+                placeholder="Enter the user ID",
+                required=True,
+                max_length=20
+            )
+            
+            reason = TextInput(
+                label="Warning Reason",
+                placeholder="Reason for the warning",
+                required=True,
+                max_length=500,
+                style=discord.TextStyle.paragraph
+            )
+            
+            async def on_submit(self, modal_interaction):
+                try:
+                    user_id = int(self.user_id.value)
+                    user = modal_interaction.guild.get_member(user_id)
+                    
+                    if not user:
+                        await modal_interaction.response.send_message("❌ User not found in server!", ephemeral=True)
+                        return
+                    
+                    # Add warning to database
+                    warning_data = {
+                        'user_id': user.id,
+                        'warned_by': modal_interaction.user.id,
+                        'reason': self.reason.value,
+                        'timestamp': datetime.now(),
+                        'guild_id': modal_interaction.guild.id
+                    }
+                    
+                    success = db.add_warning(warning_data)
+                    if not success:
+                        await modal_interaction.response.send_message("❌ Failed to add warning to database!", ephemeral=True)
+                        return
+                    
+                    # Get total warnings
+                    warnings = db.get_user_warnings(user.id)
+                    warning_count = len(warnings)
+                    
+                    embed = discord.Embed(
+                        title="⚠️ User Warned",
+                        description=f"**User:** {user.mention}\n**Reason:** {self.reason.value}\n**Total Warnings:** {warning_count}\n**Warned by:** {modal_interaction.user.mention}",
+                        color=0xffa500,
+                        timestamp=datetime.now()
+                    )
+                    
+                    await modal_interaction.response.send_message(embed=embed)
+                    
+                    # Try to DM the user
+                    try:
+                        dm_embed = discord.Embed(
+                            title="⚠️ Warning Received",
+                            description=f"You have been warned in **{modal_interaction.guild.name}**",
+                            color=0xffa500,
+                            timestamp=datetime.now()
+                        )
+                        dm_embed.add_field(
+                            name="Reason",
+                            value=self.reason.value,
+                            inline=False
+                        )
+                        dm_embed.add_field(
+                            name="Total Warnings",
+                            value=f"{warning_count} warning(s)",
+                            inline=True
+                        )
+                        dm_embed.set_footer(text="Please follow server rules to avoid further warnings")
+                        
+                        await user.send(embed=dm_embed)
+                    except:
+                        pass  # DM failed, but warning was still issued
+                    
+                except ValueError:
+                    await modal_interaction.response.send_message("❌ Invalid user ID format!", ephemeral=True)
+                except Exception as e:
+                    await modal_interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+        
+        await interaction.response.send_modal(QuickWarnModal())
+
 class SimpleTicketButtons(View):
-    """Simple ticket control buttons for staff"""
+    """Simple ticket control buttons for staff - FIXED VERSION"""
     def __init__(self, creator_id: int):
         super().__init__(timeout=None)
         self.creator_id = creator_id
@@ -147,7 +308,16 @@ class SimpleTicketButtons(View):
                 new_name = f"🟢claimed-by-{claimer_name}"
                 await interaction.channel.edit(name=new_name)
                 
+                # Update the view state and the message
                 self.claimed_by = interaction.user.id
+                
+                # Get the original message and update it
+                async for message in interaction.channel.history(limit=10):
+                    if message.author == interaction.client.user and message.embeds and message.components:
+                        # Update the view in the message
+                        await message.edit(view=self)
+                        break
+                
                 await interaction.response.send_message(embed=embed)
                 return
             
@@ -157,6 +327,12 @@ class SimpleTicketButtons(View):
             await interaction.channel.edit(name=new_name)
             
             self.claimed_by = interaction.user.id
+            
+            # Update the view in the original message
+            async for message in interaction.channel.history(limit=10):
+                if message.author == interaction.client.user and message.embeds and message.components:
+                    await message.edit(view=self)
+                    break
             
             embed = discord.Embed(
                 title="✅ Ticket Claimed",
@@ -194,7 +370,7 @@ class SimpleTicketButtons(View):
                 pass
 
 class TicketCreateButtons(View):
-    """Simple ticket creation buttons"""
+    """Simple ticket creation buttons with staff role pinging"""
     def __init__(self):
         super().__init__(timeout=None)
         
@@ -206,6 +382,14 @@ class TicketCreateButtons(View):
                 channel.name.startswith('ticket-')) and str(user.id) in channel.topic:
                 return True
         return False
+    
+    async def _ping_staff_roles(self, guild):
+        """Get staff role mentions for pinging"""
+        staff_mentions = []
+        for role in guild.roles:
+            if role.name.lower() in STAFF_ROLES:
+                staff_mentions.append(role.mention)
+        return staff_mentions
     
     @discord.ui.button(label="💬 General Support", style=discord.ButtonStyle.secondary, custom_id="create_general")
     async def general_support(self, interaction: discord.Interaction, button: Button):
@@ -220,7 +404,7 @@ class TicketCreateButtons(View):
         await self._create_ticket(interaction, "account", "👤", "Account Help")
     
     async def _create_ticket(self, interaction: discord.Interaction, category: str, emoji: str, title: str):
-        """Create a new ticket"""
+        """Create a new ticket with staff role pinging"""
         # Check for existing ticket
         if self._has_existing_ticket(interaction.user, interaction.guild):
             embed = discord.Embed(
@@ -265,7 +449,10 @@ class TicketCreateButtons(View):
                 topic=f"{emoji} {title} • Creator: {interaction.user.id} • Created: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             )
             
-            # Send initial message
+            # Get staff role mentions
+            staff_mentions = await self._ping_staff_roles(interaction.guild)
+            
+            # Send initial message with staff pings
             embed = discord.Embed(
                 title=f"{emoji} New {title}",
                 description=f"**Ticket Creator:** {interaction.user.mention}\n**Category:** {title}\n**Created:** <t:{int(datetime.now().timestamp())}:F>",
@@ -282,12 +469,16 @@ class TicketCreateButtons(View):
             # Add ticket control buttons (staff only)
             view = SimpleTicketButtons(interaction.user.id)
             
-            await ticket_channel.send(f"{interaction.user.mention}", embed=embed, view=view)
+            # Create mention string
+            staff_ping = " ".join(staff_mentions) if staff_mentions else ""
+            mention_text = f"{interaction.user.mention} {staff_ping}"
+            
+            await ticket_channel.send(mention_text, embed=embed, view=view)
             
             # Success message
             success_embed = discord.Embed(
                 title="✅ Ticket Created",
-                description=f"Your ticket has been created: {ticket_channel.mention}",
+                description=f"Your ticket has been created: {ticket_channel.mention}\n\n🔔 Staff have been notified!",
                 color=0x00ff00
             )
             await interaction.followup.send(embed=success_embed, ephemeral=True)
@@ -388,6 +579,11 @@ class SimpleTickets(commands.Cog):
             inline=False
         )
         embed.add_field(
+            name="⚡ Quick Actions",
+            value="• **Emergency Ban** - Quick ban with reason\n• **Quick Warn** - Issue warning with reason",
+            inline=False
+        )
+        embed.add_field(
             name="👮 Authorized Users",
             value="• Lead Moderator\n• Moderator\n• Overseer\n• Forgotten One\n• Administrators",
             inline=False
@@ -448,6 +644,61 @@ class SimpleTickets(commands.Cog):
         
         await asyncio.sleep(10)
         await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
+
+    @app_commands.command(name="warnlist", description="View warning list for a user (public command)")
+    @app_commands.describe(user="User to check warnings for")
+    async def warnlist(self, interaction: discord.Interaction, user: discord.Member):
+        """Public command to view user warnings"""
+        
+        try:
+            warnings = db.get_user_warnings(user.id)
+            
+            embed = discord.Embed(
+                title=f"⚠️ Warning List for {user.display_name}",
+                color=0xffa500 if warnings else 0x00ff00,
+                timestamp=datetime.now()
+            )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            
+            if not warnings:
+                embed.description = "✅ This user has no warnings on record."
+                embed.color = 0x00ff00
+            else:
+                embed.description = f"📊 **Total Warnings:** {len(warnings)}"
+                
+                # Show last 5 warnings
+                recent_warnings = warnings[-5:] if len(warnings) > 5 else warnings
+                
+                for i, warning in enumerate(recent_warnings, 1):
+                    warned_by = interaction.guild.get_member(warning.get('warned_by'))
+                    warned_by_name = warned_by.display_name if warned_by else "Unknown Staff"
+                    
+                    timestamp = warning.get('timestamp')
+                    if isinstance(timestamp, datetime):
+                        time_str = f"<t:{int(timestamp.timestamp())}:R>"
+                    else:
+                        time_str = "Unknown time"
+                    
+                    embed.add_field(
+                        name=f"⚠️ Warning #{i}" + (f" (of {len(warnings)})" if len(warnings) > 5 else ""),
+                        value=f"**Reason:** {warning.get('reason', 'No reason provided')}\n**Warned by:** {warned_by_name}\n**Time:** {time_str}",
+                        inline=False
+                    )
+                
+                if len(warnings) > 5:
+                    embed.add_field(
+                        name="📋 Note",
+                        value=f"Showing 5 most recent warnings. Total: {len(warnings)}",
+                        inline=False
+                    )
+            
+            embed.set_footer(text="⚠️ Public Warning System")
+            
+            # This is now PUBLIC (not ephemeral)
+            await interaction.response.send_message(embed=embed, ephemeral=False)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error retrieving warnings: {str(e)}", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(SimpleTickets(bot))

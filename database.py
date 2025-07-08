@@ -1871,52 +1871,7 @@ def quick_db_health_check():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-# Warning system functions (re-added for moderation cog)
-def add_warning(user_id, reason, moderator_id):
-    """Add a warning to a user"""
-    try:
-        user_data = get_user_data(user_id)
-        if 'warnings' not in user_data:
-            user_data['warnings'] = []
-        
-        warning = {
-            'reason': reason,
-            'moderator_id': moderator_id,
-            'timestamp': datetime.now().timestamp()
-        }
-        user_data['warnings'].append(warning)
-        
-        users_collection.update_one(
-            {'user_id': user_id},
-            {'$set': {'warnings': user_data['warnings']}},
-            upsert=True
-        )
-        return True
-    except Exception as e:
-        print(f"Error adding warning: {e}")
-        return False
-
-def get_user_warnings(user_id):
-    """Get all warnings for a user"""
-    try:
-        user_data = get_user_data(user_id)
-        return user_data.get('warnings', [])
-    except Exception as e:
-        print(f"Error getting warnings: {e}")
-        return []
-
-def clear_user_warnings(user_id):
-    """Clear all warnings for a user"""
-    try:
-        users_collection.update_one(
-            {'user_id': user_id},
-            {'$set': {'warnings': []}},
-            upsert=True
-        )
-        return True
-    except Exception as e:
-        print(f"Error clearing warnings: {e}")
-        return False
+# Warning system functions (legacy support)
 
 def remove_specific_warning(user_id, warning_index):
     """Remove a specific warning by index"""
@@ -2108,27 +2063,410 @@ def get_staff_activity_summary(user_id, days=7):
         }
 
 def check_staff_demotion_candidates():
-    """Check which staff members are candidates for demotion"""
+    """Get staff members who might need demotion (legacy function - keeping for compatibility)"""
     try:
-        staff_activity_collection = db.staff_activity
-        one_week_ago = datetime.now() - timedelta(days=7)
+        if users_collection is None:
+            return []
         
-        # Find staff who haven't met requirements
-        inactive_staff = []
-        all_staff = staff_activity_collection.find({})
-        
-        for staff in all_staff:
-            summary = get_staff_activity_summary(staff['user_id'], 7)
-            if not summary['meets_requirements']:
-                inactive_staff.append({
-                    'user_id': staff['user_id'],
-                    'days_active': summary['days_active'],
-                    'last_activity': summary['last_activity']
-                })
-        
-        return inactive_staff
-    except Exception as e:
-        print(f"Error checking demotion candidates: {e}")
+        # Legacy function - return empty list since we have a new job tracking system
         return []
+        
+    except Exception as e:
+        print(f"Error checking staff demotion candidates: {e}")
+        return []
+
+# ===== JOB TRACKING SYSTEM =====
+
+def get_active_work_session(user_id):
+    """Get active work session for user"""
+    try:
+        if db is None:
+            return None
+            
+        work_sessions = db.work_sessions
+        session = work_sessions.find_one({
+            "user_id": user_id,
+            "active": True
+        })
+        return session
+        
+    except Exception as e:
+        print(f"Error getting active work session: {e}")
+        return None
+
+def start_work_session(session_data):
+    """Start a new work session"""
+    try:
+        if db is None:
+            return False
+            
+        work_sessions = db.work_sessions
+        
+        # Make sure user doesn't have an active session first
+        existing = work_sessions.find_one({
+            "user_id": session_data["user_id"],
+            "active": True
+        })
+        
+        if existing:
+            return False  # Already has active session
+        
+        work_sessions.insert_one(session_data)
+        return True
+        
+    except Exception as e:
+        print(f"Error starting work session: {e}")
+        return False
+
+def end_work_session(user_id, end_time, hours_worked):
+    """End active work session and record hours"""
+    try:
+        if db is None:
+            return False
+            
+        work_sessions = db.work_sessions
+        
+        # Update the active session
+        result = work_sessions.update_one(
+            {"user_id": user_id, "active": True},
+            {
+                "$set": {
+                    "end_time": end_time,
+                    "hours_worked": hours_worked,
+                    "active": False
+                }
+            }
+        )
+        
+        return result.modified_count > 0
+        
+    except Exception as e:
+        print(f"Error ending work session: {e}")
+        return False
+
+def get_weekly_work_stats(user_id):
+    """Get work statistics for the current week"""
+    try:
+        if db is None:
+            return {"total_hours": 0, "days_worked": 0}
+            
+        work_sessions = db.work_sessions
+        
+        # Calculate start of current week (Monday)
+        now = datetime.now()
+        days_since_monday = now.weekday()
+        week_start = now - timedelta(days=days_since_monday, hours=now.hour, minutes=now.minute, seconds=now.second, microseconds=now.microsecond)
+        
+        pipeline = [
+            {
+                "$match": {
+                    "user_id": user_id,
+                    "active": False,  # Only completed sessions
+                    "end_time": {"$gte": week_start}
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total_hours": {"$sum": "$hours_worked"},
+                    "days_worked": {
+                        "$addToSet": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d",
+                                "date": "$start_time"
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+        
+        result = list(work_sessions.aggregate(pipeline))
+        
+        if result:
+            return {
+                "total_hours": result[0].get("total_hours", 0),
+                "days_worked": len(result[0].get("days_worked", []))
+            }
+        else:
+            return {"total_hours": 0, "days_worked": 0}
+            
+    except Exception as e:
+        print(f"Error getting weekly work stats: {e}")
+        return {"total_hours": 0, "days_worked": 0}
+
+def get_monthly_work_stats(user_id):
+    """Get work statistics for the current month"""
+    try:
+        if db is None:
+            return {"total_hours": 0, "days_worked": 0}
+            
+        work_sessions = db.work_sessions
+        
+        # Calculate start of current month
+        now = datetime.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        pipeline = [
+            {
+                "$match": {
+                    "user_id": user_id,
+                    "active": False,  # Only completed sessions
+                    "end_time": {"$gte": month_start}
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total_hours": {"$sum": "$hours_worked"},
+                    "days_worked": {
+                        "$addToSet": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d",
+                                "date": "$start_time"
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+        
+        result = list(work_sessions.aggregate(pipeline))
+        
+        if result:
+            return {
+                "total_hours": result[0].get("total_hours", 0),
+                "days_worked": len(result[0].get("days_worked", []))
+            }
+        else:
+            return {"total_hours": 0, "days_worked": 0}
+            
+    except Exception as e:
+        print(f"Error getting monthly work stats: {e}")
+        return {"total_hours": 0, "days_worked": 0}
+
+def get_job_performance_leaderboard(limit=10):
+    """Get job performance leaderboard for current week"""
+    try:
+        if db is None:
+            return []
+            
+        work_sessions = db.work_sessions
+        
+        # Calculate start of current week
+        now = datetime.now()
+        days_since_monday = now.weekday()
+        week_start = now - timedelta(days=days_since_monday, hours=now.hour, minutes=now.minute, seconds=now.second, microseconds=now.microsecond)
+        
+        pipeline = [
+            {
+                "$match": {
+                    "active": False,  # Only completed sessions
+                    "end_time": {"$gte": week_start}
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$user_id",
+                    "weekly_hours": {"$sum": "$hours_worked"},
+                    "job_role": {"$last": "$job_role"},
+                    "sessions_count": {"$sum": 1}
+                }
+            },
+            {
+                "$sort": {"weekly_hours": -1}
+            },
+            {
+                "$limit": limit
+            },
+            {
+                "$project": {
+                    "user_id": "$_id",
+                    "weekly_hours": 1,
+                    "job_role": 1,
+                    "sessions_count": 1,
+                    "_id": 0
+                }
+            }
+        ]
+        
+        result = list(work_sessions.aggregate(pipeline))
+        return result
+        
+    except Exception as e:
+        print(f"Error getting job performance leaderboard: {e}")
+        return []
+
+def get_last_work_date(user_id):
+    """Get the last date user worked"""
+    try:
+        if db is None:
+            return None
+            
+        work_sessions = db.work_sessions
+        
+        last_session = work_sessions.find_one(
+            {"user_id": user_id, "active": False},
+            sort=[("end_time", -1)]
+        )
+        
+        if last_session and "end_time" in last_session:
+            return last_session["end_time"]
+        return None
+        
+    except Exception as e:
+        print(f"Error getting last work date: {e}")
+        return None
+
+def get_recent_job_warning(user_id, days=3):
+    """Check if user has received a job warning recently"""
+    try:
+        if db is None:
+            return None
+            
+        job_warnings = db.job_warnings
+        
+        cutoff_date = datetime.now() - timedelta(days=days)
+        
+        recent_warning = job_warnings.find_one({
+            "user_id": user_id,
+            "timestamp": {"$gte": cutoff_date}
+        })
+        
+        return recent_warning
+        
+    except Exception as e:
+        print(f"Error checking recent job warning: {e}")
+        return None
+
+def record_job_warning(user_id, job_name, warning_type):
+    """Record a job performance warning"""
+    try:
+        if db is None:
+            return False
+            
+        job_warnings = db.job_warnings
+        
+        warning_data = {
+            "user_id": user_id,
+            "job_name": job_name,
+            "warning_type": warning_type,
+            "timestamp": datetime.now()
+        }
+        
+        job_warnings.insert_one(warning_data)
+        return True
+        
+    except Exception as e:
+        print(f"Error recording job warning: {e}")
+        return False
+
+def record_job_action(user_id, job_name, action_type, details):
+    """Record a job action (promotion, demotion, etc.)"""
+    try:
+        if db is None:
+            return False
+            
+        job_actions = db.job_actions
+        
+        action_data = {
+            "user_id": user_id,
+            "job_name": job_name,
+            "action_type": action_type,
+            "details": details,
+            "timestamp": datetime.now()
+        }
+        
+        job_actions.insert_one(action_data)
+        return True
+        
+    except Exception as e:
+        print(f"Error recording job action: {e}")
+        return False
+
+def get_user_job_history(user_id):
+    """Get complete job history for a user"""
+    try:
+        if db is None:
+            return {"sessions": [], "warnings": [], "actions": []}
+            
+        # Get work sessions
+        work_sessions = db.work_sessions
+        sessions = list(work_sessions.find(
+            {"user_id": user_id},
+            sort=[("start_time", -1)]
+        ).limit(50))
+        
+        # Get warnings
+        job_warnings = db.job_warnings
+        warnings = list(job_warnings.find(
+            {"user_id": user_id},
+            sort=[("timestamp", -1)]
+        ).limit(20))
+        
+        # Get actions
+        job_actions = db.job_actions
+        actions = list(job_actions.find(
+            {"user_id": user_id},
+            sort=[("timestamp", -1)]
+        ).limit(20))
+        
+        return {
+            "sessions": sessions,
+            "warnings": warnings,
+            "actions": actions
+        }
+        
+    except Exception as e:
+        print(f"Error getting user job history: {e}")
+        return {"sessions": [], "warnings": [], "actions": []}
+
+# ===== WARNING SYSTEM ENHANCEMENT =====
+
+def add_warning(warning_data):
+    """Add a warning to the database"""
+    try:
+        if db is None:
+            return False
+            
+        warnings = db.warnings
+        warnings.insert_one(warning_data)
+        return True
+        
+    except Exception as e:
+        print(f"Error adding warning: {e}")
+        return False
+
+def get_user_warnings(user_id):
+    """Get all warnings for a user"""
+    try:
+        if db is None:
+            return []
+            
+        warnings = db.warnings
+        user_warnings = list(warnings.find(
+            {"user_id": user_id},
+            sort=[("timestamp", -1)]
+        ))
+        
+        return user_warnings
+        
+    except Exception as e:
+        print(f"Error getting user warnings: {e}")
+        return []
+
+def clear_user_warnings(user_id):
+    """Clear all warnings for a user"""
+    try:
+        if db is None:
+            return False
+            
+        warnings = db.warnings
+        result = warnings.delete_many({"user_id": user_id})
+        return result.deleted_count > 0
+        
+    except Exception as e:
+        print(f"Error clearing user warnings: {e}")
+        return False
 
 print("[Database] All functions loaded successfully with enhanced MongoDB support and reminder system")
