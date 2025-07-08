@@ -1090,107 +1090,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ An error occurred: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="setlogchannel", description="🔧 Set the moderation log channel (Admin only)")
-    @app_commands.describe(channel="Channel to use for moderation logs")
-    @app_commands.default_permissions(administrator=True)
-    async def set_log_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        """Set the moderation log channel"""
-        if not (interaction.user.guild_permissions.administrator or has_special_permissions(interaction)):
-            await interaction.response.send_message("❌ You need administrator permissions to use this command!", ephemeral=True)
-            return
-
-        try:
-            # Check bot permissions in the channel
-            bot_permissions = channel.permissions_for(interaction.guild.me)
-            if not all([bot_permissions.send_messages, bot_permissions.embed_links]):
-                missing_perms = []
-                if not bot_permissions.send_messages:
-                    missing_perms.append("Send Messages")
-                if not bot_permissions.embed_links:
-                    missing_perms.append("Embed Links")
-                
-                embed = discord.Embed(
-                    title="❌ **Missing Permissions**",
-                    description=f"I need the following permissions in {channel.mention}:",
-                    color=0xff6b6b
-                )
-                embed.add_field(
-                    name="🔧 **Required Permissions**",
-                    value="\n".join([f"• {perm}" for perm in missing_perms]),
-                    inline=False
-                )
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-                return
-
-            # Save to database
-            db.set_guild_setting(interaction.guild.id, 'mod_log_channel', channel.id)
-            
-            # Create success embed
-            embed = discord.Embed(
-                title="✅ **Moderation Log Channel Set**",
-                description=f"Moderation logs will now be sent to {channel.mention}",
-                color=0x00d4aa,
-                timestamp=datetime.now()
-            )
-            
-            embed.add_field(
-                name="📊 **What Will Be Logged**",
-                value="""• Message deletions & edits
-• Member joins & leaves
-• Bans & unbans
-• Role changes & nickname updates
-• Voice channel activity
-• Channel creation & deletion
-• Moderation commands (warns, kicks, etc.)
-• Bulk message deletions""",
-                inline=False
-            )
-            
-            embed.add_field(
-                name="🔧 **Next Steps**",
-                value="All moderation actions will now be automatically logged to this channel with detailed information.",
-                inline=False
-            )
-            
-            embed.set_author(
-                name=f"Setup by {interaction.user.display_name}",
-                icon_url=interaction.user.display_avatar.url
-            )
-            embed.set_footer(text="🛡️ Comprehensive Moderation Logging Active")
-            
-            await interaction.response.send_message(embed=embed)
-            
-            # Send test log to confirm it's working
-            test_embed = discord.Embed(
-                title="🛡️ **Moderation Logging System Activated**",
-                description="This channel is now set up for comprehensive moderation logging.",
-                color=0x7c3aed,
-                timestamp=datetime.now()
-            )
-            
-            test_embed.add_field(
-                name="✅ **System Status**",
-                value="• Logging system is active\n• All moderation events will be recorded\n• Comprehensive A-Z coverage enabled",
-                inline=False
-            )
-            
-            test_embed.set_footer(text="🔍 Test log message - System is working correctly")
-            
-            await channel.send(embed=test_embed)
-            
-        except Exception as e:
-            error_embed = discord.Embed(
-                title="❌ **Failed to Set Log Channel**",
-                description="There was an error setting up the moderation log channel.",
-                color=0xff6b6b
-            )
-            error_embed.add_field(
-                name="🔍 **Error Details**",
-                value=f"```{str(e)[:100]}```",
-                inline=False
-            )
-            await interaction.response.send_message(embed=error_embed, ephemeral=True)
-
     @app_commands.command(name="warn", description="Warn a user")
     @app_commands.describe(
         user="User to warn",
@@ -1280,7 +1179,8 @@ class Moderation(commands.Cog):
                 )
                 embed.set_footer(text=FOOTER_TXT)
             
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            # Make warnlist PUBLIC - everyone can see warnings now
+            await interaction.response.send_message(embed=embed)
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error retrieving warnings: {str(e)}", ephemeral=True)

@@ -161,10 +161,10 @@ class SimpleModeration(commands.Cog):
         except Exception as e:
             print(f"Error logging emoji changes: {e}")
 
-    @app_commands.command(name="set-modlog", description="Set the moderation log channel")
-    @app_commands.describe(channel="Channel to use for moderation logs")
+    @app_commands.command(name="setlog", description="Set the moderation and logging channel for all server events")
+    @app_commands.describe(channel="Channel to use for all moderation logs and server events")
     @app_commands.default_permissions(administrator=True)
-    async def set_modlog(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def setlog(self, interaction: discord.Interaction, channel: discord.TextChannel):
         """Set the moderation log channel"""
         
         if not interaction.user.guild_permissions.administrator:

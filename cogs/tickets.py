@@ -694,8 +694,8 @@ class SimpleTickets(commands.Cog):
             
             embed.set_footer(text="⚠️ Public Warning System")
             
-            # This is now PUBLIC (not ephemeral)
-            await interaction.response.send_message(embed=embed, ephemeral=False)
+            # This is PUBLIC (not ephemeral) - everyone can see warnings
+            await interaction.response.send_message(embed=embed)
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error retrieving warnings: {str(e)}", ephemeral=True)

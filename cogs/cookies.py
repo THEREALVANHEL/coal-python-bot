@@ -533,45 +533,95 @@ class Cookies(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Error distributing cookies: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="cookiesremoveall", description="Remove all cookies from everyone in the server (Manager only)")
-    async def cookiesremoveall(self, interaction: discord.Interaction):
+    @app_commands.command(name="removecookiesall", description="Remove cookies from everyone in the server (Manager only)")
+    @app_commands.describe(amount="Amount to remove (number, percentage like '50%', or 'all' for complete removal)")
+    async def removecookiesall(self, interaction: discord.Interaction, amount: str = "all"):
         if not has_cookie_manager_role(interaction):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
-                    # Get current server stats first
+        # Parse amount parameter
+        try:
+            amount_type = "all"
+            removal_amount = 0
+            percentage = 0
+            
+            amount_str = amount.strip().lower()
+            
+            if amount_str in ["all", "everything", "complete", "reset"]:
+                amount_type = "all"
+                description_text = "remove **ALL COOKIES** from **EVERY MEMBER**"
+            elif amount_str.endswith("%"):
+                # Percentage removal
+                percentage = float(amount_str.replace("%", ""))
+                if percentage <= 0 or percentage > 100:
+                    raise ValueError("Percentage must be between 1-100")
+                amount_type = "percentage"
+                description_text = f"remove **{percentage}%** of cookies from **EVERY MEMBER**"
+            else:
+                # Fixed amount removal
+                clean_amount = amount_str.replace(",", "").replace("k", "000").replace("K", "000")
+                removal_amount = int(clean_amount)
+                if removal_amount <= 0:
+                    raise ValueError("Amount must be positive")
+                amount_type = "fixed"
+                description_text = f"remove **{removal_amount:,} cookies** from **EVERY MEMBER**"
+                
+        except ValueError as e:
+            embed = discord.Embed(
+                title="❌ **Invalid Amount**",
+                description=f"Please provide a valid amount!\n\n**Examples:**\n• `all` - Remove all cookies\n• `50%` - Remove 50% of cookies\n• `1000` - Remove 1000 cookies\n• `5k` - Remove 5000 cookies",
+                color=0xff6b6b
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        # Get current server stats first
         members = [member for member in interaction.guild.members if not member.bot]
         total_members = len(members)
-        total_cookies_preview = 0
+        total_cookies_current = 0
         members_with_cookies = 0
+        total_cookies_to_remove = 0
         
         for member in members:
             user_data = db.get_user_data(member.id)
             cookies = user_data.get('cookies', 0)
             if cookies > 0:
-                total_cookies_preview += cookies
+                total_cookies_current += cookies
                 members_with_cookies += 1
+                
+                # Calculate removal amount for this member
+                if amount_type == "all":
+                    total_cookies_to_remove += cookies
+                elif amount_type == "percentage":
+                    member_removal = int(cookies * (percentage / 100))
+                    total_cookies_to_remove += member_removal
+                elif amount_type == "fixed":
+                    member_removal = min(removal_amount, cookies)
+                    total_cookies_to_remove += member_removal
         
         # Confirmation check with detailed stats
         embed = discord.Embed(
-            title="⚠️ **DANGEROUS OPERATION**",
-            description="This will remove **ALL COOKIES** from **EVERY MEMBER** in the server!\n\n**⚠️ THIS ACTION CANNOT BE UNDONE!**",
+            title="⚠️ **MASS COOKIE REMOVAL**",
+            description=f"This will {description_text} in the server!\n\n**⚠️ THIS ACTION CANNOT BE UNDONE!**",
             color=0xff0000,
             timestamp=datetime.now()
         )
         embed.add_field(
             name="📊 **Current Server Stats**",
-            value=f"**Total Members:** {total_members:,}\n**Members with Cookies:** {members_with_cookies:,}\n**Total Cookies to Remove:** {total_cookies_preview:,}",
+            value=f"**Total Members:** {total_members:,}\n**Members with Cookies:** {members_with_cookies:,}\n**Current Total Cookies:** {total_cookies_current:,}",
             inline=False
         )
         embed.add_field(
-            name="🚨 **What will happen:**",
-            value="• Every member's cookies will be set to 0\n• All cookie-based roles will be removed\n• Cookie leaderboard will be reset\n• No recovery is possible",
+            name="🎯 **Removal Details**",
+            value=f"**Amount Type:** {amount_type.title()}\n**Cookies to Remove:** {total_cookies_to_remove:,}\n**Remaining After:** {total_cookies_current - total_cookies_to_remove:,}",
             inline=False
         )
+        
+        confirmation_text = "CONFIRM REMOVAL" if amount_type != "all" else "CONFIRM RESET"
         embed.add_field(
             name="⏰ **Confirmation Required**",
-            value="You have **30 seconds** to confirm this action.\nType **CONFIRM RESET** in the next message to proceed.",
+            value=f"You have **30 seconds** to confirm this action.\nType **{confirmation_text}** in the next message to proceed.",
             inline=False
         )
         embed.set_footer(text="🛑 Admin Action • Use with extreme caution")
@@ -581,7 +631,7 @@ class Cookies(commands.Cog):
         def check(m):
             return (m.author == interaction.user and 
                    m.channel == interaction.channel and 
-                   m.content.upper() == "CONFIRM RESET")
+                   m.content.upper() in ["CONFIRM RESET", "CONFIRM REMOVAL"])
         
         try:
             # Wait for confirmation
@@ -593,16 +643,16 @@ class Cookies(commands.Cog):
             except:
                 pass
             
-            # Process the reset
+            # Process the removal
             processing_embed = discord.Embed(
-                title="🔄 **Processing Cookie Reset...**",
-                description="Removing all cookies from server members...",
+                title="🔄 **Processing Cookie Removal...**",
+                description=f"Removing cookies from server members ({amount_type} removal)...",
                 color=0xffaa00
             )
             await interaction.edit_original_response(embed=processing_embed)
             
             members = [member for member in interaction.guild.members if not member.bot]
-            reset_count = 0
+            affected_count = 0
             total_cookies_removed = 0
             
             for member in members:
@@ -611,43 +661,72 @@ class Cookies(commands.Cog):
                     old_cookies = user_data.get('cookies', 0)
                     
                     if old_cookies > 0:
-                        db.set_cookies(member.id, 0)  # Reset to 0
-                        await self.update_cookie_roles(member, 0)  # Remove all cookie roles
-                        total_cookies_removed += old_cookies
-                        reset_count += 1
+                        # Calculate removal amount for this member
+                        removal_for_member = 0
+                        
+                        if amount_type == "all":
+                            removal_for_member = old_cookies
+                        elif amount_type == "percentage":
+                            removal_for_member = int(old_cookies * (percentage / 100))
+                        elif amount_type == "fixed":
+                            removal_for_member = min(removal_amount, old_cookies)
+                        
+                        if removal_for_member > 0:
+                            new_cookies = old_cookies - removal_for_member
+                            db.set_cookies(member.id, new_cookies)
+                            await self.update_cookie_roles(member, new_cookies)
+                            total_cookies_removed += removal_for_member
+                            affected_count += 1
+                            
                 except Exception as e:
-                    print(f"[CookiesRemoveAll] Error resetting {member.display_name}: {e}")
+                    print(f"[RemoveCookiesAll] Error processing {member.display_name}: {e}")
                     continue
             
             # Final confirmation embed
+            operation_title = "MASS COOKIE REMOVAL COMPLETE" if amount_type != "all" else "COOKIE RESET COMPLETE"
             success_embed = discord.Embed(
-                title="💥 **COOKIE RESET COMPLETE**",
-                description=f"Successfully reset cookies for **{reset_count}** members!",
+                title=f"✅ **{operation_title}**",
+                description=f"Successfully processed cookies for **{affected_count}** members!",
                 color=0x00ff00,
                 timestamp=datetime.now()
             )
             success_embed.add_field(
-                name="📊 **Reset Statistics**",
-                value=f"**Members Reset:** {reset_count:,}\n**Total Cookies Removed:** {total_cookies_removed:,}\n**Server Impact:** Complete cookie economy reset",
+                name="📊 **Removal Statistics**",
+                value=f"**Members Affected:** {affected_count:,}\n**Total Cookies Removed:** {total_cookies_removed:,}\n**Removal Type:** {amount_type.title()}",
                 inline=False
             )
-            success_embed.add_field(
-                name="🔄 **Next Steps**",
-                value="• All cookie-based roles have been removed\n• Members can start earning cookies again\n• Cookie leaderboard is now clean",
-                inline=False
-            )
+            
+            if amount_type == "percentage":
+                success_embed.add_field(
+                    name="🎯 **Removal Details**",
+                    value=f"• Removed {percentage}% from each member\n• Cookie roles updated automatically\n• Members keep their remaining cookies",
+                    inline=False
+                )
+            elif amount_type == "fixed":
+                success_embed.add_field(
+                    name="🎯 **Removal Details**",
+                    value=f"• Removed up to {removal_amount:,} cookies per member\n• Members with fewer cookies had all removed\n• Cookie roles updated automatically",
+                    inline=False
+                )
+            else:  # all
+                success_embed.add_field(
+                    name="🔄 **Next Steps**",
+                    value="• All cookie-based roles have been removed\n• Members can start earning cookies again\n• Cookie leaderboard is now clean",
+                    inline=False
+                )
+            
             success_embed.set_author(
-                name=f"Mass reset by {interaction.user.display_name}",
+                name=f"Mass removal by {interaction.user.display_name}",
                 icon_url=interaction.user.display_avatar.url
             )
-            success_embed.set_footer(text="🍪 Cookie Management System • Complete reset executed")
+            success_embed.set_footer(text=f"🍪 Cookie Management System • {amount_type.title()} removal executed")
             
             await interaction.edit_original_response(embed=success_embed)
             
         except asyncio.TimeoutError:
             timeout_embed = discord.Embed(
                 title="⏰ **Confirmation Timeout**",
-                description="Cookie reset cancelled - no confirmation received within 30 seconds.",
+                description=f"Cookie removal cancelled - no confirmation received within 30 seconds.\n**Operation:** {amount_type.title()} removal",
                 color=0x999999
             )
             timeout_embed.set_footer(text="🛡️ Safety feature - operation cancelled")
