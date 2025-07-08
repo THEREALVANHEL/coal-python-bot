@@ -645,60 +645,8 @@ class SimpleTickets(commands.Cog):
         await asyncio.sleep(10)
         await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
 
-    @app_commands.command(name="warnlist", description="View warning list for a user (public command)")
-    @app_commands.describe(user="User to check warnings for")
-    async def warnlist(self, interaction: discord.Interaction, user: discord.Member):
-        """Public command to view user warnings"""
-        
-        try:
-            warnings = db.get_user_warnings(user.id)
-            
-            embed = discord.Embed(
-                title=f"⚠️ Warning List for {user.display_name}",
-                color=0xffa500 if warnings else 0x00ff00,
-                timestamp=datetime.now()
-            )
-            embed.set_thumbnail(url=user.display_avatar.url)
-            
-            if not warnings:
-                embed.description = "✅ This user has no warnings on record."
-                embed.color = 0x00ff00
-            else:
-                embed.description = f"📊 **Total Warnings:** {len(warnings)}"
-                
-                # Show last 5 warnings
-                recent_warnings = warnings[-5:] if len(warnings) > 5 else warnings
-                
-                for i, warning in enumerate(recent_warnings, 1):
-                    warned_by = interaction.guild.get_member(warning.get('warned_by'))
-                    warned_by_name = warned_by.display_name if warned_by else "Unknown Staff"
-                    
-                    timestamp = warning.get('timestamp')
-                    if isinstance(timestamp, datetime):
-                        time_str = f"<t:{int(timestamp.timestamp())}:R>"
-                    else:
-                        time_str = "Unknown time"
-                    
-                    embed.add_field(
-                        name=f"⚠️ Warning #{i}" + (f" (of {len(warnings)})" if len(warnings) > 5 else ""),
-                        value=f"**Reason:** {warning.get('reason', 'No reason provided')}\n**Warned by:** {warned_by_name}\n**Time:** {time_str}",
-                        inline=False
-                    )
-                
-                if len(warnings) > 5:
-                    embed.add_field(
-                        name="📋 Note",
-                        value=f"Showing 5 most recent warnings. Total: {len(warnings)}",
-                        inline=False
-                    )
-            
-            embed.set_footer(text="⚠️ Public Warning System")
-            
-            # This is PUBLIC (not ephemeral) - everyone can see warnings
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error retrieving warnings: {str(e)}", ephemeral=True)
+    # warnlist command removed from tickets.py to prevent duplicate registration
+    # The command is available in moderation.py
 
 async def setup(bot):
     await bot.add_cog(SimpleTickets(bot))
