@@ -10,15 +10,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 from permissions import has_special_permissions
 
-# Role ID for "Forgotten one" role
-FORGOTTEN_ONE_ROLE_ID = None  # Will need to be set from user
-
-class EnhancedModeration(commands.Cog):
+class SimpleModeration(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         
     async def cog_load(self):
-        print("[Enhanced Moderation] Loaded successfully with comprehensive A-Z logging.")
+        print("[Simple Moderation] Loaded with essential logging only.")
 
     async def get_mod_log_channel(self, guild):
         """Get the moderation log channel for the guild"""
@@ -27,411 +24,265 @@ class EnhancedModeration(commands.Cog):
             return guild.get_channel(modlog_channel_id)
         return None
 
-    async def log_comprehensive_event(self, guild, event_type, data):
-        """Enhanced logging with comprehensive details"""
+    async def log_simple_event(self, guild, title, description, color):
+        """Simple logging with clean embeds"""
         try:
             channel = await self.get_mod_log_channel(guild)
             if not channel:
                 return
 
             embed = discord.Embed(
-                title=f"🔍 {event_type.replace('_', ' ').title()}",
-                color=data.get("color", 0x7289da),
+                title=title,
+                description=description,
+                color=color,
                 timestamp=datetime.now()
             )
-            
-            # Add description
-            if "description" in data:
-                embed.description = data["description"][:4096]  # Discord limit
-            
-            # Add user info if available
-            if "user" in data:
-                user = data["user"]
-                embed.set_author(name=f"{user.display_name} ({user.name})", icon_url=user.display_avatar.url)
-                embed.add_field(name="👤 User ID", value=f"`{user.id}`", inline=True)
-                embed.add_field(name="📅 Account Created", value=f"<t:{int(user.created_at.timestamp())}:R>", inline=True)
-                embed.add_field(name="🏷️ Username", value=f"`{user.name}#{user.discriminator}`", inline=True)
-            
-            # Add channel info if available
-            if "channel" in data:
-                channel_obj = data["channel"]
-                embed.add_field(name="📍 Channel", value=f"{channel_obj.mention} (`{channel_obj.id}`)", inline=True)
-            
-            # Add additional fields
-            for key, value in data.items():
-                if key not in ["description", "user", "channel", "color", "embed_fields"] and value:
-                    if len(str(value)) <= 1024:
-                        embed.add_field(name=key.replace('_', ' ').title(), value=str(value), inline=True)
-            
-            # Add custom embed fields
-            if "embed_fields" in data:
-                for field in data["embed_fields"]:
-                    embed.add_field(name=field["name"], value=field["value"], inline=field.get("inline", True))
-            
-            # Add footer
-            embed.set_footer(text=f"Enhanced Moderation • {event_type}")
+            embed.set_footer(text="Simple Mod Log")
             
             await channel.send(embed=embed)
             
         except Exception as e:
-            print(f"Error in comprehensive logging: {e}")
+            print(f"Error in simple logging: {e}")
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
-        """Enhanced message deletion logging"""
+        """Log message deletions"""
         if message.author.bot:
             return
             
         try:
-            embed_fields = []
+            # Track staff activity for work requirements
+            if any(role.name.lower() in ["lead moderator", "moderator", "overseer", "forgotten one"] for role in message.author.roles):
+                db.update_staff_activity(message.author.id, "message_delete")
             
-            # Message content
-            if message.content:
-                content = message.content[:1500] + ("..." if len(message.content) > 1500 else "")
-                embed_fields.append({"name": "📝 Message Content", "value": f"```{content}```", "inline": False})
+            content = message.content[:500] + "..." if len(message.content) > 500 else message.content
+            if not content:
+                content = "*No text content*"
             
-            # Attachments
-            if message.attachments:
-                attachment_info = []
-                for attachment in message.attachments:
-                    attachment_info.append(f"📎 **{attachment.filename}** ({attachment.size} bytes)")
-                    if attachment.url:
-                        attachment_info.append(f"🔗 [Original URL]({attachment.url})")
-                embed_fields.append({"name": "📎 Attachments", "value": "\n".join(attachment_info[:10]), "inline": False})
+            description = f"**User:** {message.author.mention}\n**Channel:** {message.channel.mention}\n**Content:** {content}"
             
-            # Embeds
-            if message.embeds:
-                embed_info = []
-                for i, embed in enumerate(message.embeds[:3]):
-                    embed_info.append(f"📋 **Embed {i+1}:** {embed.title or 'No title'}")
-                    if embed.description:
-                        embed_info.append(f"Description: {embed.description[:100]}...")
-                embed_fields.append({"name": "📋 Embeds", "value": "\n".join(embed_info), "inline": False})
-            
-            # Reactions
-            if message.reactions:
-                reaction_info = []
-                for reaction in message.reactions:
-                    reaction_info.append(f"{reaction.emoji} x{reaction.count}")
-                embed_fields.append({"name": "😀 Reactions", "value": " • ".join(reaction_info[:10]), "inline": False})
-            
-            # Stickers
-            if message.stickers:
-                sticker_info = [f"🎭 {sticker.name}" for sticker in message.stickers]
-                embed_fields.append({"name": "🎭 Stickers", "value": " • ".join(sticker_info), "inline": False})
-            
-            await self.log_comprehensive_event(message.guild, "message_deleted", {
-                "user": message.author,
-                "channel": message.channel,
-                "description": f"Message deleted in {message.channel.mention}",
-                "color": 0xff0000,
-                "embed_fields": embed_fields
-            })
+            await self.log_simple_event(
+                message.guild,
+                "🗑️ Message Deleted",
+                description,
+                0xff0000
+            )
             
         except Exception as e:
             print(f"Error logging message deletion: {e}")
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
-        """Enhanced message edit logging"""
+        """Log message edits"""
         if before.author.bot or before.content == after.content:
             return
             
         try:
-            embed_fields = [
-                {"name": "📝 Before", "value": f"```{before.content[:700] if before.content else 'No content'}```", "inline": False},
-                {"name": "✏️ After", "value": f"```{after.content[:700] if after.content else 'No content'}```", "inline": False}
-            ]
+            # Track staff activity for work requirements
+            if any(role.name.lower() in ["lead moderator", "moderator", "overseer", "forgotten one"] for role in after.author.roles):
+                db.update_staff_activity(after.author.id, "message_edit")
             
-            # Check for link changes
-            before_links = [word for word in (before.content or "").split() if word.startswith(('http://', 'https://'))]
-            after_links = [word for word in (after.content or "").split() if word.startswith(('http://', 'https://'))]
+            before_content = before.content[:300] + "..." if len(before.content) > 300 else before.content
+            after_content = after.content[:300] + "..." if len(after.content) > 300 else after.content
             
-            if before_links != after_links:
-                embed_fields.append({"name": "🔗 Link Changes", "value": f"Before: {', '.join(before_links[:3])}\nAfter: {', '.join(after_links[:3])}", "inline": False})
+            if not before_content:
+                before_content = "*No text content*"
+            if not after_content:
+                after_content = "*No text content*"
             
-            await self.log_comprehensive_event(after.guild, "message_edited", {
-                "user": after.author,
-                "channel": after.channel,
-                "description": f"Message edited in {after.channel.mention}\n🔗 [Jump to Message]({after.jump_url})",
-                "color": 0xffa500,
-                "embed_fields": embed_fields
-            })
+            description = f"**User:** {after.author.mention}\n**Channel:** {after.channel.mention}\n**Before:** {before_content}\n**After:** {after_content}\n**[Jump to Message]({after.jump_url})**"
+            
+            await self.log_simple_event(
+                after.guild,
+                "✏️ Message Edited",
+                description,
+                0xffa500
+            )
             
         except Exception as e:
             print(f"Error logging message edit: {e}")
 
     @commands.Cog.listener()
-    async def on_member_join(self, member):
-        """Enhanced member join logging"""
-        try:
-            embed_fields = [
-                {"name": "👤 Account Age", "value": f"<t:{int(member.created_at.timestamp())}:R>", "inline": True},
-                {"name": "🧮 Member Count", "value": f"#{member.guild.member_count}", "inline": True},
-                {"name": "🔍 Mention", "value": member.mention, "inline": True}
-            ]
-            
-            # Check if account is new (potential spam)
-            account_age = (datetime.now() - member.created_at).days
-            if account_age < 7:
-                embed_fields.append({"name": "⚠️ Warning", "value": f"New account (Created {account_age} days ago)", "inline": False})
-            
-            await self.log_comprehensive_event(member.guild, "member_joined", {
-                "user": member,
-                "description": f"**{member.display_name}** joined the server",
-                "color": 0x00ff00,
-                "embed_fields": embed_fields
-            })
-            
-        except Exception as e:
-            print(f"Error logging member join: {e}")
-
-    @commands.Cog.listener()
-    async def on_member_remove(self, member):
-        """Enhanced member leave logging"""
-        try:
-            embed_fields = [
-                {"name": "⏰ Join Date", "value": f"<t:{int(member.joined_at.timestamp())}:R>" if member.joined_at else "Unknown", "inline": True},
-                {"name": "🎭 Roles", "value": ", ".join([role.name for role in member.roles[1:5]]) or "No roles", "inline": True},
-                {"name": "🧮 Member Count", "value": f"#{member.guild.member_count}", "inline": True}
-            ]
-            
-            await self.log_comprehensive_event(member.guild, "member_left", {
-                "user": member,
-                "description": f"**{member.display_name}** left the server",
-                "color": 0xff6b6b,
-                "embed_fields": embed_fields
-            })
-            
-        except Exception as e:
-            print(f"Error logging member leave: {e}")
-
-    @commands.Cog.listener()
-    async def on_member_update(self, before, after):
-        """Enhanced member update logging"""
-        try:
-            changes = []
-            embed_fields = []
-            
-            # Role changes
-            if before.roles != after.roles:
-                added_roles = [role for role in after.roles if role not in before.roles]
-                removed_roles = [role for role in before.roles if role not in after.roles]
-                
-                if added_roles:
-                    embed_fields.append({"name": "➕ Roles Added", "value": ", ".join([role.mention for role in added_roles]), "inline": False})
-                if removed_roles:
-                    embed_fields.append({"name": "➖ Roles Removed", "value": ", ".join([role.mention for role in removed_roles]), "inline": False})
-                changes.append("roles")
-            
-            # Nickname change
-            if before.nick != after.nick:
-                embed_fields.append({"name": "🏷️ Nickname", "value": f"**Before:** {before.nick or 'None'}\n**After:** {after.nick or 'None'}", "inline": False})
-                changes.append("nickname")
-            
-            # Avatar change (in guild)
-            if before.avatar != after.avatar:
-                changes.append("avatar")
-                embed_fields.append({"name": "🖼️ Avatar", "value": "Guild avatar updated", "inline": True})
-            
-            if changes:
-                await self.log_comprehensive_event(after.guild, f"member_updated_{'+'.join(changes)}", {
-                    "user": after,
-                    "description": f"**{after.display_name}** updated: {', '.join(changes)}",
-                    "color": 0x7289da,
-                    "embed_fields": embed_fields
-                })
-                
-        except Exception as e:
-            print(f"Error logging member update: {e}")
-
-    @commands.Cog.listener()
-    async def on_user_update(self, before, after):
-        """Enhanced user update logging"""
-        try:
-            changes = []
-            embed_fields = []
-            
-            # Username change
-            if before.name != after.name:
-                embed_fields.append({"name": "👤 Username", "value": f"**Before:** {before.name}\n**After:** {after.name}", "inline": False})
-                changes.append("username")
-            
-            # Avatar change
-            if before.avatar != after.avatar:
-                embed_fields.append({"name": "🖼️ Avatar", "value": "Profile avatar updated", "inline": True})
-                changes.append("avatar")
-            
-            if changes:
-                # Log in all mutual guilds
-                for guild in self.bot.guilds:
-                    if guild.get_member(after.id):
-                        await self.log_comprehensive_event(guild, f"user_updated_{'+'.join(changes)}", {
-                            "user": after,
-                            "description": f"**{after.display_name}** updated: {', '.join(changes)}",
-                            "color": 0x7289da,
-                            "embed_fields": embed_fields
-                        })
-                        break  # Only log once
-                        
-        except Exception as e:
-            print(f"Error logging user update: {e}")
-
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member, before, after):
-        """Enhanced voice activity logging"""
-        try:
-            embed_fields = []
-            action = ""
-            
-            if before.channel is None and after.channel is not None:
-                # Joined voice
-                action = "voice_joined"
-                embed_fields.append({"name": "📍 Joined", "value": f"{after.channel.mention} ({after.channel.name})", "inline": False})
-                
-            elif before.channel is not None and after.channel is None:
-                # Left voice
-                action = "voice_left"
-                embed_fields.append({"name": "📍 Left", "value": f"{before.channel.mention} ({before.channel.name})", "inline": False})
-                
-            elif before.channel != after.channel:
-                # Moved voice
-                action = "voice_moved"
-                embed_fields.append({"name": "📍 Moved", "value": f"**From:** {before.channel.mention}\n**To:** {after.channel.mention}", "inline": False})
-            
-            # State changes
-            states = []
-            if before.mute != after.mute:
-                states.append(f"Mute: {after.mute}")
-            if before.deaf != after.deaf:
-                states.append(f"Deaf: {after.deaf}")
-            if before.self_mute != after.self_mute:
-                states.append(f"Self Mute: {after.self_mute}")
-            if before.self_deaf != after.self_deaf:
-                states.append(f"Self Deaf: {after.self_deaf}")
-            
-            if states:
-                embed_fields.append({"name": "🔧 State Changes", "value": "\n".join(states), "inline": False})
-                if not action:
-                    action = "voice_state_changed"
-            
-            if action:
-                await self.log_comprehensive_event(member.guild, action, {
-                    "user": member,
-                    "description": f"**{member.display_name}** voice activity",
-                    "color": 0x00d4aa,
-                    "embed_fields": embed_fields
-                })
-                
-        except Exception as e:
-            print(f"Error logging voice state: {e}")
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload):
-        """Enhanced reaction logging"""
-        try:
-            guild = self.bot.get_guild(payload.guild_id)
-            if not guild:
-                return
-                
-            channel = guild.get_channel(payload.channel_id)
-            user = guild.get_member(payload.user_id)
-            
-            if not channel or not user or user.bot:
-                return
-            
-            message = await channel.fetch_message(payload.message_id)
-            
-            embed_fields = [
-                {"name": "😀 Reaction", "value": f"{payload.emoji}", "inline": True},
-                {"name": "📍 Message", "value": f"[Jump to Message]({message.jump_url})", "inline": True},
-                {"name": "📝 Content Preview", "value": message.content[:100] + ("..." if len(message.content) > 100 else "") if message.content else "No text content", "inline": False}
-            ]
-            
-            await self.log_comprehensive_event(guild, "reaction_added", {
-                "user": user,
-                "channel": channel,
-                "description": f"**{user.display_name}** reacted to a message",
-                "color": 0xffd700,
-                "embed_fields": embed_fields
-            })
-            
-        except Exception as e:
-            print(f"Error logging reaction add: {e}")
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_remove(self, payload):
-        """Enhanced reaction removal logging"""
-        try:
-            guild = self.bot.get_guild(payload.guild_id)
-            if not guild:
-                return
-                
-            channel = guild.get_channel(payload.channel_id)
-            user = guild.get_member(payload.user_id)
-            
-            if not channel or not user or user.bot:
-                return
-            
-            message = await channel.fetch_message(payload.message_id)
-            
-            embed_fields = [
-                {"name": "😀 Reaction Removed", "value": f"{payload.emoji}", "inline": True},
-                {"name": "📍 Message", "value": f"[Jump to Message]({message.jump_url})", "inline": True},
-                {"name": "📝 Content Preview", "value": message.content[:100] + ("..." if len(message.content) > 100 else "") if message.content else "No text content", "inline": False}
-            ]
-            
-            await self.log_comprehensive_event(guild, "reaction_removed", {
-                "user": user,
-                "channel": channel,
-                "description": f"**{user.display_name}** removed a reaction",
-                "color": 0xff9966,
-                "embed_fields": embed_fields
-            })
-            
-        except Exception as e:
-            print(f"Error logging reaction remove: {e}")
-
-    @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):
-        """Enhanced channel creation logging"""
+        """Log channel creation"""
         try:
-            embed_fields = [
-                {"name": "📍 Channel", "value": f"{channel.mention} (`{channel.id}`)", "inline": True},
-                {"name": "🏷️ Type", "value": str(channel.type).title(), "inline": True},
-                {"name": "📁 Category", "value": channel.category.name if channel.category else "No category", "inline": True}
-            ]
+            description = f"**Channel:** {channel.mention}\n**Name:** {channel.name}\n**Type:** {str(channel.type).title()}"
+            if channel.category:
+                description += f"\n**Category:** {channel.category.name}"
             
-            await self.log_comprehensive_event(channel.guild, "channel_created", {
-                "description": f"Channel **{channel.name}** was created",
-                "color": 0x00ff00,
-                "embed_fields": embed_fields
-            })
+            await self.log_simple_event(
+                channel.guild,
+                "📁 Channel Created",
+                description,
+                0x00ff00
+            )
             
         except Exception as e:
             print(f"Error logging channel creation: {e}")
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
-        """Enhanced channel deletion logging"""
+        """Log channel deletion"""
         try:
-            embed_fields = [
-                {"name": "🏷️ Name", "value": f"`{channel.name}`", "inline": True},
-                {"name": "🆔 ID", "value": f"`{channel.id}`", "inline": True},
-                {"name": "🏷️ Type", "value": str(channel.type).title(), "inline": True},
-                {"name": "📁 Category", "value": channel.category.name if channel.category else "No category", "inline": True}
-            ]
+            description = f"**Name:** {channel.name}\n**Type:** {str(channel.type).title()}"
+            if channel.category:
+                description += f"\n**Category:** {channel.category.name}"
             
-            await self.log_comprehensive_event(channel.guild, "channel_deleted", {
-                "description": f"Channel **{channel.name}** was deleted",
-                "color": 0xff0000,
-                "embed_fields": embed_fields
-            })
+            await self.log_simple_event(
+                channel.guild,
+                "🗑️ Channel Deleted",
+                description,
+                0xff0000
+            )
             
         except Exception as e:
             print(f"Error logging channel deletion: {e}")
 
+    @commands.Cog.listener()
+    async def on_guild_emojis_update(self, guild, before, after):
+        """Log emoji creation and deletion"""
+        try:
+            # Find new emojis (created)
+            new_emojis = [emoji for emoji in after if emoji not in before]
+            for emoji in new_emojis:
+                description = f"**Emoji:** {emoji} (:{emoji.name}:)\n**Name:** {emoji.name}\n**ID:** {emoji.id}"
+                
+                await self.log_simple_event(
+                    guild,
+                    "😀 Emoji Created",
+                    description,
+                    0x00ff00
+                )
+            
+            # Find deleted emojis
+            deleted_emojis = [emoji for emoji in before if emoji not in after]
+            for emoji in deleted_emojis:
+                description = f"**Name:** {emoji.name}\n**ID:** {emoji.id}"
+                
+                await self.log_simple_event(
+                    guild,
+                    "🗑️ Emoji Deleted",
+                    description,
+                    0xff0000
+                )
+            
+        except Exception as e:
+            print(f"Error logging emoji changes: {e}")
 
+    @app_commands.command(name="set-modlog", description="Set the moderation log channel")
+    @app_commands.describe(channel="Channel to use for moderation logs")
+    @app_commands.default_permissions(administrator=True)
+    async def set_modlog(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        """Set the moderation log channel"""
+        
+        if not interaction.user.guild_permissions.administrator:
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="Only administrators can set the modlog channel.",
+                color=0xff0000
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Check bot permissions
+        permissions = channel.permissions_for(interaction.guild.me)
+        if not permissions.send_messages or not permissions.embed_links:
+            embed = discord.Embed(
+                title="❌ Missing Permissions",
+                description=f"I need **Send Messages** and **Embed Links** permissions in {channel.mention}",
+                color=0xff0000
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Set the channel
+        db.set_guild_setting(interaction.guild.id, "modlog_channel", channel.id)
+        
+        embed = discord.Embed(
+            title="✅ Modlog Channel Set",
+            description=f"Moderation logs will now be sent to {channel.mention}",
+            color=0x00ff00
+        )
+        embed.add_field(
+            name="📋 What gets logged:",
+            value="• Message deletions\n• Message edits\n• Channel creation/deletion\n• Emoji creation/deletion",
+            inline=False
+        )
+        embed.set_footer(text="Simple and clean logging")
+        
+        await interaction.response.send_message(embed=embed)
+        
+        # Send test message
+        test_embed = discord.Embed(
+            title="🔧 Modlog Setup Complete",
+            description="This channel is now receiving moderation logs. All logs will be simple and clean.",
+            color=0x7c3aed,
+            timestamp=datetime.now()
+        )
+        test_embed.set_footer(text="Simple Mod Log")
+        await channel.send(embed=test_embed)
+
+    @app_commands.command(name="staff-activity", description="Check staff activity for work requirements")
+    @app_commands.describe(user="Staff member to check (optional)")
+    async def staff_activity(self, interaction: discord.Interaction, user: discord.Member = None):
+        """Check staff activity for work requirements"""
+        
+        # Check if user has permission
+        is_staff = (
+            interaction.user.guild_permissions.administrator or
+            has_special_permissions(interaction.user) or
+            any(role.name.lower() in ["lead moderator", "moderator", "overseer", "forgotten one"] for role in interaction.user.roles)
+        )
+        
+        if not is_staff:
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="Only staff can check activity requirements.",
+                color=0xff0000
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        target_user = user or interaction.user
+        
+        # Get activity summary
+        summary = db.get_staff_activity_summary(target_user.id, 7)
+        
+        embed = discord.Embed(
+            title="📊 Staff Activity Report",
+            description=f"**Staff Member:** {target_user.mention}",
+            color=0x00ff00 if summary['meets_requirements'] else 0xff0000
+        )
+        
+        embed.add_field(
+            name="📈 Weekly Activity",
+            value=f"**Days Active:** {summary['days_active']}/7\n**Required:** {summary['required_days']} days\n**Status:** {'✅ Meets Requirements' if summary['meets_requirements'] else '❌ Below Requirements'}",
+            inline=False
+        )
+        
+        if summary['last_activity']:
+            embed.add_field(
+                name="⏰ Last Activity",
+                value=f"<t:{int(summary['last_activity'].timestamp())}:R>",
+                inline=True
+            )
+        
+        embed.add_field(
+            name="💡 Work Requirements",
+            value="Staff must be active at least **3 days per week** to maintain their position.",
+            inline=False
+        )
+        
+        if not summary['meets_requirements']:
+            embed.add_field(
+                name="⚠️ Warning",
+                value="This staff member may be subject to demotion if activity doesn't improve.",
+                inline=False
+            )
+        
+        embed.set_footer(text="Activity tracking helps maintain an active staff team")
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 async def setup(bot):
-    await bot.add_cog(EnhancedModeration(bot))
+    await bot.add_cog(SimpleModeration(bot))

@@ -325,7 +325,7 @@ class ShoutView(View):
             # Participants count with icon
             embed.add_field(
                 name="👥 **Participation Status**",
-                value=f"👥 **{len(self.participants)}** participants\n{'� Event completed!' if self.event_ended else '🔴 Event in progress!' if self.event_started else '🟢 Registration open!'}",
+                value=f"👥 **{len(self.participants)}** participants\n{'🔴 Event completed!' if self.event_ended else '🔴 Event in progress!' if self.event_started else '🟢 Registration open!'}",
                 inline=True
             )
             
@@ -898,13 +898,13 @@ class Community(commands.Cog):
             )
             
             embed.add_field(
-                name="� **Participation**",
+                name="👥 **Participation**",
                 value=f"👥 **0** joined\n🎯 Ready for action!",
                 inline=True
             )
             
             embed.add_field(
-                name="�🔥 **Live Participants**",
+                name="🔥 **Live Participants**",
                 value="*No participants yet - be the first to join!*",
                 inline=False
             )
@@ -1485,43 +1485,82 @@ Provide a focused, helpful response that gets straight to the point."""
 
     @app_commands.command(name="remind", description="Set a reminder for yourself")
     @app_commands.describe(
-        time="Time to remind you (e.g., 5m, 1h, 2d)",
+        time="When to remind you (e.g., 1h, 30m, 2d)",
         reminder="What to remind you about"
     )
     async def remind(self, interaction: discord.Interaction, time: str, reminder: str):
-        """Set a reminder for the user"""
+        """Set a reminder for the user with database persistence"""
         try:
             # Parse time
-            time_seconds = self.parse_time(time)
-            if time_seconds is None:
+            time_seconds = 0
+            time_units = {
+                's': 1, 'sec': 1, 'second': 1, 'seconds': 1,
+                'm': 60, 'min': 60, 'minute': 60, 'minutes': 60,
+                'h': 3600, 'hr': 3600, 'hour': 3600, 'hours': 3600,
+                'd': 86400, 'day': 86400, 'days': 86400,
+                'w': 604800, 'week': 604800, 'weeks': 604800
+            }
+            
+            import re
+            matches = re.findall(r'(\d+)\s*([a-zA-Z]+)', time.lower())
+            
+            for amount, unit in matches:
+                amount = int(amount)
+                if unit in time_units:
+                    time_seconds += amount * time_units[unit]
+            
+            if time_seconds == 0:
                 embed = discord.Embed(
                     title="❌ Invalid Time Format",
-                    description="Please use formats like: `5m`, `1h`, `2d`, `1w`",
-                    color=0xff6b6b
-                )
-                embed.add_field(
-                    name="📝 Examples",
-                    value="• `5m` = 5 minutes\n• `1h` = 1 hour\n• `2d` = 2 days\n• `1w` = 1 week",
-                    inline=False
+                    description="Please use format like: `1h`, `30m`, `2d`, `1w`\n\nExamples:\n• `30m` = 30 minutes\n• `2h` = 2 hours\n• `1d` = 1 day\n• `1w` = 1 week",
+                    color=0xff0000
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
-            if time_seconds > 604800:  # 1 week max
+            # Maximum 4 weeks
+            if time_seconds > 2419200:  # 4 weeks
                 embed = discord.Embed(
                     title="❌ Time Too Long",
-                    description="Maximum reminder time is 1 week (7 days).",
-                    color=0xff6b6b
+                    description="Maximum reminder time is 4 weeks (28 days).",
+                    color=0xff0000
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Calculate reminder time
+            reminder_time = datetime.now() + timedelta(seconds=time_seconds)
+            
+            # Store reminder in database for persistence
+            reminder_data = {
+                'user_id': interaction.user.id,
+                'channel_id': interaction.channel.id,
+                'guild_id': interaction.guild.id,
+                'reminder_text': reminder,
+                'created_at': datetime.now(),
+                'remind_at': reminder_time,
+                'completed': False
+            }
+            
+            # Save to database
+            try:
+                result = db.add_reminder(reminder_data)
+                if not result.get('success', False):
+                    raise Exception(result.get('error', 'Unknown database error'))
+            except Exception as db_error:
+                embed = discord.Embed(
+                    title="❌ Database Error",
+                    description="Failed to save reminder to database. Please try again.",
+                    color=0xff0000
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             # Confirm reminder set
-            reminder_time = datetime.now() + timedelta(seconds=time_seconds)
             embed = discord.Embed(
                 title="⏰ Reminder Set!",
                 description=f"I'll remind you about: **{reminder}**",
-                color=0x00d4aa,
+                color=0x00ff00,
                 timestamp=reminder_time
             )
             embed.add_field(
@@ -1529,71 +1568,94 @@ Provide a focused, helpful response that gets straight to the point."""
                 value=f"<t:{int(reminder_time.timestamp())}:R>",
                 inline=False
             )
-            embed.set_footer(text="Reminder will be sent")
+            embed.set_footer(text="✅ Reminder saved to database")
+            
             await interaction.response.send_message(embed=embed, ephemeral=True)
             
-            # Wait and send reminder
-            await asyncio.sleep(time_seconds)
+            # Start background task for this reminder
+            self.bot.loop.create_task(self._handle_reminder(reminder_data))
             
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ Reminder Error",
+                description="Failed to set reminder. Please try again.",
+                color=0xff0000
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+    
+    async def _handle_reminder(self, reminder_data):
+        """Handle a single reminder with database tracking"""
+        try:
+            # Calculate wait time
+            now = datetime.now()
+            remind_at = reminder_data['remind_at']
+            wait_seconds = (remind_at - now).total_seconds()
+            
+            if wait_seconds > 0:
+                # Wait for the reminder time
+                await asyncio.sleep(wait_seconds)
+            
+            # Check if reminder is still valid (not completed)
+            if db.is_reminder_completed(reminder_data['user_id'], reminder_data['created_at']):
+                return
+            
+            # Get user and channel
+            user = self.bot.get_user(reminder_data['user_id'])
+            channel = self.bot.get_channel(reminder_data['channel_id'])
+            
+            if not user:
+                return
+            
+            # Create reminder message
             reminder_embed = discord.Embed(
                 title="⏰ Reminder!",
-                description=f"**{reminder}**",
+                description=f"**{reminder_data['reminder_text']}**",
                 color=0xffd700,
                 timestamp=datetime.now()
             )
             reminder_embed.set_author(
-                name=f"Reminder for {interaction.user.display_name}",
-                icon_url=interaction.user.display_avatar.url
+                name=f"Reminder for {user.display_name}",
+                icon_url=user.display_avatar.url
             )
             reminder_embed.add_field(
-                name="⏱️ Set",
-                value=f"<t:{int((datetime.now() - timedelta(seconds=time_seconds)).timestamp())}:R>",
-                inline=False
+                name="📅 Originally Set",
+                value=f"<t:{int(reminder_data['created_at'].timestamp())}:R>",
+                inline=True
             )
-            reminder_embed.set_footer(text="🔔 Reminder System")
+            reminder_embed.set_footer(text="⏰ Persistent Reminder System")
             
+            # Try to send DM first, then channel
             try:
-                await interaction.user.send(embed=reminder_embed)
-            except discord.Forbidden:
-                # If DMs are disabled, send in the channel
-                await interaction.followup.send(f"{interaction.user.mention}", embed=reminder_embed)
+                await user.send(embed=reminder_embed)
+            except:
+                # DM failed, send in channel
+                if channel:
+                    await channel.send(f"{user.mention}", embed=reminder_embed)
+            
+            # Mark reminder as completed in database
+            db.complete_reminder(reminder_data['user_id'], reminder_data['created_at'])
+            
+        except Exception as e:
+            print(f"Error handling reminder: {e}")
+    
+    async def _load_pending_reminders(self):
+        """Load and restart pending reminders from database on bot startup"""
+        try:
+            pending_reminders = db.get_pending_reminders()
+            for reminder_data in pending_reminders:
+                # Start background task for each pending reminder
+                self.bot.loop.create_task(self._handle_reminder(reminder_data))
+            
+            if pending_reminders:
+                print(f"✅ Loaded {len(pending_reminders)} pending reminders from database")
                 
         except Exception as e:
-            error_embed = discord.Embed(
-                title="❌ Reminder Error",
-                description="Failed to set reminder. Please try again.",
-                color=0xff6b6b
-            )
-            if not interaction.response.is_done():
-                await interaction.response.send_message(embed=error_embed, ephemeral=True)
-            else:
-                await interaction.followup.send(embed=error_embed, ephemeral=True)
+            print(f"Error loading pending reminders: {e}")
     
-    def parse_time(self, time_str: str) -> int:
-        """Parse time string into seconds"""
-        try:
-            time_str = time_str.lower().strip()
-            
-            # Extract number and unit
-            import re
-            match = re.match(r'^(\d+)([smhdw])$', time_str)
-            if not match:
-                return None
-                
-            amount = int(match.group(1))
-            unit = match.group(2)
-            
-            multipliers = {
-                's': 1,
-                'm': 60,
-                'h': 3600,
-                'd': 86400,
-                'w': 604800
-            }
-            
-            return amount * multipliers.get(unit, 0)
-        except:
-            return None
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Load pending reminders when bot starts"""
+        await self._load_pending_reminders()
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Community(bot))

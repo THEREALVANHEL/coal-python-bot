@@ -264,7 +264,7 @@ async def load_cogs():
         'cogs.events',
         'cogs.community',
         'cogs.moderation',
-        'cogs.enhanced_moderation',  # Comprehensive A-Z logging system
+        'cogs.enhanced_moderation',  # Simple logging system
         'cogs.settings',
         'cogs.tickets',
         'cogs.comprehensive_fixes'  # All fixes in one place - jobs command and priority buttons

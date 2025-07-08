@@ -330,6 +330,317 @@ class ComprehensiveFixes(commands.Cog):
         
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
+    @app_commands.command(name="staff-requirements", description="Check staff work requirements and activity")
+    @app_commands.describe(
+        action="Action to perform",
+        user="Staff member to check/manage (optional)"
+    )
+    @app_commands.choices(action=[
+        app_commands.Choice(name="Check Activity", value="check"),
+        app_commands.Choice(name="View Requirements", value="requirements"),
+        app_commands.Choice(name="Demotion Candidates", value="candidates"),
+        app_commands.Choice(name="Manual Activity Update", value="update")
+    ])
+    async def staff_requirements(self, interaction: discord.Interaction, action: str, user: discord.Member = None):
+        """Manage staff work requirements and activity tracking"""
+        
+        # Check permissions - only lead moderator and above
+        is_authorized = (
+            interaction.user.guild_permissions.administrator or
+            has_special_permissions(interaction.user) or
+            any(role.name.lower() in ["lead moderator", "overseer", "forgotten one"] for role in interaction.user.roles)
+        )
+        
+        if not is_authorized:
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="Only lead moderators and above can manage staff requirements.",
+                color=0xff0000
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        if action == "check":
+            target_user = user or interaction.user
+            
+            # Check if target is staff
+            is_staff = any(role.name.lower() in ["lead moderator", "moderator", "overseer", "forgotten one"] for role in target_user.roles)
+            if not is_staff:
+                embed = discord.Embed(
+                    title="❌ Not Staff",
+                    description=f"{target_user.mention} is not a staff member.",
+                    color=0xff0000
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Get activity summary
+            summary = db.get_staff_activity_summary(target_user.id, 7)
+            
+            embed = discord.Embed(
+                title="📊 Staff Activity Report",
+                description=f"**Staff Member:** {target_user.mention}",
+                color=0x00ff00 if summary['meets_requirements'] else 0xff0000,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📈 Weekly Activity (Last 7 Days)",
+                value=f"**Days Active:** {summary['days_active']}/7\n**Required:** {summary['required_days']} days minimum\n**Status:** {'✅ Meets Requirements' if summary['meets_requirements'] else '❌ Below Requirements'}",
+                inline=False
+            )
+            
+            if summary['last_activity']:
+                embed.add_field(
+                    name="⏰ Last Activity",
+                    value=f"<t:{int(summary['last_activity'].timestamp())}:R>",
+                    inline=True
+                )
+            else:
+                embed.add_field(
+                    name="⏰ Last Activity",
+                    value="No recent activity recorded",
+                    inline=True
+                )
+            
+            embed.add_field(
+                name="🎯 Total Activities",
+                value=f"{summary['total_activities']} logged activities",
+                inline=True
+            )
+            
+            if not summary['meets_requirements']:
+                embed.add_field(
+                    name="⚠️ Demotion Warning",
+                    value="This staff member is at risk of demotion due to insufficient activity. They need to be active on more days this week.",
+                    inline=False
+                )
+            
+        elif action == "requirements":
+            embed = discord.Embed(
+                title="📋 Staff Work Requirements",
+                description="**Essential requirements for maintaining staff position**",
+                color=0x7c3aed,
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 Activity Requirements",
+                value="• **Minimum:** 3 active days per week\n• **Tracking Period:** Rolling 7-day window\n• **Activities Tracked:** Message moderation, ticket handling, channel management",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="📈 What Counts as Activity",
+                value="• Deleting/editing messages\n• Claiming/closing tickets\n• Channel/emoji management\n• Other moderation actions",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="⚠️ Consequences",
+                value="• **Warning:** Below 3 days activity\n• **Review:** Continued low activity\n• **Demotion:** Persistent inactivity",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="💡 Tips for Success",
+                value="• Check tickets daily\n• Respond to reports promptly\n• Stay engaged with the community\n• Communicate if you'll be inactive",
+                inline=False
+            )
+            
+        elif action == "candidates":
+            # Get staff who are candidates for demotion
+            candidates = db.check_staff_demotion_candidates()
+            
+            embed = discord.Embed(
+                title="⚠️ Staff Demotion Candidates",
+                description="Staff members who haven't met activity requirements",
+                color=0xff0000 if candidates else 0x00ff00,
+                timestamp=datetime.now()
+            )
+            
+            if candidates:
+                candidate_list = []
+                for candidate in candidates[:10]:  # Limit to 10
+                    user = interaction.guild.get_member(candidate['user_id'])
+                    if user:
+                        last_activity = "Never" if not candidate['last_activity'] else f"<t:{int(candidate['last_activity'].timestamp())}:R>"
+                        candidate_list.append(f"• {user.mention} - {candidate['days_active']}/7 days active\n  Last: {last_activity}")
+                
+                embed.add_field(
+                    name="📉 At Risk Staff Members",
+                    value="\n".join(candidate_list) if candidate_list else "No staff members found in database",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="🛠️ Recommended Actions",
+                    value="• Contact these staff members\n• Discuss expectations\n• Consider warnings or temporary measures\n• Document any decisions",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="✅ All Staff Meeting Requirements",
+                    value="No staff members are currently at risk of demotion. Excellent work!",
+                    inline=False
+                )
+                
+        elif action == "update":
+            if not user:
+                embed = discord.Embed(
+                    title="❌ Missing User",
+                    description="Please specify a user to manually update activity for.",
+                    color=0xff0000
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Manually log activity for the user
+            success = db.update_staff_activity(user.id, "manual_update")
+            
+            if success:
+                embed = discord.Embed(
+                    title="✅ Activity Updated",
+                    description=f"Manually logged activity for {user.mention}",
+                    color=0x00ff00,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(
+                    name="📝 Action Logged",
+                    value="Manual activity update by administrator",
+                    inline=False
+                )
+            else:
+                embed = discord.Embed(
+                    title="❌ Update Failed",
+                    description="Failed to update activity. Please try again.",
+                    color=0xff0000
+                )
+        
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="auto-demote-check", description="Run automatic demotion check for inactive staff")
+    async def auto_demote_check(self, interaction: discord.Interaction):
+        """Automatic demotion check for inactive staff members"""
+        
+        # Only administrators can run this
+        if not interaction.user.guild_permissions.administrator:
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="Only administrators can run automatic demotion checks.",
+                color=0xff0000
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        # Get candidates for demotion
+        candidates = db.check_staff_demotion_candidates()
+        
+        # Define staff roles to potentially demote
+        staff_role_names = ["moderator", "lead moderator"]  # Don't auto-demote overseer or forgotten one
+        
+        demoted_count = 0
+        warnings_sent = 0
+        
+        for candidate in candidates:
+            user = interaction.guild.get_member(candidate['user_id'])
+            if not user:
+                continue
+            
+            # Check if user has demotable roles
+            user_staff_roles = [role for role in user.roles if role.name.lower() in staff_role_names]
+            
+            # Only demote if they have 0 days active (completely inactive)
+            if candidate['days_active'] == 0 and user_staff_roles:
+                try:
+                    # Remove staff roles
+                    for role in user_staff_roles:
+                        await user.remove_roles(role, reason="Automatic demotion - no activity in 7 days")
+                    
+                    # Send DM to user
+                    try:
+                        dm_embed = discord.Embed(
+                            title="📉 Staff Role Removed",
+                            description=f"Your staff role has been removed from **{interaction.guild.name}** due to inactivity.",
+                            color=0xff0000,
+                            timestamp=datetime.now()
+                        )
+                        dm_embed.add_field(
+                            name="📊 Activity Summary",
+                            value="You had 0 active days in the past week, which is below the required 3 days minimum.",
+                            inline=False
+                        )
+                        dm_embed.add_field(
+                            name="💡 Next Steps",
+                            value="If you believe this was an error or want to discuss returning to the staff team, please contact an administrator.",
+                            inline=False
+                        )
+                        await user.send(embed=dm_embed)
+                    except:
+                        pass  # DM failed, continue
+                    
+                    demoted_count += 1
+                    
+                except Exception as e:
+                    print(f"Failed to demote {user}: {e}")
+            
+            elif candidate['days_active'] < 3:
+                # Send warning for low activity
+                try:
+                    warning_embed = discord.Embed(
+                        title="⚠️ Staff Activity Warning",
+                        description=f"Your staff activity in **{interaction.guild.name}** is below requirements.",
+                        color=0xffa500,
+                        timestamp=datetime.now()
+                    )
+                    warning_embed.add_field(
+                        name="📊 Current Activity",
+                        value=f"**Days Active:** {candidate['days_active']}/7\n**Required:** 3 days minimum",
+                        inline=False
+                    )
+                    warning_embed.add_field(
+                        name="🚨 Action Required",
+                        value="Please increase your activity to avoid potential demotion. Be active for at least 3 days per week.",
+                        inline=False
+                    )
+                    await user.send(embed=warning_embed)
+                    warnings_sent += 1
+                except:
+                    pass  # DM failed, continue
+        
+        # Send summary
+        embed = discord.Embed(
+            title="🤖 Automatic Demotion Check Complete",
+            description="Automated staff activity review has been completed.",
+            color=0x7c3aed,
+            timestamp=datetime.now()
+        )
+        
+        embed.add_field(
+            name="📊 Results Summary",
+            value=f"**Demotions:** {demoted_count} staff members\n**Warnings Sent:** {warnings_sent} staff members\n**Total Candidates:** {len(candidates)}",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="⚙️ Auto-Demotion Criteria",
+            value="• **Automatic Demotion:** 0 days active in past week\n• **Warning:** 1-2 days active (below 3 required)\n• **Safe:** 3+ days active",
+            inline=False
+        )
+        
+        if demoted_count > 0:
+            embed.add_field(
+                name="🔄 Post-Demotion Actions",
+                value="• Affected users have been notified\n• Roles have been removed\n• Consider manual review for edge cases",
+                inline=False
+            )
+        
+        embed.set_footer(text="Automated Staff Management System")
+        
+        await interaction.followup.send(embed=embed)
+
     def calculate_success_rate(self, successful_works: int, tier: str) -> float:
         """Calculate success rate for a specific tier"""
         base_rates = {

@@ -1937,4 +1937,198 @@ def remove_specific_warning(user_id, warning_index):
         print(f"Error removing specific warning: {e}")
         return False
 
-print("[Database] All functions loaded successfully with enhanced MongoDB support")
+# Reminder system functions for persistence
+def add_reminder(reminder_data):
+    """Add a reminder to the database for persistence"""
+    try:
+        reminders_collection = db.reminders
+        reminder_doc = {
+            'user_id': reminder_data['user_id'],
+            'channel_id': reminder_data['channel_id'],
+            'guild_id': reminder_data['guild_id'],
+            'reminder_text': reminder_data['reminder_text'],
+            'created_at': reminder_data['created_at'],
+            'remind_at': reminder_data['remind_at'],
+            'completed': False
+        }
+        
+        result = reminders_collection.insert_one(reminder_doc)
+        return {'success': True, 'reminder_id': str(result.inserted_id)}
+    except Exception as e:
+        print(f"Error adding reminder: {e}")
+        return {'success': False, 'error': str(e)}
+
+def get_pending_reminders():
+    """Get all pending reminders from database"""
+    try:
+        reminders_collection = db.reminders
+        current_time = datetime.now()
+        
+        # Get reminders that are not completed and are due or overdue
+        reminders = list(reminders_collection.find({
+            'completed': False,
+            'remind_at': {'$lte': current_time}
+        }))
+        
+        # Convert MongoDB ObjectId to string and datetime objects
+        for reminder in reminders:
+            reminder['_id'] = str(reminder['_id'])
+            if isinstance(reminder['created_at'], str):
+                reminder['created_at'] = datetime.fromisoformat(reminder['created_at'])
+            if isinstance(reminder['remind_at'], str):
+                reminder['remind_at'] = datetime.fromisoformat(reminder['remind_at'])
+        
+        return reminders
+    except Exception as e:
+        print(f"Error getting pending reminders: {e}")
+        return []
+
+def is_reminder_completed(user_id, created_at):
+    """Check if a reminder is completed"""
+    try:
+        reminders_collection = db.reminders
+        result = reminders_collection.find_one({
+            'user_id': user_id,
+            'created_at': created_at,
+            'completed': True
+        })
+        return result is not None
+    except Exception as e:
+        print(f"Error checking reminder completion: {e}")
+        return False
+
+def complete_reminder(user_id, created_at):
+    """Mark a reminder as completed"""
+    try:
+        reminders_collection = db.reminders
+        result = reminders_collection.update_one(
+            {
+                'user_id': user_id,
+                'created_at': created_at
+            },
+            {'$set': {'completed': True}}
+        )
+        return result.modified_count > 0
+    except Exception as e:
+        print(f"Error completing reminder: {e}")
+        return False
+
+def cleanup_old_reminders():
+    """Clean up old completed reminders (older than 7 days)"""
+    try:
+        reminders_collection = db.reminders
+        seven_days_ago = datetime.now() - timedelta(days=7)
+        
+        result = reminders_collection.delete_many({
+            'completed': True,
+            'remind_at': {'$lt': seven_days_ago}
+        })
+        
+        return {'success': True, 'deleted_count': result.deleted_count}
+    except Exception as e:
+        print(f"Error cleaning up reminders: {e}")
+        return {'success': False, 'error': str(e)}
+
+# Work requirement and demotion system functions
+def update_staff_activity(user_id, activity_type, timestamp=None):
+    """Track staff activity for work requirements"""
+    try:
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        staff_activity_collection = db.staff_activity
+        
+        # Update or create activity record
+        staff_activity_collection.update_one(
+            {'user_id': user_id},
+            {
+                '$set': {
+                    'last_activity': timestamp,
+                    'last_activity_type': activity_type
+                },
+                '$inc': {f'activity_count_{activity_type}': 1},
+                '$push': {
+                    'activity_log': {
+                        'type': activity_type,
+                        'timestamp': timestamp
+                    }
+                }
+            },
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error updating staff activity: {e}")
+        return False
+
+def get_staff_activity_summary(user_id, days=7):
+    """Get staff activity summary for work requirement checking"""
+    try:
+        staff_activity_collection = db.staff_activity
+        days_ago = datetime.now() - timedelta(days=days)
+        
+        staff_data = staff_activity_collection.find_one({'user_id': user_id})
+        if not staff_data:
+            return {
+                'total_activities': 0,
+                'days_active': 0,
+                'last_activity': None,
+                'meets_requirements': False
+            }
+        
+        # Count activities in the specified period
+        activity_log = staff_data.get('activity_log', [])
+        recent_activities = [
+            activity for activity in activity_log
+            if activity['timestamp'] >= days_ago
+        ]
+        
+        # Count unique days with activity
+        active_days = set()
+        for activity in recent_activities:
+            active_days.add(activity['timestamp'].date())
+        
+        # Requirements: at least 3 days of activity per week
+        meets_requirements = len(active_days) >= 3
+        
+        return {
+            'total_activities': len(recent_activities),
+            'days_active': len(active_days),
+            'last_activity': staff_data.get('last_activity'),
+            'meets_requirements': meets_requirements,
+            'required_days': 3
+        }
+    except Exception as e:
+        print(f"Error getting staff activity summary: {e}")
+        return {
+            'total_activities': 0,
+            'days_active': 0,
+            'last_activity': None,
+            'meets_requirements': False
+        }
+
+def check_staff_demotion_candidates():
+    """Check which staff members are candidates for demotion"""
+    try:
+        staff_activity_collection = db.staff_activity
+        one_week_ago = datetime.now() - timedelta(days=7)
+        
+        # Find staff who haven't met requirements
+        inactive_staff = []
+        all_staff = staff_activity_collection.find({})
+        
+        for staff in all_staff:
+            summary = get_staff_activity_summary(staff['user_id'], 7)
+            if not summary['meets_requirements']:
+                inactive_staff.append({
+                    'user_id': staff['user_id'],
+                    'days_active': summary['days_active'],
+                    'last_activity': summary['last_activity']
+                })
+        
+        return inactive_staff
+    except Exception as e:
+        print(f"Error checking demotion candidates: {e}")
+        return []
+
+print("[Database] All functions loaded successfully with enhanced MongoDB support and reminder system")
