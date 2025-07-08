@@ -1231,12 +1231,10 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error adding warning: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="checkwarnlist", description="📋 Check warnings for a user")
+    @app_commands.command(name="warnlist", description="📋 Check warnings for a user (visible to everyone)")
     @app_commands.describe(user="User to check warnings for")
-    async def check_warn_list(self, interaction: discord.Interaction, user: discord.Member):
-        if not has_moderator_role(interaction):
-            await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
-            return
+    async def warn_list(self, interaction: discord.Interaction, user: discord.Member):
+        # Anyone can check warnings now - no permission check needed
 
         try:
             warnings = db.get_user_warnings(user.id)

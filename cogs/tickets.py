@@ -21,9 +21,10 @@ STAFF_ROLES = [
 
 class SimpleTicketView(View):
     """Simple MEE6-style ticket buttons for staff only"""
-    def __init__(self, creator_id: int):
+    def __init__(self, creator_id: int, claimed_by: int = None):
         super().__init__(timeout=None)
         self.creator_id = creator_id
+        self.claimed_by = claimed_by
         
     def _is_staff(self, user) -> bool:
         """Check if user is authorized staff"""
@@ -43,28 +44,58 @@ class SimpleTicketView(View):
                 
         return False
     
-    @discord.ui.button(label="Claim", emoji="👤", style=discord.ButtonStyle.primary, custom_id="ticket_claim")
+    @discord.ui.button(label="Claim", emoji="�", style=discord.ButtonStyle.primary, custom_id="ticket_claim")
     async def claim_ticket(self, interaction: discord.Interaction, button: Button):
         if not self._is_staff(interaction.user):
             await interaction.response.send_message("❌ Only staff can claim tickets.", ephemeral=True)
             return
             
         try:
-            # Update channel name to show claimer
+            # Check if already claimed
+            if self.claimed_by and self.claimed_by != interaction.user.id:
+                # Transfer to new staff member
+                old_claimer = interaction.guild.get_member(self.claimed_by)
+                old_claimer_name = old_claimer.display_name if old_claimer else "Unknown Staff"
+                
+                embed = discord.Embed(
+                    title="🔄 Ticket Transferred",
+                    description=f"**Transferred from:** {old_claimer_name}\n**Transferred to:** {interaction.user.mention}",
+                    color=0xffaa00
+                )
+                
+                # Update channel name
+                creator = interaction.guild.get_member(self.creator_id)
+                creator_name = creator.display_name.lower().replace(' ', '-')[:10] if creator else "unknown"
+                claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
+                
+                new_name = f"🟢claimed-by-{claimer_name}"
+                await interaction.channel.edit(name=new_name)
+                
+                self.claimed_by = interaction.user.id
+                await interaction.response.edit_message(view=self)
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # First time claim
             creator = interaction.guild.get_member(self.creator_id)
             creator_name = creator.display_name.lower().replace(' ', '-')[:10] if creator else "unknown"
             claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
             
-            new_name = f"ticket-{creator_name}-{claimer_name}"
+            # Update channel name with green emoji
+            new_name = f"🟢claimed-by-{claimer_name}"
             await interaction.channel.edit(name=new_name)
             
-            # Simple response
+            # Update view state
+            self.claimed_by = interaction.user.id
+            
+            # Response
             embed = discord.Embed(
                 title="✅ Ticket Claimed",
-                description=f"**{interaction.user.mention}** claimed this ticket",
+                description=f"**{interaction.user.mention}** claimed this ticket\n🟢 Status: **CLAIMED**",
                 color=0x00ff00
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.edit_message(view=self)
+            await interaction.followup.send(embed=embed)
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
@@ -132,9 +163,9 @@ class TicketCreateView(View):
         try:
             await interaction.response.defer(ephemeral=True)
             
-            # Create ticket channel
+            # Create ticket channel with red emoji (unclaimed)
             username = interaction.user.display_name.lower().replace(' ', '-')[:15]
-            channel_name = f"ticket-{username}"
+            channel_name = f"🔴ticket-{username}"
             
             # Find support category or create in general area
             category_channel = None

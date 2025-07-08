@@ -865,50 +865,34 @@ class Economy(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="buy", description="🛒 Purchase premium temporary items from the shop")
-    @app_commands.describe(item="Item to purchase from the premium shop")
+    @app_commands.command(name="buy", description="🛒 Purchase simple and useful items from the shop")
+    @app_commands.describe(item="Item to purchase from the shop")
     @app_commands.choices(item=[
-        # Power-Ups
-        app_commands.Choice(name="⚡ XP Boost (200 coins - 1 hour)", value="xp_boost"),
-        app_commands.Choice(name="💰 Coin Boost (250 coins - 3 hours)", value="coin_boost"),
-        app_commands.Choice(name="🎯 Work Success (400 coins - 24 hours)", value="work_success"),
-        # Social Status
-        app_commands.Choice(name="🌟 VIP Role (500 coins - 3 days)", value="vip_role"),
-        app_commands.Choice(name="🎨 Custom Color (800 coins - 7 days)", value="custom_color"),
-        app_commands.Choice(name="👑 Crown Badge (600 coins - 14 days)", value="crown_badge"),
-        app_commands.Choice(name="🌈 Rainbow Name (1200 coins - 5 days)", value="rainbow_name"),
-        # Access
-        app_commands.Choice(name="🚪 VIP Channels (1000 coins - 14 days)", value="vip_channels"),
-        app_commands.Choice(name="📝 Nickname Freedom (150 coins - 7 days)", value="nickname_freedom"),
-        app_commands.Choice(name="🎤 Voice Priority (350 coins - 10 days)", value="voice_priority"),
-        app_commands.Choice(name="📱 Early Access (750 coins - 30 days)", value="early_access"),
-        # Fun & Games
-        app_commands.Choice(name="🎲 Luck Boost (450 coins - 7 days)", value="luck_boost"),
-        app_commands.Choice(name="🎊 Party Mode (200 coins - 6 hours)", value="party_mode"),
-        app_commands.Choice(name="🎯 Double Daily (300 coins - 3 days)", value="double_daily"),
-        app_commands.Choice(name="🔮 Mystery Box (500 coins - 7 days)", value="mystery_box")
+        # Essential Boosts - Simple and Useful
+        app_commands.Choice(name="⚡ XP Boost (100 coins - 2 hours)", value="xp_boost"),
+        app_commands.Choice(name="💰 Coin Boost (150 coins - 4 hours)", value="coin_boost"),
+        app_commands.Choice(name="🎯 Work Success (200 coins - 12 hours)", value="work_success"),
+        app_commands.Choice(name="� Luck Boost (250 coins - 24 hours)", value="luck_boost"),
+        # Simple Access
+        app_commands.Choice(name="� Custom Nickname (75 coins - 7 days)", value="nickname_freedom"),
+        app_commands.Choice(name="� Color Role (125 coins - 5 days)", value="custom_color"),
+        # Useful Features
+        app_commands.Choice(name="📊 Double XP Daily (100 coins - 3 days)", value="double_daily"),
+        app_commands.Choice(name="� Work Cooldown Reset (50 coins - instant)", value="cooldown_reset")
     ])
     async def buy(self, interaction: discord.Interaction, item: str):
         shop_items = {
-            # Power-Ups
-            "xp_boost": {"price": 200, "name": "⚡ XP Boost", "duration": 3600, "description": "1 hour", "category": "Power-Up"},
-            "coin_boost": {"price": 250, "name": "💰 Coin Boost", "duration": 10800, "description": "3 hours", "category": "Power-Up"},
-            "work_success": {"price": 400, "name": "🎯 Work Success", "duration": 86400, "description": "24 hours", "category": "Power-Up"},
-            # Social Status  
-            "vip_role": {"price": 500, "name": "🌟 VIP Role", "duration": 259200, "description": "3 days", "category": "Social"},
-            "custom_color": {"price": 800, "name": "🎨 Custom Color", "duration": 604800, "description": "7 days", "category": "Social"},
-            "crown_badge": {"price": 600, "name": "👑 Crown Badge", "duration": 1209600, "description": "14 days", "category": "Social"},
-            "rainbow_name": {"price": 1200, "name": "🌈 Rainbow Name", "duration": 432000, "description": "5 days", "category": "Social"},
-            # Access
-            "vip_channels": {"price": 1000, "name": "🚪 VIP Channels", "duration": 1209600, "description": "14 days", "category": "Access"},
-            "nickname_freedom": {"price": 150, "name": "📝 Nickname Freedom", "duration": 604800, "description": "7 days", "category": "Access"},
-            "voice_priority": {"price": 350, "name": "🎤 Voice Priority", "duration": 864000, "description": "10 days", "category": "Access"},
-            "early_access": {"price": 750, "name": "📱 Early Access", "duration": 2592000, "description": "30 days", "category": "Access"},
-            # Fun & Games
-            "luck_boost": {"price": 450, "name": "🎲 Luck Boost", "duration": 604800, "description": "7 days", "category": "Fun"},
-            "party_mode": {"price": 200, "name": "🎊 Party Mode", "duration": 21600, "description": "6 hours", "category": "Fun"},
-            "double_daily": {"price": 300, "name": "🎯 Double Daily", "duration": 259200, "description": "3 days", "category": "Fun"},
-            "mystery_box": {"price": 500, "name": "🔮 Mystery Box", "duration": 604800, "description": "7 days", "category": "Fun"}
+            # Essential Boosts - Simple and Useful
+            "xp_boost": {"price": 100, "name": "⚡ XP Boost", "duration": 7200, "description": "2 hours", "category": "Boost"},
+            "coin_boost": {"price": 150, "name": "💰 Coin Boost", "duration": 14400, "description": "4 hours", "category": "Boost"},
+            "work_success": {"price": 200, "name": "🎯 Work Success", "duration": 43200, "description": "12 hours", "category": "Boost"},
+            "luck_boost": {"price": 250, "name": "� Luck Boost", "duration": 86400, "description": "24 hours", "category": "Boost"},
+            # Simple Access
+            "nickname_freedom": {"price": 75, "name": "📝 Custom Nickname", "duration": 604800, "description": "7 days", "category": "Access"},
+            "custom_color": {"price": 125, "name": "� Color Role", "duration": 432000, "description": "5 days", "category": "Access"},
+            # Useful Features
+            "double_daily": {"price": 100, "name": "📊 Double XP Daily", "duration": 259200, "description": "3 days", "category": "Feature"},
+            "cooldown_reset": {"price": 50, "name": "� Work Cooldown Reset", "duration": 0, "description": "instant", "category": "Feature"}
         }
         
         if item not in shop_items:

@@ -27,15 +27,37 @@ class GiveawayView(View):
         super().__init__(timeout=None)
         self.end_time = end_time
         self.participants = participants or set()
-
-    @discord.ui.button(label="🎉 Enter Giveaway", style=discord.ButtonStyle.primary)
+        
+    @discord.ui.button(label="🎉 Enter Giveaway", style=discord.ButtonStyle.primary, custom_id="giveaway_enter")
     async def enter_giveaway(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = interaction.user.id
+        
         if user_id in self.participants:
             await interaction.response.send_message("❌ You're already entered in this giveaway!", ephemeral=True)
-        else:
-            self.participants.add(user_id)
-            await interaction.response.send_message("✅ You've entered the giveaway! Good luck!", ephemeral=True)
+            return
+            
+        self.participants.add(user_id)
+        
+        # Update the embed with live count
+        embed = interaction.message.embeds[0]
+        
+        # Update the description to include live count
+        lines = embed.description.split('\n')
+        new_lines = []
+        for line in lines:
+            if not line.startswith('**Entries:**'):
+                new_lines.append(line)
+        new_lines.append(f"**Entries:** {len(self.participants)} participants")
+        
+        embed.description = '\n'.join(new_lines)
+        embed.color = 0x00ff00 if len(self.participants) > 0 else 0xff6b6b
+        
+        await interaction.response.edit_message(embed=embed, view=self)
+        
+        # Send confirmation
+        await interaction.followup.send("✅ You've been entered into the giveaway! Good luck! 🍀", ephemeral=True)
+
+
 
 class ShoutView(View):
     def __init__(self, shout_data, original_message=None):
@@ -1037,9 +1059,9 @@ class Community(commands.Cog):
         else:
             await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="userinfo", description="View detailed info about a server member")
-    @app_commands.describe(user="The user to get info about")
-    async def userinfo(self, interaction: discord.Interaction, user: discord.Member = None):
+    @app_commands.command(name="profile", description="View comprehensive profile with all stats and info")
+    @app_commands.describe(user="The user to view profile for")
+    async def profile(self, interaction: discord.Interaction, user: discord.Member = None):
         target = user or interaction.user
         
         # Get user data from database
@@ -1047,39 +1069,86 @@ class Community(commands.Cog):
         xp = user_data.get('xp', 0)
         cookies = user_data.get('cookies', 0)
         coins = user_data.get('coins', 0)
+        daily_streak = user_data.get('daily_streak', 0)
         
         # Calculate level
         level = self.calculate_level_from_xp(xp)
+        next_level_xp = self.calculate_xp_for_level(level + 1)
+        current_level_xp = self.calculate_xp_for_level(level)
+        progress_xp = xp - current_level_xp
+        required_xp = next_level_xp - current_level_xp
+        
+        # Get rankings
+        xp_leaderboard = db.get_leaderboard('xp')
+        cookies_leaderboard = db.get_leaderboard('cookies')
+        
+        xp_rank = next((i + 1 for i, u in enumerate(xp_leaderboard) if u['user_id'] == target.id), "Unranked")
+        cookies_rank = next((i + 1 for i, u in enumerate(cookies_leaderboard) if u['user_id'] == target.id), "Unranked")
         
         embed = discord.Embed(
-            title=f"👤 User Info: {target.display_name}",
-            color=target.accent_color or 0x7289da,
+            title=f"👤 Complete Profile: {target.display_name}",
+            color=target.accent_color or 0x7c3aed,
             timestamp=datetime.now()
         )
         embed.set_thumbnail(url=target.display_avatar.url)
         
-        # Basic info
-        embed.add_field(name="👤 Username", value=f"{target.name}", inline=True)
-        embed.add_field(name="🆔 ID", value=target.id, inline=True)
-        embed.add_field(name="🏆 Level", value=level, inline=True)
+        # Account Info
+        embed.add_field(
+            name="👤 Account Info",
+            value=f"**Username:** {target.name}\n**ID:** {target.id}\n**Created:** <t:{int(target.created_at.timestamp())}:R>\n**Joined:** <t:{int(target.joined_at.timestamp())}:R>",
+            inline=True
+        )
         
-        # Server stats
-        embed.add_field(name="📅 Account Created", value=f"<t:{int(target.created_at.timestamp())}:R>", inline=True)
-        embed.add_field(name="📅 Joined Server", value=f"<t:{int(target.joined_at.timestamp())}:R>", inline=True)
-        embed.add_field(name="📱 Status", value=str(target.status).title(), inline=True)
+        # Level & XP Progress
+        progress_bar = self.create_progress_bar(progress_xp, required_xp)
+        embed.add_field(
+            name="🏆 Level & XP",
+            value=f"**Level:** {level}\n**XP:** {xp:,}\n**Progress:** {progress_xp:,}/{required_xp:,}\n{progress_bar}\n**Rank:** #{xp_rank}",
+            inline=True
+        )
         
-        # Economy stats
-        embed.add_field(name="💰 Economy", value=f"XP: {xp:,}\nCoins: {coins:,}\nCookies: {cookies:,}", inline=True)
+        # Economy Stats
+        embed.add_field(
+            name="💰 Economy",
+            value=f"**Coins:** {coins:,}\n**Cookies:** {cookies:,}\n**Cookie Rank:** #{cookies_rank}\n**Daily Streak:** {daily_streak} days",
+            inline=True
+        )
         
-        # Roles (limit to avoid hitting embed limits)
+        # Server Status
+        embed.add_field(
+            name="📱 Server Status", 
+            value=f"**Status:** {str(target.status).title()}\n**Activity:** {target.activity.name if target.activity else 'None'}\n**Nickname:** {target.nick or 'None'}",
+            inline=True
+        )
+        
+        # Top Roles (limit to avoid embed limits)
         if target.roles[1:]:  # Skip @everyone role
-            roles = [role.mention for role in reversed(target.roles[1:])]
-            role_text = " ".join(roles[:10])
-            if len(roles) > 10:
-                role_text += f" and {len(roles) - 10} more..."
-            embed.add_field(name="🎭 Roles", value=role_text, inline=False)
-
+            top_roles = [role.mention for role in reversed(target.roles[1:5])]  # Top 4 roles
+            remaining = len(target.roles) - 6  # -1 for @everyone, -5 for shown roles
+            role_text = " ".join(top_roles)
+            if remaining > 0:
+                role_text += f" and {remaining} more..."
+            
+            embed.add_field(
+                name="🎭 Top Roles",
+                value=role_text,
+                inline=False
+            )
+        
+        # Profile footer
+        pronoun = "Your" if target == interaction.user else f"{target.display_name}'s"
+        embed.set_footer(text=f"👤 {pronoun} Complete Server Profile")
+        
         await interaction.response.send_message(embed=embed)
+    
+    def create_progress_bar(self, current, total, length=10):
+        """Create a simple progress bar"""
+        if total == 0:
+            return "▓" * length
+        
+        filled = int((current / total) * length)
+        empty = length - filled
+        return "▓" * filled + "░" * empty
 
     def calculate_level_from_xp(self, xp: int) -> int:
         """Calculate level from XP"""
@@ -1306,7 +1375,7 @@ Provide a focused, helpful response that gets straight to the point."""
             
             embed = discord.Embed(
                 title="🎉 GIVEAWAY! 🎉",
-                description=f"**Prize:** {prize}\n**Winners:** {winners}\n**Ends:** <t:{int(end_time.timestamp())}:R>",
+                description=f"**Prize:** {prize}\n**Winners:** {winners}\n**Ends:** <t:{int(end_time.timestamp())}:R>\n**Entries:** 0 participants",
                 color=0xff6b6b,
                 timestamp=end_time
             )
@@ -1319,32 +1388,8 @@ Provide a focused, helpful response that gets straight to the point."""
                 giveaway_message = await target_channel.send(embed=embed, view=view)
                 await interaction.response.send_message(f"✅ Giveaway started in {target_channel.mention}!", ephemeral=True)
                 
-                # Wait for the giveaway to end
-                await asyncio.sleep(duration * 60)
-                
-                # Select winners
-                if len(view.participants) == 0:
-                    embed.description = f"**Prize:** {prize}\n**Winners:** No one entered! 😢"
-                    embed.color = 0x999999
-                    await giveaway_message.edit(embed=embed, view=None)
-                    return
-                
-                actual_winners = min(winners, len(view.participants))
-                winner_ids = random.sample(list(view.participants), actual_winners)
-                winner_mentions = [f"<@{uid}>" for uid in winner_ids]
-                
-                embed.description = f"**Prize:** {prize}\n**Winners:** {', '.join(winner_mentions)}"
-                embed.color = 0x00ff00
-                await giveaway_message.edit(embed=embed, view=None)
-                
-                # Congratulate winners
-                congrats_embed = discord.Embed(
-                    title="🎊 Giveaway Ended!",
-                    description=f"Congratulations to the winner(s): {', '.join(winner_mentions)}\n\n**Prize:** {prize}",
-                    color=0x00ff00,
-                    timestamp=datetime.now()
-                )
-                await target_channel.send(embed=congrats_embed)
+                # Start background task to end giveaway
+                asyncio.create_task(self._end_giveaway_after_delay(giveaway_message, prize, winners, duration, view, target_channel))
                 
             except discord.Forbidden:
                 await interaction.response.send_message(f"❌ I don't have permission to send messages in {target_channel.mention}!", ephemeral=True)
@@ -1355,6 +1400,43 @@ Provide a focused, helpful response that gets straight to the point."""
             else:
                 # Use followup if response was already sent
                 await interaction.followup.send(f"❌ Error starting giveaway: {str(e)}", ephemeral=True)
+    
+    async def _end_giveaway_after_delay(self, giveaway_message, prize, winners, duration, view, channel):
+        """Background task to end giveaway after specified duration"""
+        try:
+            await asyncio.sleep(duration * 60)
+            
+            # Select winners
+            embed = giveaway_message.embeds[0]
+            
+            if len(view.participants) == 0:
+                embed.description = f"**Prize:** {prize}\n**Status:** ENDED - No entries! 😢"
+                embed.color = 0x999999
+                embed.title = "🎉 GIVEAWAY ENDED 🎉"
+                await giveaway_message.edit(embed=embed, view=None)
+                return
+            
+            actual_winners = min(winners, len(view.participants))
+            winner_ids = random.sample(list(view.participants), actual_winners)
+            winner_mentions = [f"<@{uid}>" for uid in winner_ids]
+            
+            embed.description = f"**Prize:** {prize}\n**Winners:** {', '.join(winner_mentions)}\n**Total Entries:** {len(view.participants)} participants"
+            embed.color = 0x00ff00
+            embed.title = "🎉 GIVEAWAY ENDED 🎉"
+            await giveaway_message.edit(embed=embed, view=None)
+            
+            # Congratulate winners
+            congrats_embed = discord.Embed(
+                title="🎊 Giveaway Results!",
+                description=f"🏆 **Winner(s):** {', '.join(winner_mentions)}\n🎁 **Prize:** {prize}\n📊 **Total Entries:** {len(view.participants)}",
+                color=0x00ff00,
+                timestamp=datetime.now()
+            )
+            congrats_embed.set_footer(text="Congratulations to all winners!")
+            await channel.send(embed=congrats_embed)
+            
+        except Exception as e:
+            print(f"Error ending giveaway: {e}")
 
     @app_commands.command(name="announce", description="Creates a professional pointwise announcement with optional attachments")
     @app_commands.describe(

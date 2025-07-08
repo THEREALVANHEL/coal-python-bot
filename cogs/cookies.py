@@ -539,12 +539,30 @@ class Cookies(commands.Cog):
             await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
             return
 
-        # Confirmation check
+                    # Get current server stats first
+        members = [member for member in interaction.guild.members if not member.bot]
+        total_members = len(members)
+        total_cookies_preview = 0
+        members_with_cookies = 0
+        
+        for member in members:
+            user_data = db.get_user_data(member.id)
+            cookies = user_data.get('cookies', 0)
+            if cookies > 0:
+                total_cookies_preview += cookies
+                members_with_cookies += 1
+        
+        # Confirmation check with detailed stats
         embed = discord.Embed(
             title="⚠️ **DANGEROUS OPERATION**",
             description="This will remove **ALL COOKIES** from **EVERY MEMBER** in the server!\n\n**⚠️ THIS ACTION CANNOT BE UNDONE!**",
             color=0xff0000,
             timestamp=datetime.now()
+        )
+        embed.add_field(
+            name="📊 **Current Server Stats**",
+            value=f"**Total Members:** {total_members:,}\n**Members with Cookies:** {members_with_cookies:,}\n**Total Cookies to Remove:** {total_cookies_preview:,}",
+            inline=False
         )
         embed.add_field(
             name="🚨 **What will happen:**",
