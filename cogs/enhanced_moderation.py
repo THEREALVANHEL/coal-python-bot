@@ -51,10 +51,6 @@ class SimpleModeration(commands.Cog):
             return
             
         try:
-            # Track staff activity for work requirements
-            if any(role.name.lower() in ["lead moderator", "moderator", "overseer", "forgotten one"] for role in message.author.roles):
-                db.update_staff_activity(message.author.id, "message_delete")
-            
             content = message.content[:500] + "..." if len(message.content) > 500 else message.content
             if not content:
                 content = "*No text content*"
@@ -78,10 +74,6 @@ class SimpleModeration(commands.Cog):
             return
             
         try:
-            # Track staff activity for work requirements
-            if any(role.name.lower() in ["lead moderator", "moderator", "overseer", "forgotten one"] for role in after.author.roles):
-                db.update_staff_activity(after.author.id, "message_edit")
-            
             before_content = before.content[:300] + "..." if len(before.content) > 300 else before.content
             after_content = after.content[:300] + "..." if len(after.content) > 300 else after.content
             
@@ -221,68 +213,6 @@ class SimpleModeration(commands.Cog):
         )
         test_embed.set_footer(text="Simple Mod Log")
         await channel.send(embed=test_embed)
-
-    @app_commands.command(name="staff-activity", description="Check staff activity for work requirements")
-    @app_commands.describe(user="Staff member to check (optional)")
-    async def staff_activity(self, interaction: discord.Interaction, user: discord.Member = None):
-        """Check staff activity for work requirements"""
-        
-        # Check if user has permission
-        is_staff = (
-            interaction.user.guild_permissions.administrator or
-            has_special_permissions(interaction.user) or
-            any(role.name.lower() in ["lead moderator", "moderator", "overseer", "forgotten one"] for role in interaction.user.roles)
-        )
-        
-        if not is_staff:
-            embed = discord.Embed(
-                title="❌ Access Denied",
-                description="Only staff can check activity requirements.",
-                color=0xff0000
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        target_user = user or interaction.user
-        
-        # Get activity summary
-        summary = db.get_staff_activity_summary(target_user.id, 7)
-        
-        embed = discord.Embed(
-            title="📊 Staff Activity Report",
-            description=f"**Staff Member:** {target_user.mention}",
-            color=0x00ff00 if summary['meets_requirements'] else 0xff0000
-        )
-        
-        embed.add_field(
-            name="📈 Weekly Activity",
-            value=f"**Days Active:** {summary['days_active']}/7\n**Required:** {summary['required_days']} days\n**Status:** {'✅ Meets Requirements' if summary['meets_requirements'] else '❌ Below Requirements'}",
-            inline=False
-        )
-        
-        if summary['last_activity']:
-            embed.add_field(
-                name="⏰ Last Activity",
-                value=f"<t:{int(summary['last_activity'].timestamp())}:R>",
-                inline=True
-            )
-        
-        embed.add_field(
-            name="💡 Work Requirements",
-            value="Staff must be active at least **3 days per week** to maintain their position.",
-            inline=False
-        )
-        
-        if not summary['meets_requirements']:
-            embed.add_field(
-                name="⚠️ Warning",
-                value="This staff member may be subject to demotion if activity doesn't improve.",
-                inline=False
-            )
-        
-        embed.set_footer(text="Activity tracking helps maintain an active staff team")
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(SimpleModeration(bot))

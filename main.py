@@ -266,8 +266,7 @@ async def load_cogs():
         'cogs.moderation',
         'cogs.enhanced_moderation',  # Simple logging system
         'cogs.settings',
-        'cogs.tickets',
-        'cogs.comprehensive_fixes'  # All fixes in one place - jobs command and priority buttons
+        'cogs.tickets'
     ]
     
     loaded_count = 0
@@ -320,8 +319,7 @@ async def ensure_cogs_loaded():
         'cogs.moderation',
         'cogs.enhanced_moderation',
         'cogs.settings',
-        'cogs.tickets',
-        'cogs.comprehensive_fixes'
+        'cogs.tickets'
     ]
     
     missing_cogs = [cog for cog in target_cogs if cog not in loaded_cogs]
