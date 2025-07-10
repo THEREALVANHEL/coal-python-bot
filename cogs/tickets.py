@@ -12,7 +12,7 @@ import database as db
 from permissions import has_special_permissions
 
 # Define the 4 staff roles that can manage tickets
-STAFF_ROLES = ["forgotten one", "overseer", "leadmoderator", "moderator"]
+STAFF_ROLES = ["forgotten one", "overseer", "lead moderator", "moderator"]
 
 class ModernTicketControlPanel(View):
     """🎫 Modern Ticket Control Panel - Cool & Simplistic Design"""
@@ -23,13 +23,31 @@ class ModernTicketControlPanel(View):
         self.is_locked = False
         
     def _is_staff(self, user) -> bool:
-        """Check if user is authorized staff (the 4 roles)"""
+        """Check if user is authorized staff (the 4 roles) - ENHANCED MATCHING"""
         if user.guild_permissions.administrator:
             return True
-        if has_special_permissions(user):
-            return True
-        user_roles = [role.name.lower() for role in user.roles]
-        return any(staff_role in user_roles for staff_role in STAFF_ROLES)
+        
+        # Check for special admin role (if user has roles)
+        if hasattr(user, 'roles') and user.roles:
+            if any(role.id == 1376574861333495910 for role in user.roles):
+                return True
+        
+        # Enhanced role matching for staff roles
+        user_roles = [role.name.lower().strip() for role in user.roles]
+        
+        for user_role in user_roles:
+            for staff_role in STAFF_ROLES:
+                # Check exact match
+                if user_role == staff_role:
+                    return True
+                # Check if staff role is contained in user role
+                if staff_role in user_role:
+                    return True
+                # Check if user role contains all words of staff role
+                if all(word in user_role for word in staff_role.split()):
+                    return True
+        
+        return False
     
     @discord.ui.button(label="Claim", emoji="🟢", style=discord.ButtonStyle.success, custom_id="modern_claim", row=0)
     async def claim_ticket(self, interaction: discord.Interaction, button: Button):

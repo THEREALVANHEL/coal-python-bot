@@ -1,6 +1,7 @@
 # 🤖 Coal Python Bot - Complete Command List
 
 *Last Updated: December 2024*
+*⚠️ IMPORTANT: See `DISCORD_PERMISSIONS_REQUIRED.md` for role permission setup*
 
 ## 📋 Command Overview
 
