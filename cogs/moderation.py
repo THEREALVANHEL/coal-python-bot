@@ -192,6 +192,187 @@ class RoleplayView(discord.ui.View):
         embed.set_footer(text="🎲 Ready to continue your adventure?")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+class ContinueTalkModal(discord.ui.Modal):
+    def __init__(self, conversation_history: list):
+        super().__init__(title="Continue talking with Bleky")
+        self.conversation_history = conversation_history
+        
+        self.message_input = discord.ui.TextInput(
+            label="What do you want to say to your nephew Bleky?",
+            placeholder="Type your message here... Be natural, he's your nephew!",
+            style=discord.TextStyle.paragraph,
+            max_length=1000,
+            required=True
+        )
+        self.add_item(self.message_input)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        
+        try:
+            # Get recent channel messages for additional context
+            channel_history = []
+            try:
+                async for message in interaction.channel.history(limit=5):
+                    if not message.author.bot and len(message.content) > 0:
+                        channel_history.append(f"{message.author.display_name}: {message.content[:100]}")
+            except:
+                pass
+
+            user_message = self.message_input.value
+            
+            # Add user's message to conversation history
+            self.conversation_history.append(f"Uncle/Aunt {interaction.user.display_name}: {user_message}")
+            
+            # Build conversation context (last 10 messages)
+            recent_conversation = "\n".join(self.conversation_history[-10:])
+            
+            channel_context = ""
+            if channel_history:
+                channel_context = f"\n\nChannel context: {' | '.join(reversed(channel_history[-3:]))}"
+
+            prompt = f"""You are Bleky, a fun-loving, energetic, and slightly mischievous nephew talking to your uncle/aunt. You're a real human teenager (around 16-17 years old) who loves gaming, memes, and hanging out. You have a close relationship with your uncle/aunt and feel comfortable being casual and playful with them.
+
+PERSONALITY TRAITS:
+- Enthusiastic and energetic
+- Uses modern slang naturally (but not excessively)
+- Playful and sometimes a bit cheeky
+- Loves gaming, music, and technology
+- Genuine care for family
+- Sometimes asks for advice or help
+- Can be dramatic about small things (typical teenager)
+- Has inside jokes and references with uncle/aunt
+
+CONVERSATION HISTORY:
+{recent_conversation}
+
+CURRENT MESSAGE FROM UNCLE/AUNT:
+{user_message}
+
+INSTRUCTIONS:
+- Respond as Bleky would naturally respond to his uncle/aunt
+- Keep it realistic and human-like
+- Use casual language appropriate for family
+- Reference the conversation history when relevant
+- Be genuinely engaging and fun
+- Keep response under 1500 characters
+- Feel free to ask questions, share stories, or be playful
+- React authentically to what they said{channel_context}
+
+Respond as Bleky:"""
+
+            # Call Gemini AI
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            if not gemini_api_key:
+                embed = discord.Embed(
+                    title="❌ **Bleky is Busy**",
+                    description="🤖 Bleky can't talk right now! Try again later.",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+                
+            import google.generativeai as genai
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            response = model.generate_content(prompt)
+            
+            if response.text:
+                # Add Bleky's response to conversation history
+                self.conversation_history.append(f"Bleky: {response.text}")
+                
+                # Create response embed
+                embed = discord.Embed(
+                    title="💬 **Bleky Responds**",
+                    description=response.text,
+                    color=0x5865f2,
+                    timestamp=datetime.now()
+                )
+                
+                embed.add_field(
+                    name="💭 **You said**", 
+                    value=f"*{user_message}*", 
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="🎮 **Keep Chatting**",
+                    value="Click the button below to continue your conversation with Bleky!",
+                    inline=False
+                )
+                
+                embed.set_author(
+                    name=f"Chatting with Uncle/Aunt {interaction.user.display_name}", 
+                    icon_url=interaction.user.display_avatar.url
+                )
+                embed.set_footer(text="🎯 Talk to Bleky • Your favorite nephew!")
+                
+                # Add the view again for continuous conversation
+                view = TalkToBlekyView(self.conversation_history)
+                await interaction.followup.send(embed=embed, view=view)
+            else:
+                embed = discord.Embed(
+                    title="❌ **Bleky Can't Respond**",
+                    description="Bleky is having trouble responding right now. Try again!",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ **Connection Error**",
+                description="Something went wrong while talking to Bleky. Please try again.",
+                color=0xff6b6b
+            )
+            embed.add_field(name="🔍 Error Details", value=f"```{str(e)[:100]}```", inline=False)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+class TalkToBlekyView(discord.ui.View):
+    def __init__(self, conversation_history: list = None):
+        super().__init__(timeout=3600)  # 1 hour timeout
+        self.conversation_history = conversation_history or []
+
+    @discord.ui.button(label="💬 Continue Talking", style=discord.ButtonStyle.primary, emoji="💬")
+    async def continue_talking(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = ContinueTalkModal(self.conversation_history)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="📱 Bleky Info", style=discord.ButtonStyle.secondary, emoji="📱")
+    async def bleky_info(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="📱 **About Your Nephew Bleky**",
+            description="Get to know your favorite nephew better! 😄",
+            color=0x5865f2
+        )
+        
+        embed.add_field(
+            name="🎮 **Interests**",
+            value="• Gaming (especially competitive games)\n• Music and concerts\n• Technology and gadgets\n• Hanging out with friends\n• Memes and internet culture",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💡 **What to Talk About**",
+            value="• Ask about his day or school\n• Share family news or stories\n• Ask for tech help or advice\n• Talk about games or music\n• Just chat about anything!",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="😄 **His Personality**",
+            value="• Energetic and fun-loving\n• Sometimes dramatic (he's a teenager!)\n• Loves inside jokes with family\n• Always up for a good conversation\n• Genuinely cares about family",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🎯 **Tips for Great Conversations**",
+            value="• Be natural and casual\n• Ask follow-up questions\n• Share your own stories\n• He remembers what you talked about!\n• Don't be afraid to be playful",
+            inline=False
+        )
+        
+        embed.set_footer(text="💬 Ready to chat with Bleky?")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class Moderation(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -1411,125 +1592,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Error updating roles: {str(e)}", ephemeral=True)
 
-    # Enhanced Interactive Roleplay Command
-    @app_commands.command(name="roleplay", description="🎭 Interactive AI roleplay with chat history and character persistence")
-    @app_commands.describe(
-        character="Character you want to roleplay as (e.g., 'wise wizard', 'space pirate')",
-        scenario="Starting scenario or situation",
-        style="Roleplay style (optional)"
-    )
-    @app_commands.choices(style=[
-        app_commands.Choice(name="🏰 Fantasy Adventure", value="fantasy"),
-        app_commands.Choice(name="🚀 Sci-Fi Space", value="scifi"),
-        app_commands.Choice(name="🏫 Modern Day", value="modern"),
-        app_commands.Choice(name="🕵️ Mystery/Detective", value="mystery"),
-        app_commands.Choice(name="😄 Comedy/Funny", value="comedy"),
-        app_commands.Choice(name="🎨 Creative/Artistic", value="creative")
-    ])
-    async def roleplay(self, interaction: discord.Interaction, character: str, scenario: str, style: str = "fantasy"):
-        await interaction.response.defer()
 
-        try:
-            # Get recent channel messages for context
-            channel_history = []
-            try:
-                async for message in interaction.channel.history(limit=10):
-                    if not message.author.bot and len(message.content) > 0:
-                        channel_history.append(f"{message.author.display_name}: {message.content[:100]}")
-            except:
-                pass
-
-            # Build enhanced prompt with context
-            style_prompts = {
-                "fantasy": "magical medieval fantasy world with dragons, magic, and kingdoms",
-                "scifi": "futuristic space setting with advanced technology and alien worlds", 
-                "modern": "contemporary modern-day setting with realistic scenarios",
-                "mystery": "mysterious detective story with clues and puzzles to solve",
-                "comedy": "humorous and funny situation with light-hearted comedy",
-                "creative": "unique and artistic scenario that breaks traditional boundaries"
-            }
-
-            context_text = ""
-            if channel_history:
-                context_text = f"\n\nRecent channel context (for reference): {' | '.join(reversed(channel_history[-3:]))}"
-
-            prompt = f"""You are an interactive roleplay AI assistant. Create an engaging roleplay scenario and respond as both narrator and NPCs.
-
-ROLEPLAY SETUP:
-- User's Character: {character}
-- Scenario: {scenario}
-- Style: {style_prompts.get(style, 'fantasy adventure')}
-- Setting: {style_prompts[style]}
-
-INSTRUCTIONS:
-- Start the scenario by setting the scene and describing what {character} sees/encounters
-- Include 2-3 interactive choices or questions for the user to respond to
-- Keep responses engaging, descriptive but not too long (under 1500 chars)
-- Make it feel like a real interactive story where the user's choices matter
-- Include some NPCs or characters they can interact with
-- End with a clear prompt for what the user should do next{context_text}
-
-Create an immersive opening scene:"""
-
-            # Call Gemini AI
-            import google.generativeai as genai
-            
-            gemini_api_key = os.getenv("GEMINI_API_KEY")
-            if not gemini_api_key:
-                embed = discord.Embed(
-                    title="❌ **AI Service Unavailable**",
-                    description="🤖 The roleplay AI is currently offline. Please contact an administrator!",
-                    color=0xff6b6b
-                )
-                await interaction.followup.send(embed=embed, ephemeral=True)
-                return
-                
-            genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            
-            response = model.generate_content(prompt)
-            
-            if response.text:
-                # Create interactive roleplay embed
-                embed = discord.Embed(
-                    title=f"🎭 **Interactive Roleplay Started!**",
-                    description=response.text,
-                    color=0x7c3aed,
-                    timestamp=datetime.now()
-                )
-                
-                embed.add_field(name="🎭 **Your Character**", value=f"🎭 {character}", inline=True)
-                embed.add_field(name="🌍 **Setting**", value=f"📍 {style_prompts[style].title()}", inline=True)
-                embed.add_field(name="🎯 **Scenario**", value=f"🎯 {scenario}", inline=True)
-                
-                embed.add_field(
-                    name="🎮 **How to Continue**",
-                    value="Click the **'Continue Adventure'** button below to type your character's next action!\n🎭 The AI will respond to your actions and continue the story.",
-                    inline=False
-                )
-                
-                embed.set_author(name=f"Roleplay Master for {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-                embed.set_footer(text="🎮 Interactive Roleplay System • Use the button to continue!")
-                
-                # Create view with continue button
-                view = RoleplayView(character, style)
-                await interaction.followup.send(embed=embed, view=view)
-            else:
-                embed = discord.Embed(
-                    title="❌ **AI Response Error**",
-                    description="The AI couldn't create your adventure. Please try again.",
-                    color=0xff6b6b
-                )
-                await interaction.followup.send(embed=embed, ephemeral=True)
-                
-        except Exception as e:
-            embed = discord.Embed(
-                title="❌ **Roleplay Error**",
-                description="Failed to start roleplay session. Please try again.",
-                color=0xff6b6b
-            )
-            embed.add_field(name="🔍 Error Details", value=f"```{str(e)[:100]}```", inline=False)
-            await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="sync", description="Force sync all slash commands (Admin only)")
     @app_commands.default_permissions(administrator=True)
@@ -1601,6 +1664,131 @@ Create an immersive opening scene:"""
                 inline=False
             )
             await interaction.followup.send(embed=error_embed)
+
+    # Talk to Bleky - AI Nephew Conversation System
+    @app_commands.command(name="talktobleky", description="💬 Start a conversation with your nephew Bleky - he's fun and loves to chat!")
+    async def talk_to_bleky(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
+        try:
+            # Get recent channel messages for context
+            channel_history = []
+            try:
+                async for message in interaction.channel.history(limit=5):
+                    if not message.author.bot and len(message.content) > 0:
+                        channel_history.append(f"{message.author.display_name}: {message.content[:100]}")
+            except:
+                pass
+
+            # Create initial context
+            context_text = ""
+            if channel_history:
+                context_text = f"\n\nChannel context: {' | '.join(reversed(channel_history[-3:]))}"
+
+            # Build initial conversation starter prompt
+            prompt = f"""You are Bleky, a fun-loving, energetic, and slightly mischievous nephew. Your uncle/aunt {interaction.user.display_name} just started a conversation with you. You're a real human teenager (around 16-17 years old) who loves gaming, memes, and hanging out. You have a close relationship with your family.
+
+PERSONALITY TRAITS:
+- Enthusiastic and energetic
+- Uses modern slang naturally (but not excessively)
+- Playful and sometimes a bit cheeky
+- Loves gaming, music, and technology
+- Genuine care for family
+- Sometimes asks for advice or help
+- Can be dramatic about small things (typical teenager)
+- Has inside jokes and references with family
+
+SITUATION:
+Your uncle/aunt {interaction.user.display_name} just said "Hey Bleky!" or started talking to you. This is the beginning of your conversation.
+
+INSTRUCTIONS:
+- Greet them warmly like a nephew would
+- Be excited to talk to them
+- Maybe mention something you've been up to recently
+- Ask them how they're doing or what's up
+- Keep it natural and human-like
+- Use casual, family-appropriate language
+- Keep response under 1500 characters
+- Be genuinely engaging and show you care about them{context_text}
+
+Start the conversation as Bleky:"""
+
+            # Call Gemini AI
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            if not gemini_api_key:
+                embed = discord.Embed(
+                    title="❌ **Bleky is Busy**",
+                    description="🤖 Bleky can't talk right now! Try again later.",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+                
+            import google.generativeai as genai
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            response = model.generate_content(prompt)
+            
+            if response.text:
+                # Initialize conversation history
+                conversation_history = [
+                    f"Uncle/Aunt {interaction.user.display_name}: Hey Bleky! *starts conversation*",
+                    f"Bleky: {response.text}"
+                ]
+                
+                # Create initial conversation embed
+                embed = discord.Embed(
+                    title="💬 **Bleky is Excited to Talk!**",
+                    description=response.text,
+                    color=0x5865f2,
+                    timestamp=datetime.now()
+                )
+                
+                embed.add_field(
+                    name="👋 **Welcome to the Chat!**",
+                    value=f"Your nephew Bleky is ready to talk! He's a fun 16-year-old who loves gaming, music, and hanging out with family.",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="💬 **How to Continue**",
+                    value="Click the **'Continue Talking'** button below to reply to Bleky! He'll remember your conversation and respond naturally.",
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="🎯 **Chat Features**",
+                    value="• Bleky remembers your conversation\n• He responds like a real nephew\n• Ask him about games, school, life!\n• He might ask for advice or share stories",
+                    inline=False
+                )
+                
+                embed.set_author(
+                    name=f"Started by Uncle/Aunt {interaction.user.display_name}", 
+                    icon_url=interaction.user.display_avatar.url
+                )
+                embed.set_footer(text="💬 Talk to Bleky • Your favorite nephew!")
+                embed.set_thumbnail(url="https://cdn.discordapp.com/emojis/1234567890123456789.png")  # Optional: Add a fun emoji/image
+                
+                # Create view with conversation buttons
+                view = TalkToBlekyView(conversation_history)
+                await interaction.followup.send(embed=embed, view=view)
+            else:
+                embed = discord.Embed(
+                    title="❌ **Bleky Can't Talk Right Now**",
+                    description="Bleky is having trouble responding. Please try again!",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ **Connection Error**",
+                description="Something went wrong while trying to reach Bleky. Please try again.",
+                color=0xff6b6b
+            )
+            embed.add_field(name="🔍 Error Details", value=f"```{str(e)[:100]}```", inline=False)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Moderation(bot))
