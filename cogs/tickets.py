@@ -522,45 +522,88 @@ class ModernTicketCreator(View):
                     category_channel = cat
                     break
             
-            # Set permissions: creator + staff roles can see, everyone else cannot
+            # STRICT PERMISSION SYSTEM - ONLY 4 STAFF ROLES + TICKET CREATOR + BOT
             overwrites = {
-                interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
+                # DENY EVERYONE by default
+                interaction.guild.default_role: discord.PermissionOverwrite(
+                    read_messages=False,
+                    send_messages=False,
+                    view_channel=False
+                ),
+                # ALLOW ticket creator
+                interaction.user: discord.PermissionOverwrite(
+                    read_messages=True, 
+                    send_messages=True, 
+                    view_channel=True
+                ),
+                # ALLOW bot
+                interaction.guild.me: discord.PermissionOverwrite(
+                    read_messages=True, 
+                    send_messages=True, 
+                    manage_messages=True,
+                    view_channel=True
+                )
             }
             
-            # Add the 4 staff roles to permissions - FIXED TO ENSURE ACCESS
+            # STRICTLY ADD ONLY THE 4 REQUIRED STAFF ROLES
             staff_role_names = ["forgotten one", "overseer", "lead moderator", "moderator"]
+            staff_roles_added = []
             
             for role in interaction.guild.roles:
                 role_name_lower = role.name.lower().strip()
                 
-                # Check for exact matches or partial matches with staff roles
-                should_add = False
+                # EXACT MATCHING for staff roles
+                is_staff_role = False
                 
-                # Check if it's a staff role
-                if role_name_lower in staff_role_names:
-                    should_add = True
-                
-                # Also check for common variations
+                # Check exact matches first
                 for staff_role in staff_role_names:
-                    if staff_role in role_name_lower or any(word in role_name_lower for word in staff_role.split()):
-                        should_add = True
+                    if role_name_lower == staff_role:
+                        is_staff_role = True
                         break
                 
-                # Administrator permission override
-                if role.permissions.administrator:
-                    should_add = True
+                # Check partial matches if no exact match
+                if not is_staff_role:
+                    for staff_role in staff_role_names:
+                        if staff_role in role_name_lower:
+                            # Additional verification for partial matches
+                            words = staff_role.split()
+                            if all(word in role_name_lower for word in words):
+                                is_staff_role = True
+                                break
                 
-                if should_add:
+                # Administrator override (but still log it)
+                if role.permissions.administrator and not is_staff_role:
+                    is_staff_role = True
+                    print(f"[TICKET PERMS] Added admin role: {role.name}")
+                
+                if is_staff_role:
                     overwrites[role] = discord.PermissionOverwrite(
                         read_messages=True, 
                         send_messages=True, 
                         manage_messages=True,
                         manage_channels=True,
-                        mention_everyone=True
+                        mention_everyone=True,
+                        view_channel=True
                     )
-                    print(f"[TICKET PERMS] Added {role.name} to ticket permissions")
+                    staff_roles_added.append(role.name)
+                    print(f"[TICKET PERMS] ✅ Added staff role: {role.name}")
+            
+            print(f"[TICKET PERMS] Total staff roles added: {len(staff_roles_added)} - {staff_roles_added}")
+            
+            # Ensure we found at least some staff roles
+            if len(staff_roles_added) == 0:
+                print("[TICKET PERMS] ⚠️ WARNING: No staff roles found! Checking for alternatives...")
+                # Emergency fallback - look for any roles with manage_messages permission
+                for role in interaction.guild.roles:
+                    if role.permissions.manage_messages or role.permissions.administrator:
+                        overwrites[role] = discord.PermissionOverwrite(
+                            read_messages=True, 
+                            send_messages=True, 
+                            manage_messages=True,
+                            view_channel=True
+                        )
+                        staff_roles_added.append(f"{role.name} (fallback)")
+                        print(f"[TICKET PERMS] 🆘 Fallback added: {role.name}")
             
             # Create the channel
             ticket_channel = await interaction.guild.create_text_channel(
@@ -611,14 +654,19 @@ class ModernTicketCreator(View):
             
             await ticket_channel.send(mention_text, embed=embed, view=view)
             
-            # Success message
+            # Success message with permission confirmation
             success_embed = discord.Embed(
                 title="✅ Ticket Created Successfully",
                 description=f"🎫 Your ticket: {ticket_channel.mention}\n\n🔔 **Staff have been notified!**",
                 color=0x00d2d3
             )
             success_embed.add_field(name="⚡ Quick Access", value=f"Click {ticket_channel.mention} to view your ticket", inline=False)
-            success_embed.set_footer(text="🎫 Modern Ticket System")
+            success_embed.add_field(
+                name="🔒 Privacy Confirmed", 
+                value=f"**👁️ Can View:** Only you + {len(staff_roles_added)} staff roles\n**🚫 Cannot View:** Everyone else", 
+                inline=False
+            )
+            success_embed.set_footer(text="🎫 Private Ticket System • Strictly Controlled Access")
             
             await interaction.followup.send(embed=success_embed, ephemeral=True)
             
