@@ -657,9 +657,91 @@ class Economy(commands.Cog):
                                 inline=False
                             )
                         
-                        # Next promotion info
+                        # Add promotion button if eligible
                         promotion_eligible, promotion_info = self.economy_cog.check_promotion_eligibility(self.user_id)
-                        if not promotion_eligible and isinstance(promotion_info, str):
+                        if promotion_eligible and isinstance(promotion_info, str):
+                            # Add promotion button
+                            class PromotionView(discord.ui.View):
+                                def __init__(self, economy_cog, user_id, next_tier):
+                                    super().__init__(timeout=300)  # 5 minutes
+                                    self.economy_cog = economy_cog
+                                    self.user_id = user_id
+                                    self.next_tier = next_tier
+                                
+                                @discord.ui.button(label="🎉 Claim Promotion!", style=discord.ButtonStyle.success, emoji="🎉")
+                                async def claim_promotion(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                                    if button_interaction.user.id != self.user_id:
+                                        await button_interaction.response.send_message("❌ This is not your promotion!", ephemeral=True)
+                                        return
+                                    
+                                    # Process promotion
+                                    try:
+                                        # Update user's tier in database
+                                        update_data = {"job_tier": self.next_tier}
+                                        db.users_collection.update_one(
+                                            {"user_id": self.user_id},
+                                            {"$set": update_data},
+                                            upsert=True
+                                        )
+                                        
+                                        # Create promotion embed
+                                        promotion_embed = discord.Embed(
+                                            title="🎉 PROMOTION CONFIRMED!",
+                                            description=f"**Congratulations!** You've been promoted to **{self.next_tier.replace('_', ' ').title()} Level**!",
+                                            color=0xffd700,
+                                            timestamp=datetime.now()
+                                        )
+                                        
+                                        # Get new tier info
+                                        new_tier_data = JOB_TIERS.get(self.next_tier, {})
+                                        tier_name = new_tier_data.get("name", self.next_tier.title())
+                                        
+                                        promotion_embed.add_field(
+                                            name="🏆 New Position",
+                                            value=f"**{tier_name}**",
+                                            inline=True
+                                        )
+                                        
+                                        promotion_embed.add_field(
+                                            name="💰 Benefits",
+                                            value="• Higher paying jobs\n• Better success rates\n• More challenging work\n• Increased prestige",
+                                            inline=True
+                                        )
+                                        
+                                        promotion_embed.add_field(
+                                            name="🎯 What's Next?",
+                                            value=f"• Access to {tier_name} jobs\n• New responsibilities\n• Higher earning potential\n• Continue working for next promotion!",
+                                            inline=False
+                                        )
+                                        
+                                        promotion_embed.set_footer(text="🎉 Career Advancement System • Well Done!")
+                                        promotion_embed.set_thumbnail(url=button_interaction.user.display_avatar.url)
+                                        
+                                        # Disable the button
+                                        button.disabled = True
+                                        button.label = "✅ Promotion Claimed!"
+                                        button.style = discord.ButtonStyle.secondary
+                                        
+                                        await button_interaction.response.edit_message(embed=promotion_embed, view=self)
+                                        
+                                    except Exception as e:
+                                        await button_interaction.response.send_message(f"❌ Error processing promotion: {str(e)}", ephemeral=True)
+                            
+                            # Add promotion button with embed
+                            promo_embed = discord.Embed(
+                                title="🎉 **PROMOTION AVAILABLE!**",
+                                description=f"You're eligible for promotion to **{promotion_info.replace('_', ' ').title()} Level**!",
+                                color=0xffd700,
+                                timestamp=datetime.now()
+                            )
+                            promo_embed.add_field(name="🏆 Achievement Unlocked", value="You've met all requirements for advancement!", inline=False)
+                            promo_embed.set_footer(text="🎉 Click below to claim your promotion!")
+                            
+                            promotion_view = PromotionView(self.economy_cog, self.user_id, promotion_info)
+                            await select_interaction.followup.send(embed=promo_embed, view=promotion_view, ephemeral=True)
+                        
+                        # Next promotion info for non-eligible users
+                        elif not promotion_eligible and isinstance(promotion_info, str):
                             embed.add_field(
                                 name="🎯 **Next Promotion**",
                                 value=promotion_info,
