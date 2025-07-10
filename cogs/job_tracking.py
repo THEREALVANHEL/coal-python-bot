@@ -326,35 +326,61 @@ class JobTracking(commands.Cog):
     
     @app_commands.command(name="work-status", description="📊 Check your work activity status and 24-hour timer")
     async def work_status(self, interaction: discord.Interaction, user: discord.Member = None):
-        """Check work status for user or yourself"""
+        """Check work status for user or yourself - FIXED VERSION"""
         target = user or interaction.user
         
         # Get user's job role
         job_name, job_data = self._get_user_job_role(target)
         
         if not job_name:
+            # User doesn't have a job role - provide helpful info
             embed = discord.Embed(
                 title="📊 Work Status",
-                description=f"**{target.display_name}** does not have a job role.",
+                description=f"**{target.display_name}** does not currently have a job role.",
                 color=0x95a5a6
             )
+            
+            embed.add_field(
+                name="💼 Available Job Roles",
+                value="• **Intern** - Entry level position\n• **Junior Developer** - Growing experience\n• **Developer** - Core team member\n• **Senior Developer** - Advanced expertise\n• **Team Lead** - Leadership position",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🎯 How to Get a Job Role",
+                value="• Contact management staff\n• Show consistent activity\n• Demonstrate skills and commitment\n• Apply through proper channels",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="📋 Job Role Requirements",
+                value="• **24-hour activity policy** applies to all roles\n• Must use `/work` command regularly\n• Automatic demotion for inactivity\n• Performance-based advancement",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="👥 Contact for Role Assignment",
+                value="• **Forgotten One**\n• **Overseer**\n• **Lead Moderator**\n• **Moderator**",
+                inline=False
+            )
+            
+            embed.set_footer(text="💼 Contact staff to discuss job role opportunities")
+            embed.set_thumbnail(url=target.display_avatar.url)
+            
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
         try:
-            # Get work statistics
-            weekly_stats = db.get_weekly_work_stats(target.id)
-            last_work_date = db.get_last_work_date(target.id)
+            # Get work statistics from economy system (since that's where work tracking happens)
+            user_data = db.get_user_data(target.id)
+            last_work = user_data.get('last_work', 0)
             
-            hours_this_week = weekly_stats.get('total_hours', 0)
-            days_this_week = weekly_stats.get('days_worked', 0)
-            
-            # Calculate time since last work
-            if last_work_date:
-                hours_since_work = (datetime.now() - last_work_date).total_seconds() / 3600
+            # Calculate time since last work using /work command data
+            if last_work:
+                hours_since_work = (datetime.now().timestamp() - last_work) / 3600
                 time_until_demotion = job_data['demotion_threshold'] - hours_since_work
             else:
-                hours_since_work = 999
+                hours_since_work = 999  # Never worked
                 time_until_demotion = -999
             
             # Determine status
@@ -382,10 +408,14 @@ class JobTracking(commands.Cog):
                 inline=True
             )
             
-            # Weekly stats
+            # Work stats from economy system
+            successful_works = user_data.get('successful_works', 0)
+            total_works = user_data.get('total_works', 0)
+            work_streak = user_data.get('work_streak', 0)
+            
             embed.add_field(
-                name="📈 Weekly Stats",
-                value=f"**Hours worked:** {hours_this_week:.1f}h\n**Days active:** {days_this_week}\n**Required hours:** {job_data['min_hours_per_week']}h\n**Required days:** {job_data['min_days_active']}",
+                name="📈 Work Performance",
+                value=f"**Successful works:** {successful_works}\n**Total works:** {total_works}\n**Work streak:** {work_streak}\n**Success rate:** {(successful_works/max(1,total_works)*100):.1f}%",
                 inline=True
             )
             

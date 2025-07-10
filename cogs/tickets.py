@@ -43,26 +43,48 @@ class ModernTicketControlPanel(View):
                 old_claimer = interaction.guild.get_member(self.claimed_by)
                 old_name = old_claimer.display_name if old_claimer else "Unknown Staff"
                 
+                # Update channel name to new claimer
+                claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
+                new_name = f"🟢┃{claimer_name}-ticket"
+                await interaction.channel.edit(name=new_name)
+                
+                # Update the view state
+                self.claimed_by = interaction.user.id
+                
+                # Create transfer embed
                 embed = discord.Embed(
                     title="🔄 Ticket Ownership Transferred",
-                    description=f"**From:** {old_name}\n**To:** {interaction.user.mention}",
+                    description=f"**Previous Claimer:** {old_name}\n**New Claimer:** {interaction.user.mention}",
                     color=0x00ff7f,
                     timestamp=datetime.now()
                 )
                 embed.add_field(name="🎯 Status", value="**TRANSFERRED**", inline=True)
                 embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
-                
-                # Update channel name
-                claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
-                new_name = f"🟢┃{claimer_name}-ticket"
-                await interaction.channel.edit(name=new_name)
-                
-                self.claimed_by = interaction.user.id
+                embed.add_field(name="📋 Next Steps", value="• Continue assisting the user\n• Use admin controls as needed\n• Close when resolved", inline=False)
+                embed.set_footer(text="🎫 Modern Ticket System • Transfer Complete")
                 
                 await interaction.response.send_message(embed=embed)
+                
+                # Update the original message with new view state
+                try:
+                    # Find the original ticket message and update it
+                    async for message in interaction.channel.history(limit=20):
+                        if (message.author == interaction.client.user and 
+                            message.embeds and 
+                            "New Ticket" in message.embeds[0].title):
+                            # Update the embed to show new claimer
+                            original_embed = message.embeds[0]
+                            original_embed.color = 0x00ff7f  # Green for claimed
+                            original_embed.title = original_embed.title.replace("🔴", "🟢").replace("WAITING FOR STAFF", f"CLAIMED BY {interaction.user.display_name.upper()}")
+                            
+                            await message.edit(embed=original_embed, view=self)
+                            break
+                except Exception as e:
+                    print(f"Error updating original message: {e}")
+                
                 return
             
-            # First time claim
+            # First time claim or reclaim by same person
             claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
             new_name = f"🟢┃{claimer_name}-ticket"
             await interaction.channel.edit(name=new_name)
@@ -79,6 +101,21 @@ class ModernTicketControlPanel(View):
             embed.set_footer(text="🎫 Modern Ticket System • Claimed")
             
             await interaction.response.send_message(embed=embed)
+            
+            # Update the original message
+            try:
+                async for message in interaction.channel.history(limit=20):
+                    if (message.author == interaction.client.user and 
+                        message.embeds and 
+                        "New Ticket" in message.embeds[0].title):
+                        original_embed = message.embeds[0]
+                        original_embed.color = 0x00ff7f  # Green for claimed
+                        original_embed.title = original_embed.title.replace("🔴", "🟢").replace("WAITING FOR STAFF", f"CLAIMED BY {interaction.user.display_name.upper()}")
+                        
+                        await message.edit(embed=original_embed, view=self)
+                        break
+            except Exception as e:
+                print(f"Error updating original message: {e}")
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
@@ -412,11 +449,36 @@ class ModernTicketCreator(View):
         return False
     
     async def _ping_staff_roles(self, guild):
-        """Get staff role mentions for pinging"""
+        """Get staff role mentions for pinging - FIXED VERSION"""
         staff_mentions = []
+        
+        # Get exact role names to search for
+        target_roles = ["forgotten one", "overseer", "lead moderator", "moderator"]
+        
+        print(f"[DEBUG] Looking for roles: {target_roles}")
+        
         for role in guild.roles:
-            if role.name.lower() in STAFF_ROLES:
-                staff_mentions.append(role.mention)
+            role_name_lower = role.name.lower().strip()
+            
+            # Check each target role
+            for target_role in target_roles:
+                if target_role in role_name_lower or role_name_lower in target_role:
+                    staff_mentions.append(role.mention)
+                    print(f"[DEBUG] Found staff role: {role.name} -> {role.mention}")
+                    break
+        
+        # If no roles found, try alternative names
+        if not staff_mentions:
+            alternative_names = ["moderator", "mod", "admin", "staff", "overseer", "lead", "forgotten"]
+            for role in guild.roles:
+                role_name_lower = role.name.lower().strip()
+                for alt_name in alternative_names:
+                    if alt_name in role_name_lower:
+                        staff_mentions.append(role.mention)
+                        print(f"[DEBUG] Found alternative staff role: {role.name}")
+                        break
+        
+        print(f"[DEBUG] Total staff mentions found: {len(staff_mentions)}")
         return staff_mentions
     
     @discord.ui.button(label="💬 General Support", style=discord.ButtonStyle.primary, emoji="💬", custom_id="create_general", row=0)
@@ -594,61 +656,7 @@ class SimpleTickets(commands.Cog):
         )
         await interaction.response.send_message(embed=success_embed, ephemeral=True)
 
-    @app_commands.command(name="admin-panel", description="Create a private admin control panel")
-    @app_commands.default_permissions(administrator=True)
-    async def admin_panel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
-        """Create a private admin control panel with buttons"""
-        
-        if not interaction.user.guild_permissions.administrator:
-            embed = discord.Embed(
-                title="❌ Access Denied",
-                description="Only administrators can create admin panels.",
-                color=0xff0000
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
 
-        target_channel = channel or interaction.channel
-        
-        # Create admin panel
-        embed = discord.Embed(
-            title="🛡️ Admin Control Panel",
-            description="**Staff Commands Panel**\nUse the buttons below for common moderation actions.",
-            color=0xff6b6b,
-            timestamp=datetime.now()
-        )
-        embed.add_field(
-            name="🔒 Channel Controls",
-            value="• **Lock Channel** - Prevent non-staff from messaging\n• **Unlock Channel** - Restore normal permissions",
-            inline=False
-        )
-        embed.add_field(
-            name="🎫 Ticket Controls", 
-            value="• **Close Ticket** - Close and delete ticket channels",
-            inline=False
-        )
-        embed.add_field(
-            name="⚡ Quick Actions",
-            value="• **Emergency Ban** - Quick ban with reason\n• **Quick Warn** - Issue warning with reason",
-            inline=False
-        )
-        embed.add_field(
-            name="👮 Authorized Users",
-            value="• Lead Moderator\n• Moderator\n• Overseer\n• Forgotten One\n• Administrators",
-            inline=False
-        )
-        embed.set_footer(text="🛡️ Admin Panel • Staff Only")
-        
-        view = ModernTicketControlPanel(0) # Changed to ModernTicketControlPanel
-        
-        await target_channel.send(embed=embed, view=view)
-        
-        success_embed = discord.Embed(
-            title="✅ Admin Panel Created",
-            description=f"Admin control panel created in {target_channel.mention}",
-            color=0x00ff00
-        )
-        await interaction.response.send_message(embed=success_embed, ephemeral=True)
 
     @app_commands.command(name="close-ticket", description="Close the current ticket (Staff only)")
     async def close_ticket_command(self, interaction: discord.Interaction):

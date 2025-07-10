@@ -511,9 +511,12 @@ class Economy(commands.Cog):
     @app_commands.command(name="work", description="💼 Independent career progression system - work your way up!")
     async def work(self, interaction: discord.Interaction):
         try:
+            # ALWAYS defer first to prevent timeout
+            await interaction.response.defer()
+            
             # Ensure database connection is available
             if not hasattr(db, 'get_user_data'):
-                await interaction.response.send_message("❌ Database connection error. Please try again later.", ephemeral=True)
+                await interaction.followup.send("❌ Database connection error. Please try again later.", ephemeral=True)
                 return
                 
             user_data = db.get_user_data(interaction.user.id)
@@ -543,7 +546,7 @@ class Economy(commands.Cog):
                     inline=False
                 )
                 embed.set_footer(text="💼 Quality work requires proper rest!")
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                await interaction.followup.send(embed=embed, ephemeral=True)
                 return
 
             # Get user's job stats and available jobs with error handling
@@ -552,7 +555,7 @@ class Economy(commands.Cog):
                 available_jobs = self.get_available_jobs(interaction.user.id)
             except Exception as e:
                 print(f"Error getting job data for user {interaction.user.id}: {e}")
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "❌ Error loading your job data. Please try again in a moment.", 
                     ephemeral=True
                 )
@@ -571,7 +574,7 @@ class Economy(commands.Cog):
                     print(f"Error initializing user job data: {e}")
                     
                 if not available_jobs:
-                    await interaction.response.send_message("❌ No jobs available! Please contact an administrator.", ephemeral=True)
+                    await interaction.followup.send("❌ No jobs available! Please contact an administrator.", ephemeral=True)
                     return
 
             # Create job selection view
@@ -657,88 +660,33 @@ class Economy(commands.Cog):
                                 inline=False
                             )
                         
-                        # Add promotion button if eligible
+                        # AUTOMATIC PROMOTION CHECK - happens immediately
                         promotion_eligible, promotion_info = self.economy_cog.check_promotion_eligibility(self.user_id)
                         if promotion_eligible and isinstance(promotion_info, str):
-                            # Add promotion button
-                            class PromotionView(discord.ui.View):
-                                def __init__(self, economy_cog, user_id, next_tier):
-                                    super().__init__(timeout=300)  # 5 minutes
-                                    self.economy_cog = economy_cog
-                                    self.user_id = user_id
-                                    self.next_tier = next_tier
+                            # AUTOMATIC PROMOTION - No button needed
+                            try:
+                                # Update user's tier in database immediately
+                                update_data = {"job_tier": promotion_info}
+                                db.users_collection.update_one(
+                                    {"user_id": self.user_id},
+                                    {"$set": update_data},
+                                    upsert=True
+                                )
                                 
-                                @discord.ui.button(label="🎉 Claim Promotion!", style=discord.ButtonStyle.success, emoji="🎉")
-                                async def claim_promotion(self, button_interaction: discord.Interaction, button: discord.ui.Button):
-                                    if button_interaction.user.id != self.user_id:
-                                        await button_interaction.response.send_message("❌ This is not your promotion!", ephemeral=True)
-                                        return
-                                    
-                                    # Process promotion
-                                    try:
-                                        # Update user's tier in database
-                                        update_data = {"job_tier": self.next_tier}
-                                        db.users_collection.update_one(
-                                            {"user_id": self.user_id},
-                                            {"$set": update_data},
-                                            upsert=True
-                                        )
-                                        
-                                        # Create promotion embed
-                                        promotion_embed = discord.Embed(
-                                            title="🎉 PROMOTION CONFIRMED!",
-                                            description=f"**Congratulations!** You've been promoted to **{self.next_tier.replace('_', ' ').title()} Level**!",
-                                            color=0xffd700,
-                                            timestamp=datetime.now()
-                                        )
-                                        
-                                        # Get new tier info
-                                        new_tier_data = JOB_TIERS.get(self.next_tier, {})
-                                        tier_name = new_tier_data.get("name", self.next_tier.title())
-                                        
-                                        promotion_embed.add_field(
-                                            name="🏆 New Position",
-                                            value=f"**{tier_name}**",
-                                            inline=True
-                                        )
-                                        
-                                        promotion_embed.add_field(
-                                            name="💰 Benefits",
-                                            value="• Higher paying jobs\n• Better success rates\n• More challenging work\n• Increased prestige",
-                                            inline=True
-                                        )
-                                        
-                                        promotion_embed.add_field(
-                                            name="🎯 What's Next?",
-                                            value=f"• Access to {tier_name} jobs\n• New responsibilities\n• Higher earning potential\n• Continue working for next promotion!",
-                                            inline=False
-                                        )
-                                        
-                                        promotion_embed.set_footer(text="🎉 Career Advancement System • Well Done!")
-                                        promotion_embed.set_thumbnail(url=button_interaction.user.display_avatar.url)
-                                        
-                                        # Disable the button
-                                        button.disabled = True
-                                        button.label = "✅ Promotion Claimed!"
-                                        button.style = discord.ButtonStyle.secondary
-                                        
-                                        await button_interaction.response.edit_message(embed=promotion_embed, view=self)
-                                        
-                                    except Exception as e:
-                                        await button_interaction.response.send_message(f"❌ Error processing promotion: {str(e)}", ephemeral=True)
-                            
-                            # Add promotion button with embed
-                            promo_embed = discord.Embed(
-                                title="🎉 **PROMOTION AVAILABLE!**",
-                                description=f"You're eligible for promotion to **{promotion_info.replace('_', ' ').title()} Level**!",
-                                color=0xffd700,
-                                timestamp=datetime.now()
-                            )
-                            promo_embed.add_field(name="🏆 Achievement Unlocked", value="You've met all requirements for advancement!", inline=False)
-                            promo_embed.set_footer(text="🎉 Click below to claim your promotion!")
-                            
-                            promotion_view = PromotionView(self.economy_cog, self.user_id, promotion_info)
-                            await select_interaction.followup.send(embed=promo_embed, view=promotion_view, ephemeral=True)
+                                # Get new tier info
+                                new_tier_data = JOB_TIERS.get(promotion_info, {})
+                                tier_name = new_tier_data.get("name", promotion_info.title())
+                                
+                                embed.add_field(
+                                    name="� **AUTOMATIC PROMOTION AWARDED!**",
+                                    value=f"🏆 **Promoted to {tier_name}!**\n💰 Higher paying jobs unlocked\n🎯 New responsibilities available\n✨ Career advancement achieved!",
+                                    inline=False
+                                )
+                                
+                                print(f"🎉 Automatic promotion: {select_interaction.user.display_name} promoted to {promotion_info}")
+                                
+                            except Exception as e:
+                                print(f"Error processing automatic promotion: {e}")
                         
                         # Next promotion info for non-eligible users
                         elif not promotion_eligible and isinstance(promotion_info, str):
@@ -829,8 +777,8 @@ class Economy(commands.Cog):
             promotion_eligible, promotion_info = self.check_promotion_eligibility(interaction.user.id)
             if promotion_eligible:
                 embed.add_field(
-                    name="🎉 **Promotion Ready!**",
-                    value=f"You're eligible for promotion to **{promotion_info.title()} Level**!",
+                    name="🎉 **Automatic Promotion Ready!**",
+                    value=f"You'll be promoted to **{promotion_info.title()} Level** when you work next!",
                     inline=False
                 )
             else:
@@ -842,7 +790,7 @@ class Economy(commands.Cog):
             
             embed.add_field(
                 name="💡 **System Features**",
-                value="• **Independent progression** - No XP requirements!\n• **Work streak bonuses** - Consistent work pays off\n• **Promotions & demotions** - Based on performance\n• **Difficulty scaling** - Higher tiers = better pay, lower success rate",
+                value="• **Independent progression** - No XP requirements!\n• **Work streak bonuses** - Consistent work pays off\n• **Automatic promotions** - Earned through performance\n• **Difficulty scaling** - Higher tiers = better pay, lower success rate",
                 inline=False
             )
             
@@ -853,11 +801,18 @@ class Economy(commands.Cog):
             embed.set_footer(text="💼 Select a job from the dropdown below")
             
             view = JobSelectionView(self, interaction.user.id)
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=False)
+            await interaction.followup.send(embed=embed, view=view)
 
         except Exception as e:
             print(f"Work command error: {e}")
-            await interaction.response.send_message(f"❌ Error working: {str(e)}", ephemeral=True)
+            try:
+                await interaction.followup.send(f"❌ Error working: {str(e)}", ephemeral=True)
+            except:
+                # If followup also fails, try edit_original_response
+                try:
+                    await interaction.edit_original_response(content=f"❌ Error working: {str(e)}")
+                except:
+                    print(f"Failed to send error message: {e}")
 
     def calculate_level_from_xp(self, xp: int) -> int:
         """Calculate level from XP"""
