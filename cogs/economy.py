@@ -1084,11 +1084,14 @@ class Economy(commands.Cog):
             return
 
         try:
+            # DEFER IMMEDIATELY to prevent timeout
+            await interaction.response.defer()
+            
             user_data = db.get_user_data(interaction.user.id)
             balance = user_data.get('coins', 0)
             
             if balance < amount:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ You don't have enough coins! You have {balance} but tried to bet {amount}.",
                     ephemeral=True
                 )
@@ -1126,12 +1129,15 @@ class Economy(commands.Cog):
             if os.path.exists(image_path):
                 file = discord.File(image_path, filename=image_name)
                 embed.set_image(url=f"attachment://{image_name}")
-                await interaction.response.send_message(embed=embed, file=file)
+                await interaction.followup.send(embed=embed, file=file)
             else:
-                await interaction.response.send_message(embed=embed)
+                await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error with coinflip: {str(e)}", ephemeral=True)
+            try:
+                await interaction.followup.send(f"❌ Error with coinflip: {str(e)}", ephemeral=True)
+            except:
+                pass  # Interaction might be invalid
 
     @app_commands.command(name="myitems", description="📋 View your active temporary purchases and their remaining time")
     async def myitems(self, interaction: discord.Interaction):

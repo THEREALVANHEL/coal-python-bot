@@ -1026,6 +1026,9 @@ class Community(commands.Cog):
             await interaction.response.send_message("❌ Maximum 10 options allowed!", ephemeral=True)
             return
         
+        # DEFER IMMEDIATELY to prevent timeout
+        await interaction.response.defer()
+        
         # Select winner
         winner = random.choice(option_list)
         
@@ -1049,7 +1052,7 @@ class Community(commands.Cog):
         if wheel_image_path:
             file = discord.File(wheel_image_path, filename="enhanced_wheel.png")
             embed.set_image(url="attachment://enhanced_wheel.png")
-            await interaction.response.send_message(embed=embed, file=file)
+            await interaction.followup.send(embed=embed, file=file)
             
             # Clean up temporary file
             try:
@@ -1057,7 +1060,7 @@ class Community(commands.Cog):
             except:
                 pass
         else:
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
 
 
@@ -1237,6 +1240,9 @@ Provide a focused, helpful response that gets straight to the point."""
 
     @app_commands.command(name="flip", description="Flip a coin - heads or tails")
     async def flip(self, interaction: discord.Interaction):
+        # DEFER IMMEDIATELY for file operations
+        await interaction.response.defer()
+        
         result = random.choice(["Heads", "Tails"])
         
         # Get the appropriate image
@@ -1255,9 +1261,9 @@ Provide a focused, helpful response that gets straight to the point."""
         if os.path.exists(image_path):
             file = discord.File(image_path, filename=image_name)
             embed.set_image(url=f"attachment://{image_name}")
-            await interaction.response.send_message(embed=embed, file=file)
+            await interaction.followup.send(embed=embed, file=file)
         else:
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="giveaway", description="Start a giveaway with specified duration and winner count")
     @app_commands.describe(
