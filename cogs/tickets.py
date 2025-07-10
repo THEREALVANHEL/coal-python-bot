@@ -529,10 +529,38 @@ class ModernTicketCreator(View):
                 interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
             }
             
-            # Add the 4 staff roles to permissions
+            # Add the 4 staff roles to permissions - FIXED TO ENSURE ACCESS
+            staff_role_names = ["forgotten one", "overseer", "lead moderator", "moderator"]
+            
             for role in interaction.guild.roles:
-                if role.name.lower() in STAFF_ROLES or role.permissions.administrator:
-                    overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True)
+                role_name_lower = role.name.lower().strip()
+                
+                # Check for exact matches or partial matches with staff roles
+                should_add = False
+                
+                # Check if it's a staff role
+                if role_name_lower in staff_role_names:
+                    should_add = True
+                
+                # Also check for common variations
+                for staff_role in staff_role_names:
+                    if staff_role in role_name_lower or any(word in role_name_lower for word in staff_role.split()):
+                        should_add = True
+                        break
+                
+                # Administrator permission override
+                if role.permissions.administrator:
+                    should_add = True
+                
+                if should_add:
+                    overwrites[role] = discord.PermissionOverwrite(
+                        read_messages=True, 
+                        send_messages=True, 
+                        manage_messages=True,
+                        manage_channels=True,
+                        mention_everyone=True
+                    )
+                    print(f"[TICKET PERMS] Added {role.name} to ticket permissions")
             
             # Create the channel
             ticket_channel = await interaction.guild.create_text_channel(

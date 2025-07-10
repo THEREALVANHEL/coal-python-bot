@@ -12,12 +12,14 @@ This bot features a comprehensive ticket system, 24-hour job tracking, AI chat, 
 
 ### `/ticket-panel`
 - **Function:** Creates a modern ticket panel with integrated admin controls
-- **Permissions:** Staff roles (Forgotten One, Overseer, Lead Moderator, Moderator)
+- **Permissions:** Administrator only (to create panel), All users (to create tickets)
 - **Features:** 
-  - 4 control buttons (Claim, Close, Lock, Unlock)
-  - Integrated admin panel (Emergency Ban, Quick Warn, Temp Mute)
+  - 4 control buttons (Claim, Close, Lock, Unlock) - Staff only
+  - Integrated admin panel (Emergency Ban, Quick Warn, Temp Mute) - Staff only
   - Auto-ping staff roles when tickets created
   - Modern channel naming system (🔴┃username-ticket → 🟢┃staff-ticket)
+  - **FIXED:** Lead Moderator and Moderator now have full channel access
+  - Automatic role permissions: read, send, manage messages, manage channels
 
 ---
 
@@ -292,11 +294,13 @@ This bot features a comprehensive ticket system, 24-hour job tracking, AI chat, 
 - Database health monitoring
 
 ### **🛠️ Staff Roles (Forgotten One, Overseer, Lead Moderator, Moderator)**
-- Ticket system (claim, close, lock, unlock)
-- Moderation commands (warn, clear, removewarn)
-- Job overview monitoring
-- Event management (shout, gamelog, giveaway, announce)
-- Settings viewing
+- **Ticket system** (claim, close, lock, unlock)
+- **Ticket admin panel** (emergency ban, quick warn, temp mute)
+- **Full ticket channel access** (read, send, manage messages, manage channels)
+- **Moderation commands** (warn, clear, removewarn)
+- **Job overview monitoring**
+- **Event management** (shout, gamelog, giveaway, announce)
+- **Settings viewing**
 
 ### **👥 Manager Roles**
 - Cookie management (add, remove, server-wide operations)
@@ -319,11 +323,13 @@ This bot features a comprehensive ticket system, 24-hour job tracking, AI chat, 
 ## 🚀 **SYSTEM FEATURES**
 
 ### **🎫 Modern Ticket System**
-- Role-based access control
-- Integrated admin panels
-- Auto-staff pinging
-- Transfer system between staff
-- Modern UI with emoji indicators
+- **Role-based access control** (automatic permission assignment)
+- **Integrated admin panels** (ban, warn, mute directly from tickets)
+- **Auto-staff pinging** (all 4 staff roles notified)
+- **Transfer system** between staff (claim/unlock system)
+- **Modern UI** with emoji indicators
+- **FIXED:** Lead Moderator and Moderator now have full channel permissions
+- **Enhanced permissions:** read, send, manage messages, manage channels, mention everyone
 
 ### **⏰ 24-Hour Job Tracking**
 - Automatic activity monitoring
