@@ -658,49 +658,7 @@ class SimpleTickets(commands.Cog):
 
 
 
-    @app_commands.command(name="close-ticket", description="Close the current ticket (Staff only)")
-    async def close_ticket_command(self, interaction: discord.Interaction):
-        """Staff command to close tickets"""
-        
-        # Check if user is staff
-        is_staff = (
-            interaction.user.guild_permissions.administrator or
-            has_special_permissions(interaction.user) or
-            any(role.name.lower() in STAFF_ROLES for role in interaction.user.roles)
-        )
-        
-        if not is_staff:
-            embed = discord.Embed(
-                title="❌ Access Denied", 
-                description="Only staff can close tickets.",
-                color=0xff0000
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        # Check if in ticket channel
-        if not (interaction.channel.name.startswith('🔴┃') or 
-                interaction.channel.name.startswith('🟢┃') or 
-                interaction.channel.name.startswith('ticket-')):
-            embed = discord.Embed(
-                title="❌ Invalid Channel",
-                description="This command can only be used in ticket channels.",
-                color=0xff0000
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        # Close ticket
-        embed = discord.Embed(
-            title="🔒 Ticket Closed",
-            description=f"Ticket closed by **{interaction.user.mention}**\n\nChannel will be deleted in 10 seconds.",
-            color=0xff0000,
-            timestamp=datetime.now()
-        )
-        await interaction.response.send_message(embed=embed)
-        
-        await asyncio.sleep(10)
-        await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
+
 
     # warnlist command removed from tickets.py to prevent duplicate registration
     # The command is available in moderation.py
