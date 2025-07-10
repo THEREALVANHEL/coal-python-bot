@@ -1331,20 +1331,14 @@ Provide a focused, helpful response that gets straight to the point."""
             winner_ids = random.sample(list(view.participants), actual_winners)
             winner_mentions = [f"<@{uid}>" for uid in winner_ids]
             
-            embed.description = f"**Prize:** {prize}\n**Winners:** {', '.join(winner_mentions)}\n**Total Entries:** {len(view.participants)} participants"
+            # Combine both the result and congratulations into one message
+            embed.description = f"🏆 **Winner(s):** {', '.join(winner_mentions)}\n🎁 **Prize:** {prize}\n📊 **Total Entries:** {len(view.participants)} participants\n\n🎊 **Congratulations to all winners!**"
             embed.color = 0x00ff00
             embed.title = "🎉 GIVEAWAY ENDED 🎉"
-            await giveaway_message.edit(embed=embed, view=None)
+            embed.set_footer(text="🎊 Congratulations! • Winners have been selected!")
             
-            # Congratulate winners
-            congrats_embed = discord.Embed(
-                title="🎊 Giveaway Results!",
-                description=f"🏆 **Winner(s):** {', '.join(winner_mentions)}\n🎁 **Prize:** {prize}\n📊 **Total Entries:** {len(view.participants)}",
-                color=0x00ff00,
-                timestamp=datetime.now()
-            )
-            congrats_embed.set_footer(text="Congratulations to all winners!")
-            await channel.send(embed=congrats_embed)
+            # Only edit the original message, no separate congratulations message
+            await giveaway_message.edit(embed=embed, view=None)
             
         except Exception as e:
             print(f"Error ending giveaway: {e}")

@@ -344,7 +344,7 @@ class JobTracking(commands.Cog):
         
         embed.add_field(
             name="⏰ **Warning System**",
-            value="• Warnings sent at 12-20 hour marks\n• Final warning before demotion\n• Check status with `/work-status`\n• DM notifications when available",
+            value="• Warnings sent at 12-20 hour marks\n• Final warning before demotion\n• DM notifications when available",
             inline=True
         )
         
@@ -374,7 +374,7 @@ class JobTracking(commands.Cog):
         
         embed.add_field(
             name="🎯 **Tips for Success**",
-            value="• **Set daily reminders**\n• **Work in the morning**\n• **Use `/work-status` regularly**\n• **Don't push the 24h limit**\n• **Stay ahead of deadlines**",
+            value="• **Set daily reminders**\n• **Work in the morning**\n• **Don't push the 24h limit**\n• **Stay ahead of deadlines**",
             inline=False
         )
         
