@@ -56,9 +56,14 @@ class ModernTicketControlPanel(View):
             return
             
         try:
-            # Check if already claimed by someone else
-            if self.claimed_by and self.claimed_by != interaction.user.id:
-                old_claimer = interaction.guild.get_member(self.claimed_by)
+            # FIXED: Handle reclaim scenarios properly
+            current_claimer_id = self.claimed_by
+            current_user_id = interaction.user.id
+            
+            # Check if this is a transfer/reclaim situation
+            if current_claimer_id and current_claimer_id != current_user_id:
+                # This is a transfer from another staff member
+                old_claimer = interaction.guild.get_member(current_claimer_id)
                 old_name = old_claimer.display_name if old_claimer else "Unknown Staff"
                 
                 # Update channel name to new claimer
@@ -67,7 +72,7 @@ class ModernTicketControlPanel(View):
                 await interaction.channel.edit(name=new_name)
                 
                 # Update the view state
-                self.claimed_by = interaction.user.id
+                self.claimed_by = current_user_id
                 
                 # Create transfer embed
                 embed = discord.Embed(
@@ -83,60 +88,69 @@ class ModernTicketControlPanel(View):
                 
                 await interaction.response.send_message(embed=embed)
                 
-                # Update the original message with new view state
-                try:
-                    # Find the original ticket message and update it
-                    async for message in interaction.channel.history(limit=20):
-                        if (message.author == interaction.client.user and 
-                            message.embeds and 
-                            "New Ticket" in message.embeds[0].title):
-                            # Update the embed to show new claimer
-                            original_embed = message.embeds[0]
-                            original_embed.color = 0x00ff7f  # Green for claimed
-                            original_embed.title = original_embed.title.replace("🔴", "🟢").replace("WAITING FOR STAFF", f"CLAIMED BY {interaction.user.display_name.upper()}")
-                            
-                            await message.edit(embed=original_embed, view=self)
-                            break
-                except Exception as e:
-                    print(f"Error updating original message: {e}")
+            elif current_claimer_id == current_user_id:
+                # This is a reclaim by the same person
+                embed = discord.Embed(
+                    title="🔄 Ticket Reclaimed",
+                    description=f"**Staff Member:** {interaction.user.mention}\n**Status:** 🟢 **ACTIVE (Reclaimed)**",
+                    color=0x00ff7f,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="🎯 Status", value="**RECLAIMED**", inline=True)
+                embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
+                embed.add_field(name="📋 Next Steps", value="• Continue assisting the user\n• Use admin controls as needed\n• Close when resolved", inline=False)
+                embed.set_footer(text="🎫 Modern Ticket System • Reclaimed")
                 
-                return
+                await interaction.response.send_message(embed=embed)
+                
+            else:
+                # First time claim
+                claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
+                new_name = f"🟢┃{claimer_name}-ticket"
+                await interaction.channel.edit(name=new_name)
+                
+                self.claimed_by = current_user_id
+                
+                embed = discord.Embed(
+                    title="✅ Ticket Successfully Claimed",
+                    description=f"**Staff Member:** {interaction.user.mention}\n**Status:** 🟢 **ACTIVE**",
+                    color=0x00ff7f,
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="🎯 Next Steps", value="• Respond to the user's inquiry\n• Use admin controls as needed\n• Close when resolved", inline=False)
+                embed.set_footer(text="🎫 Modern Ticket System • Claimed")
+                
+                await interaction.response.send_message(embed=embed)
             
-            # First time claim or reclaim by same person
-            claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
-            new_name = f"🟢┃{claimer_name}-ticket"
-            await interaction.channel.edit(name=new_name)
-            
-            self.claimed_by = interaction.user.id
-            
-            embed = discord.Embed(
-                title="✅ Ticket Successfully Claimed",
-                description=f"**Staff Member:** {interaction.user.mention}\n**Status:** 🟢 **ACTIVE**",
-                color=0x00ff7f,
-                timestamp=datetime.now()
-            )
-            embed.add_field(name="🎯 Next Steps", value="• Respond to the user's inquiry\n• Use admin controls as needed\n• Close when resolved", inline=False)
-            embed.set_footer(text="🎫 Modern Ticket System • Claimed")
-            
-            await interaction.response.send_message(embed=embed)
-            
-            # Update the original message
+            # Update the original ticket message in all cases
             try:
                 async for message in interaction.channel.history(limit=20):
                     if (message.author == interaction.client.user and 
                         message.embeds and 
                         "New Ticket" in message.embeds[0].title):
+                        # Update the embed to show new claimer
                         original_embed = message.embeds[0]
                         original_embed.color = 0x00ff7f  # Green for claimed
                         original_embed.title = original_embed.title.replace("🔴", "🟢").replace("WAITING FOR STAFF", f"CLAIMED BY {interaction.user.display_name.upper()}")
                         
-                        await message.edit(embed=original_embed, view=self)
+                        # Create a new view instance to avoid state conflicts
+                        new_view = ModernTicketControlPanel(self.creator_id)
+                        new_view.claimed_by = current_user_id
+                        new_view.is_locked = self.is_locked
+                        
+                        await message.edit(embed=original_embed, view=new_view)
                         break
             except Exception as e:
                 print(f"Error updating original message: {e}")
             
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"❌ Error claiming ticket: {str(e)}", ephemeral=True)
+            except:
+                print(f"Critical error in claim_ticket: {e}")
     
     @discord.ui.button(label="Close", emoji="🔒", style=discord.ButtonStyle.danger, custom_id="modern_close", row=0)
     async def close_ticket(self, interaction: discord.Interaction, button: Button):

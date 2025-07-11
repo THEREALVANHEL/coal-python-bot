@@ -728,6 +728,9 @@ class Community(commands.Cog):
     )
     async def suggest(self, interaction: discord.Interaction, suggestion: str, 
                       image: discord.Attachment = None, additional_notes: str = None):
+        # DEFER immediately to prevent timeout
+        await interaction.response.defer(ephemeral=True)
+        
         try:
             # Get the suggestion channel from settings
             suggest_channel_id = db.get_guild_setting(interaction.guild.id, "suggest_channel", None)
@@ -741,7 +744,7 @@ class Community(commands.Cog):
                         color=0xff6b6b
                     )
                     embed.set_footer(text="💫 Admin: Use /quicksetup to configure the suggestion channel")
-                    await interaction.response.send_message(embed=embed, ephemeral=True)
+                    await interaction.followup.send(embed=embed, ephemeral=True)
                     return
             else:
                 embed = discord.Embed(
@@ -754,7 +757,7 @@ class Community(commands.Cog):
                     value="Use `/quicksetup` to configure the suggestions channel quickly!",
                     inline=False
                 )
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                await interaction.followup.send(embed=embed, ephemeral=True)
                 return
 
             # Create enhanced suggestion embed
@@ -819,6 +822,86 @@ class Community(commands.Cog):
             await message.add_reaction("✅")
             await message.add_reaction("❌")
             
+            # FEATURE: Auto-create discussion forum thread
+            try:
+                # Create a forum thread for discussion if the channel supports it
+                if hasattr(suggest_channel, 'create_thread'):
+                    # Create a thread for discussion
+                    thread_name = f"💬 Discussion: {suggestion[:50]}{'...' if len(suggestion) > 50 else ''}"
+                    
+                    # Create thread with enhanced embed
+                    discussion_embed = discord.Embed(
+                        title="💬 **Suggestion Discussion Forum**",
+                        description=f"**Original Suggestion:** {suggestion}\n\n**Discuss this suggestion below! 👇**",
+                        color=0x5865f2,
+                        timestamp=datetime.now()
+                    )
+                    discussion_embed.set_author(
+                        name=f"Suggested by {interaction.user.display_name}",
+                        icon_url=interaction.user.display_avatar.url
+                    )
+                    discussion_embed.add_field(
+                        name="📝 **How to Participate**",
+                        value="• Share your thoughts and opinions\n• Suggest improvements or modifications\n• Ask questions about implementation\n• Vote on the original suggestion above ⬆️",
+                        inline=False
+                    )
+                    discussion_embed.add_field(
+                        name="🎯 **Discussion Guidelines**",
+                        value="• Keep discussions respectful and constructive\n• Focus on the suggestion's merits\n• Provide actionable feedback when possible",
+                        inline=False
+                    )
+                    discussion_embed.set_footer(text="💡 Automatic Discussion Forum • Community Suggestions")
+                    
+                    # Try to create thread from the suggestion message
+                    thread = await message.create_thread(
+                        name=thread_name,
+                        auto_archive_duration=10080  # 1 week
+                    )
+                    
+                    # Send the discussion starter in the thread
+                    await thread.send(embed=discussion_embed)
+                    
+                    print(f"[SUGGESTION] Created discussion thread: {thread.name} for suggestion by {interaction.user.display_name}")
+                    
+                elif suggest_channel.type == discord.ChannelType.forum:
+                    # If it's a forum channel, create a forum post
+                    forum_embed = discord.Embed(
+                        title="💡 **Community Suggestion**",
+                        description=suggestion,
+                        color=0x7c3aed,
+                        timestamp=datetime.now()
+                    )
+                    forum_embed.set_author(
+                        name=f"Suggested by {interaction.user.display_name}",
+                        icon_url=interaction.user.display_avatar.url
+                    )
+                    
+                    if additional_notes:
+                        forum_embed.add_field(
+                            name="📝 **Additional Notes**",
+                            value=additional_notes,
+                            inline=False
+                        )
+                    
+                    # Create forum post with discussion
+                    thread_name = f"💡 {suggestion[:80]}{'...' if len(suggestion) > 80 else ''}"
+                    forum_thread = await suggest_channel.create_thread(
+                        name=thread_name,
+                        embed=forum_embed,
+                        files=files if files else None
+                    )
+                    
+                    # Add reactions to the forum post
+                    async for msg in forum_thread.history(limit=1):
+                        await msg.add_reaction("✅")
+                        await msg.add_reaction("❌")
+                    
+                    print(f"[SUGGESTION] Created forum post: {forum_thread.name} for suggestion by {interaction.user.display_name}")
+                    
+            except Exception as thread_error:
+                print(f"[SUGGESTION] Could not create discussion thread: {thread_error}")
+                # Continue without thread creation - not critical
+            
             # Success response with modern design
             success_embed = discord.Embed(
                 title="✨ **Suggestion Submitted Successfully**",
@@ -846,7 +929,7 @@ class Community(commands.Cog):
                 inline=False
             )
             success_embed.set_footer(text="💡 Thank you for helping improve our community!")
-            await interaction.response.send_message(embed=success_embed, ephemeral=True)
+            await interaction.followup.send(embed=success_embed, ephemeral=True)
 
         except Exception as e:
             error_embed = discord.Embed(
@@ -860,7 +943,7 @@ class Community(commands.Cog):
                 inline=False
             )
             error_embed.set_footer(text="💫 If this persists, contact an administrator")
-            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
 
     @app_commands.command(name="shout", description="Create a detailed event announcement with live participant tracking")
     @app_commands.describe(
@@ -873,10 +956,13 @@ class Community(commands.Cog):
     )
     async def shout(self, interaction: discord.Interaction, title: str, description: str, host: str, 
                    co_host: str = None, medic: str = None, guide: str = None):
+        # DEFER immediately to prevent timeout
+        await interaction.response.defer()
+        
         try:
             # Check if user has required role (with error handling)
             if not has_announce_permission(interaction.user.roles):
-                await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+                await interaction.followup.send("❌ You don't have permission to use this command!", ephemeral=True)
                 return
             shout_data = {
                 'title': title,
@@ -936,19 +1022,14 @@ class Community(commands.Cog):
             
             # Create view and send message
             view = ShoutView(shout_data)
-            message = await interaction.response.send_message(embed=embed, view=view)
+            message = await interaction.followup.send(embed=embed, view=view)
             
-            # Get the message object and set it in the view for editing
-            msg = await interaction.original_response()
-            view.set_message(msg)
+            # Set the message object in the view for editing
+            view.set_message(message)
             
         except Exception as e:
-            # Check if response was already sent to avoid double response error
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error creating shout: {str(e)}", ephemeral=True)
-            else:
-                # Use followup if response was already sent
-                await interaction.followup.send(f"❌ Error creating shout: {str(e)}", ephemeral=True)
+            # Use followup since we deferred
+            await interaction.followup.send(f"❌ Error creating shout: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="gamelog", description="Log a completed game with detailed information and optional picture")
     @app_commands.describe(
@@ -963,10 +1044,13 @@ class Community(commands.Cog):
     )
     async def gamelog(self, interaction: discord.Interaction, title: str, summary: str, host: str,
                      co_host: str = None, medic: str = None, guide: str = None, participants: str = None, picture: str = None):
+        # DEFER immediately to prevent timeout
+        await interaction.response.defer()
+        
         try:
             # Check if user has required role (with error handling)
             if not has_announce_permission(interaction.user.roles):
-                await interaction.response.send_message("❌ You don't have permission to use this command!", ephemeral=True)
+                await interaction.followup.send("❌ You don't have permission to use this command!", ephemeral=True)
                 return
             embed = discord.Embed(
                 title=f"🎮 Game Log: {title}",
@@ -1003,15 +1087,11 @@ class Community(commands.Cog):
                 else:
                     embed.add_field(name="⚠️ Picture", value="Invalid picture URL provided", inline=False)
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
             
         except Exception as e:
-            # Check if response was already sent to avoid double response error
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"❌ Error creating game log: {str(e)}", ephemeral=True)
-            else:
-                # Use followup if response was already sent
-                await interaction.followup.send(f"❌ Error creating game log: {str(e)}", ephemeral=True)
+            # Use followup since we deferred
+            await interaction.followup.send(f"❌ Error creating game log: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="spinwheel", description="Spin an enhanced wheel with arrow pointing to winner")
     @app_commands.describe(title="Wheel title", options="Comma-separated options (up to 10)")
