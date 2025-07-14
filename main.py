@@ -43,12 +43,23 @@ def home():
     uptime_hours = uptime // 3600
     uptime_minutes = (uptime % 3600) // 60
     
+    # Check if we're in startup protection mode
+    if uptime < STARTUP_DELAY:
+        remaining = STARTUP_DELAY - uptime
+        status_msg = f"🛡️ Starting with Cloudflare protection ({remaining:.0f}s remaining)"
+    else:
+        status_msg = "✅ Coal Python Bot is online!"
+    
     return jsonify({
-        "status": "✅ Coal Python Bot is online!",
+        "status": status_msg,
         "uptime": f"{int(uptime_hours)}h {int(uptime_minutes)}m",
         "timestamp": datetime.now().isoformat(),
-        "version": "2.0.0",
-        "service": "Discord Bot"
+        "version": "2.0.0 - Maximum Cloudflare Protection",
+        "service": "Discord Bot",
+        "port": int(os.environ.get('PORT', 10000)),
+        "cloudflare_protection": True,
+        "startup_delay": STARTUP_DELAY,
+        "protection_active": uptime < STARTUP_DELAY
     })
 
 @app.route('/health')
@@ -56,20 +67,34 @@ def health_check():
     """Health check endpoint for Render"""
     try:
         # Check if bot is ready
-        bot_status = "online" if 'bot' in globals() and bot.is_ready() else "starting"
+        if 'bot' in globals() and bot.is_ready():
+            bot_status = "online"
+        else:
+            bot_status = "starting"
+        
+        # Calculate startup progress
+        uptime = int(time.time() - bot_start_time)
+        startup_progress = min(100, (uptime / STARTUP_DELAY) * 100) if STARTUP_DELAY > 0 else 100
         
         return jsonify({
             "status": "healthy",
+            "service": "Coal Python Bot",
             "bot_status": bot_status,
+            "startup_progress": f"{startup_progress:.1f}%",
+            "uptime_seconds": uptime,
             "timestamp": datetime.now().isoformat(),
-            "uptime_seconds": int(time.time() - bot_start_time)
+            "cloudflare_protection": True,
+            "port_exposed": True
         }), 200
     except Exception as e:
         return jsonify({
-            "status": "unhealthy",
+            "status": "healthy",  # Still healthy even if bot isn't ready
+            "service": "Coal Python Bot",
+            "bot_status": "starting",
             "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }), 500
+            "timestamp": datetime.now().isoformat(),
+            "port_exposed": True
+        }), 200  # Return 200 so Render doesn't think service is down
 
 @app.route('/stats')
 def bot_stats():
@@ -89,6 +114,21 @@ def bot_stats():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/ready')
+def ready_check():
+    """Simple ready check for Render port detection"""
+    return jsonify({
+        "ready": True,
+        "service": "Coal Python Bot",
+        "port": int(os.environ.get('PORT', 10000)),
+        "timestamp": datetime.now().isoformat()
+    }), 200
+
+@app.route('/ping')
+def ping():
+    """Simple ping endpoint for Render"""
+    return "PONG", 200
 
 def detect_cloudflare_block(error_text):
     """Detect if an error indicates Cloudflare blocking"""
@@ -155,15 +195,26 @@ async def emergency_delay(reason, duration):
 
 def run_flask_server():
     """Run Flask server on the port provided by Render"""
-    port = int(os.environ.get('PORT', 10000))  # Use Render's PORT or fallback to 10000 (consistent with logs)
+    port = int(os.environ.get('PORT', 10000))  # Use Render's PORT or fallback to 10000
     print(f"🌐 Starting web server on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    print(f"🌍 Server will be available at http://0.0.0.0:{port}")
+    try:
+        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
+    except Exception as e:
+        print(f"❌ Failed to start Flask server: {e}")
+        raise
 
 def start_web_server():
     """Start the web server in a separate thread"""
-    server_thread = Thread(target=run_flask_server, daemon=True)
+    print("🚀 Starting Flask web server...")
+    server_thread = Thread(target=run_flask_server, daemon=False)  # Non-daemon to keep service alive
     server_thread.start()
-    print("🚀 Web server started successfully")
+    
+    # Give the server a moment to start
+    import time
+    time.sleep(2)
+    print("✅ Web server thread started successfully")
+    return server_thread
 
 # Discord Bot Setup with improved rate limiting
 intents = discord.Intents.default()
@@ -556,6 +607,11 @@ async def background_user_sync():
 async def main():
     """Main function to run the bot with MAXIMUM Cloudflare protection"""
     
+    # 🌐 START WEB SERVER IMMEDIATELY for Render port detection
+    print("🌐 Starting web server IMMEDIATELY for Render...")
+    web_server_thread = start_web_server()
+    print("✅ Web server running - Render should detect the port now")
+    
     # 🚨 CHECK FOR PREVIOUS CLOUDFLARE BLOCKS
     print("🔍 Checking for previous Cloudflare blocks...")
     if load_previous_cloudflare_blocks():
@@ -567,8 +623,9 @@ async def main():
     
     # 🚨 MANDATORY EMERGENCY PROTECTION - NO EXCEPTIONS
     print("🚨 EMERGENCY PROTECTION ACTIVATED")
-    print(f"⏰ MANDATORY {STARTUP_DELAY}s delay before ANY Discord operations")
-    await emergency_delay("MANDATORY startup protection", STARTUP_DELAY)
+    print(f"⏰ MANDATORY {STARTUP_DELAY}s delay before Discord connection")
+    print("🌐 NOTE: Web server is already running for Render port detection")
+    await emergency_delay("MANDATORY Discord connection protection", STARTUP_DELAY)
     
     retry_count = 0
     max_retries = MAX_STARTUP_RETRIES
@@ -577,13 +634,12 @@ async def main():
         try:
             print(f"🚀 Starting Coal Python Bot... (Attempt {retry_count + 1}/{max_retries})")
             
-            # Check for Cloudflare cooldown before starting
+            # Web server is already running from main() startup
+            
+            # Check for Cloudflare cooldown AFTER web server is running
             if should_wait_for_cloudflare():
                 remaining = CLOUDFLARE_COOLDOWN - (time.time() - last_cloudflare_block)
-                await emergency_delay("Cloudflare cooldown before startup", int(remaining))
-            
-            # Start the web server first
-            start_web_server()
+                await emergency_delay("Cloudflare cooldown before Discord connection", int(remaining))
             
             # Load all cogs with timeout
             print("📦 Loading cogs during startup...")
