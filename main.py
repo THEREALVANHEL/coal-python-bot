@@ -90,16 +90,23 @@ def start_web_server():
     server_thread.start()
     print("🚀 Web server started successfully")
 
-# Discord Bot Setup
+# Discord Bot Setup with improved rate limiting
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.guilds = True
 
+# Configure bot with better rate limiting and connection settings
 bot = commands.Bot(
     command_prefix='!',
     intents=intents,
-    help_command=None
+    help_command=None,
+    case_insensitive=True,
+    # Add connection timeout and rate limiting parameters
+    heartbeat_timeout=60.0,
+    guild_ready_timeout=10.0,
+    # Disable automatic sync to prevent rate limits
+    auto_sync_commands=False
 )
 
 # Add a simple test command to verify bot is working
@@ -119,6 +126,39 @@ async def test_command(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 @bot.event
+async def on_disconnect():
+    """Handle bot disconnections gracefully"""
+    print("⚠️ Bot disconnected from Discord")
+
+@bot.event
+async def on_resumed():
+    """Handle bot reconnections"""
+    print("🔄 Bot connection resumed")
+
+@bot.event 
+async def on_connect():
+    """Handle initial connection"""
+    print("🔗 Bot connected to Discord")
+
+@bot.event
+async def on_command_error(ctx, error):
+    """Global error handler to prevent crashes"""
+    if isinstance(error, commands.CommandNotFound):
+        return  # Ignore unknown commands
+    elif isinstance(error, commands.MissingPermissions):
+        try:
+            await ctx.send("❌ You don't have permission to use this command.")
+        except:
+            pass
+    elif isinstance(error, discord.HTTPException):
+        print(f"❌ HTTP error in command: {error}")
+        if "rate limit" in str(error).lower():
+            print("🚫 Rate limited - adding delay")
+            await asyncio.sleep(5)
+    else:
+        print(f"❌ Unhandled command error: {error}")
+
+@bot.event
 async def on_ready():
     print(f"✅ BOT ONLINE: {bot.user.name}")
     print(f"📊 Bot ID: {bot.user.id}")
@@ -136,72 +176,61 @@ async def on_ready():
         command_names = [cmd.name for cmd in tree_commands]
         print(f"📋 Available commands: {', '.join(command_names[:10])}{'...' if len(command_names) > 10 else ''}")
     
-    # Sync slash commands with multiple fallback methods
-    print("⚡ Starting comprehensive command sync...")
+    # Conservative command sync to prevent rate limiting
+    print("⚡ Starting conservative command sync...")
     commands_synced = False
-    sync_attempts = 0
-    max_attempts = 3
     
-    while not commands_synced and sync_attempts < max_attempts:
-        sync_attempts += 1
-        print(f"🔄 Sync attempt {sync_attempts}/{max_attempts}")
+    try:
+        # Wait a bit to ensure all cogs are loaded
+        await asyncio.sleep(5)
         
-        try:
-            if sync_attempts == 1:
-                # First attempt: Standard global sync
-                print("🌐 Attempting standard global sync...")
-                synced = await bot.tree.sync()
-                
-            elif sync_attempts == 2:
-                # Second attempt: Clear and sync
-                print("🧹 Clearing existing commands and syncing...")
-                bot.tree.clear_commands(guild=None)
-                await asyncio.sleep(2)  # Small delay
-                synced = await bot.tree.sync()
-                
-            elif sync_attempts == 3:
-                # Third attempt: Force sync with delay
-                print("🚨 Force sync with longer delay...")
-                bot.tree.clear_commands(guild=None)
-                await asyncio.sleep(5)  # Longer delay
-                synced = await bot.tree.sync()
+        # Check if we have commands to sync
+        tree_commands = bot.tree.get_commands()
+        if not tree_commands:
+            print("⚠️ No commands found in tree, skipping sync")
+            print("💡 Commands may need to be loaded manually with /sync command")
+        else:
+            print(f"🌐 Attempting single conservative sync with {len(tree_commands)} commands...")
             
-            if synced:
+            # Single attempt with longer timeout
+            synced = await asyncio.wait_for(bot.tree.sync(), timeout=30.0)
+            
+            if synced is not None:
                 commands_synced = True
                 print(f"✅ SUCCESS! Synced {len(synced)} slash commands globally")
                 
-                # Log all synced commands
+                # Log synced commands (limited to prevent spam)
                 command_names = [cmd.name for cmd in synced]
-                print(f"📋 Synced commands: {', '.join(command_names)}")
-                
-                # Verify commands are in tree
-                tree_commands = [cmd.name for cmd in bot.tree.get_commands()]
-                print(f"🌳 Commands in tree: {', '.join(tree_commands)}")
-                
-                if len(synced) == 0:
-                    print("⚠️ WARNING: 0 commands synced - there may be an issue")
-                    commands_synced = False
+                if len(command_names) <= 10:
+                    print(f"📋 Synced commands: {', '.join(command_names)}")
+                else:
+                    print(f"📋 Synced {len(command_names)} commands: {', '.join(command_names[:10])}...")
                     
+                if len(synced) == 0:
+                    print("⚠️ WARNING: 0 commands synced")
             else:
-                print(f"❌ Sync attempt {sync_attempts} returned None")
+                print("❌ Sync returned None")
                 
-        except discord.HTTPException as e:
-            print(f"❌ HTTP error on attempt {sync_attempts}: {e}")
-            if "rate limited" in str(e).lower():
-                print("⏰ Rate limited, waiting 10 seconds...")
-                await asyncio.sleep(10)
-            
-        except discord.Forbidden as e:
-            print(f"❌ Permission error on attempt {sync_attempts}: {e}")
-            print("🔧 Check bot permissions: applications.commands scope required")
-            
-        except Exception as e:
-            print(f"❌ Unexpected error on attempt {sync_attempts}: {e}")
-            print(f"🔍 Error type: {type(e).__name__}")
-            
-        if not commands_synced and sync_attempts < max_attempts:
-            print(f"⏳ Waiting 3 seconds before attempt {sync_attempts + 1}...")
-            await asyncio.sleep(3)
+    except asyncio.TimeoutError:
+        print("⏰ Command sync timed out after 30 seconds")
+        print("💡 Commands may take up to 1 hour to appear due to Discord caching")
+        
+    except discord.HTTPException as e:
+        print(f"❌ HTTP error during sync: {e}")
+        if "rate limited" in str(e).lower() or "429" in str(e):
+            print("🚫 Rate limited by Discord - this is likely the cause of Cloudflare blocking")
+            print("💡 Bot will continue without syncing, use /sync command later")
+        elif "1015" in str(e) or "cloudflare" in str(e).lower():
+            print("🚫 Cloudflare blocking detected - reducing API calls")
+            print("💡 Bot will operate in reduced mode to prevent further blocks")
+        
+    except discord.Forbidden as e:
+        print(f"❌ Permission error during sync: {e}")
+        print("🔧 Check bot permissions: applications.commands scope required")
+        
+    except Exception as e:
+        print(f"❌ Unexpected error during sync: {e}")
+        print(f"🔍 Error type: {type(e).__name__}")
     
     if commands_synced:
         print("🎉 Command sync completed successfully!")
@@ -432,56 +461,104 @@ async def background_user_sync():
         print(f"[Background] ❌ Background sync failed: {e}")
 
 async def main():
-    """Main function to run the bot"""
-    try:
-        print("🚀 Starting Coal Python Bot...")
-        
-        # Start the web server first
-        start_web_server()
-        
-        # Load all cogs with timeout
-        print("📦 Loading cogs during startup...")
+    """Main function to run the bot with improved error handling and recovery"""
+    retry_count = 0
+    max_retries = 3
+    
+    while retry_count < max_retries:
         try:
-            cogs_loaded = await asyncio.wait_for(load_cogs(), timeout=60)
-            if cogs_loaded:
-                print("✅ Cogs loaded successfully during startup")
-                # Show what was loaded
-                loaded_extensions = list(bot.extensions.keys())
-                print(f"📋 Loaded extensions: {loaded_extensions}")
-            else:
-                print("⚠️ No cogs loaded successfully during startup")
+            print(f"🚀 Starting Coal Python Bot... (Attempt {retry_count + 1}/{max_retries})")
+            
+            # Start the web server first
+            start_web_server()
+            
+            # Load all cogs with timeout
+            print("📦 Loading cogs during startup...")
+            try:
+                cogs_loaded = await asyncio.wait_for(load_cogs(), timeout=60)
+                if cogs_loaded:
+                    print("✅ Cogs loaded successfully during startup")
+                    # Show what was loaded
+                    loaded_extensions = list(bot.extensions.keys())
+                    print(f"📋 Loaded extensions: {loaded_extensions}")
+                else:
+                    print("⚠️ No cogs loaded successfully during startup")
+                    print("🔄 Will attempt to load again after bot connects")
+            except asyncio.TimeoutError:
+                print("⏰ Cog loading timed out during startup")
                 print("🔄 Will attempt to load again after bot connects")
+            except Exception as e:
+                print(f"❌ Error during startup cog loading: {e}")
+                print(f"🔍 Error type: {type(e).__name__}")
+                print("🔄 Continuing with bot startup, will retry after connection")
+            
+            # Perform startup maintenance with timeout
+            print("🔧 Running startup maintenance...")
+            try:
+                await asyncio.wait_for(startup_maintenance(), timeout=60)
+            except asyncio.TimeoutError:
+                print("⏰ Startup maintenance timed out, continuing with bot startup...")
+            except Exception as e:
+                print(f"❌ Startup maintenance failed: {e}")
+            
+            print("🎮 Starting Discord bot...")
+            
+            # Start the bot with timeout protection
+            await asyncio.wait_for(bot.start(DISCORD_TOKEN), timeout=300)  # 5 minute timeout
+            
+            # If we get here, the bot started successfully
+            break
+            
         except asyncio.TimeoutError:
-            print("⏰ Cog loading timed out during startup")
-            print("🔄 Will attempt to load again after bot connects")
+            print(f"⏰ Bot startup timed out on attempt {retry_count + 1}")
+            retry_count += 1
+            if retry_count < max_retries:
+                wait_time = min(30 * retry_count, 300)  # Progressive backoff, max 5 minutes
+                print(f"⏳ Waiting {wait_time} seconds before retry...")
+                await asyncio.sleep(wait_time)
+            
+        except discord.HTTPException as e:
+            print(f"[Main] ❌ Discord HTTP error on attempt {retry_count + 1}: {e}")
+            if "1015" in str(e) or "cloudflare" in str(e).lower():
+                print("🚫 Cloudflare blocking detected!")
+                print("💡 This usually means too many requests - implementing longer delays")
+                retry_count += 1
+                if retry_count < max_retries:
+                    wait_time = 60 * retry_count  # 1, 2, 3 minutes
+                    print(f"⏳ Waiting {wait_time} minutes before retry...")
+                    await asyncio.sleep(wait_time * 60)
+            elif "rate limit" in str(e).lower() or "429" in str(e):
+                print("🚫 Rate limited by Discord API")
+                retry_count += 1
+                if retry_count < max_retries:
+                    wait_time = 120  # 2 minutes for rate limits
+                    print(f"⏳ Waiting {wait_time} seconds for rate limit to reset...")
+                    await asyncio.sleep(wait_time)
+            else:
+                print("❌ Unknown HTTP error, not retrying")
+                break
+                
+        except discord.LoginFailure as e:
+            print(f"[Main] ❌ Login failed: {e}")
+            print("🔑 Check your DISCORD_TOKEN environment variable")
+            break  # Don't retry login failures
+            
         except Exception as e:
-            print(f"❌ Error during startup cog loading: {e}")
+            print(f"[Main] ❌ Unexpected error on attempt {retry_count + 1}: {e}")
             print(f"🔍 Error type: {type(e).__name__}")
             import traceback
             traceback.print_exc()
-            print("🔄 Continuing with bot startup, will retry after connection")
-        
-        # Perform startup maintenance with timeout
-        print("🔧 Running startup maintenance...")
-        try:
-            await asyncio.wait_for(startup_maintenance(), timeout=60)
-        except asyncio.TimeoutError:
-            print("⏰ Startup maintenance timed out, continuing with bot startup...")
-        except Exception as e:
-            print(f"❌ Startup maintenance failed: {e}")
-        
-        print("🎮 Starting Discord bot...")
-        
-        # Disabled background user sync to prevent recursion issues
-        # asyncio.create_task(background_user_sync())
-        
-        # Start the bot
-        await bot.start(DISCORD_TOKEN)
-        
-    except Exception as e:
-        print(f"[Main] ❌ Error starting bot: {e}")
-        import traceback
-        traceback.print_exc()
+            retry_count += 1
+            if retry_count < max_retries:
+                wait_time = 30
+                print(f"⏳ Waiting {wait_time} seconds before retry...")
+                await asyncio.sleep(wait_time)
+    
+    if retry_count >= max_retries:
+        print("❌ All retry attempts exhausted. Bot failed to start.")
+        print("💡 Check logs above for specific errors and try manual restart.")
+    else:
+        print("✅ Bot startup completed successfully!")
 
 if __name__ == "__main__":
     try:

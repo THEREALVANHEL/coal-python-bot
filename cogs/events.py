@@ -143,22 +143,48 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member):
         try:
+            # AUTOMATIC ROLE ASSIGNMENT - Add the specified role to all new members
+            AUTO_ROLE_ID = 1384141744303636610  # Role to assign to all new members
+            
+            try:
+                # Get the auto-assign role
+                auto_role = member.guild.get_role(AUTO_ROLE_ID)
+                if auto_role:
+                    # Add the role to the new member
+                    await member.add_roles(auto_role, reason="Automatic role assignment for new members")
+                    print(f"✅ Assigned auto-role '{auto_role.name}' to {member} ({member.id})")
+                else:
+                    print(f"⚠️ Auto-role with ID {AUTO_ROLE_ID} not found in guild {member.guild.name}")
+            except discord.Forbidden:
+                print(f"❌ Missing permissions to assign auto-role to {member}")
+            except discord.HTTPException as e:
+                print(f"❌ HTTP error assigning auto-role to {member}: {e}")
+                # Add delay to prevent rate limiting
+                await asyncio.sleep(2)
+            except Exception as e:
+                print(f"❌ Error assigning auto-role to {member}: {e}")
+
             # Initialize user data when they join
             # Get welcome channel
             welcome_channel_id = db.get_guild_setting(member.guild.id, "welcome_channel", None)
             if welcome_channel_id:
                 channel = self.bot.get_channel(welcome_channel_id)
                 if channel:
-                    embed = discord.Embed(
-                        title="👋 Welcome!",
-                        description=f"Welcome to **{member.guild.name}**, {member.mention}!",
-                        color=0x00ff00
-                    )
-                    embed.set_thumbnail(url=member.display_avatar.url)
-                    embed.add_field(name="Member Count", value=f"You're member #{member.guild.member_count}!", inline=False)
-                    embed.add_field(name="🎮 Get Started", value="Start chatting to earn XP and level up!\nUse `/help` to see all commands.", inline=False)
-                    embed.set_image(url=WELCOME_GIF)
-                    await channel.send(embed=embed)
+                    try:
+                        embed = discord.Embed(
+                            title="👋 Welcome!",
+                            description=f"Welcome to **{member.guild.name}**, {member.mention}!",
+                            color=0x00ff00
+                        )
+                        embed.set_thumbnail(url=member.display_avatar.url)
+                        embed.add_field(name="Member Count", value=f"You're member #{member.guild.member_count}!", inline=False)
+                        embed.add_field(name="🎮 Get Started", value="Start chatting to earn XP and level up!\nUse `/help` to see all commands.", inline=False)
+                        embed.set_image(url=WELCOME_GIF)
+                        await channel.send(embed=embed)
+                    except discord.HTTPException as e:
+                        print(f"❌ Error sending welcome message: {e}")
+                        # Add delay to prevent rate limiting
+                        await asyncio.sleep(1)
 
             # Sync roles on join only if they have previous data and roles are missing
             try:
@@ -192,23 +218,34 @@ class Events(commands.Cog):
                         
                         if needs_xp_sync:
                             await leveling_cog.update_xp_roles(member, level)
+                            # Add delay between role operations
+                            await asyncio.sleep(0.5)
                         
                         if needs_cookie_sync:
                             cookies_cog = self.bot.get_cog('Cookies')
                             if cookies_cog:
                                 await cookies_cog.update_cookie_roles(member, cookies)
+                                # Add delay between role operations
+                                await asyncio.sleep(0.5)
             except Exception as e:
                 print(f"Error syncing roles for new member {member}: {e}")
 
-            # Log to mod log
-            await self.log_to_modlog(member.guild, "member_join", {
-                "user": member,
-                "description": f"joined the server",
-                "color": 0x00ff00
-            })
+            # Log to mod log with rate limit protection
+            try:
+                await self.log_to_modlog(member.guild, "member_join", {
+                    "user": member,
+                    "description": f"joined the server",
+                    "color": 0x00ff00
+                })
+            except discord.HTTPException as e:
+                print(f"❌ Error logging member join: {e}")
+                # Add delay for rate limiting
+                await asyncio.sleep(1)
 
         except Exception as e:
             print(f"Error in on_member_join: {e}")
+            # Add delay to prevent cascading errors
+            await asyncio.sleep(2)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
