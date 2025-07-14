@@ -17,16 +17,18 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 MONGODB_URI = os.getenv("MONGODB_URI")
 
-# EMERGENCY CLOUDFLARE PROTECTION
-CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "300"))  # 5 minutes default
-STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "60"))  # 1 minute default
-MAX_STARTUP_RETRIES = int(os.getenv("MAX_STARTUP_RETRIES", "5"))
+# EMERGENCY CLOUDFLARE PROTECTION - MAXIMUM SETTINGS
+CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "900"))  # 15 minutes default (increased)
+STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "300"))  # 5 minutes default (increased)
+MAX_STARTUP_RETRIES = int(os.getenv("MAX_STARTUP_RETRIES", "10"))    # More retries
+EMERGENCY_MODE = True  # Force maximum protection
 
 if not DISCORD_TOKEN:
     print("❌ NO TOKEN FOUND")
     exit(1)
 
-print(f"🛡️ CLOUDFLARE PROTECTION MODE: {CLOUDFLARE_COOLDOWN}s cooldown, {STARTUP_DELAY}s startup delay")
+print(f"� MAXIMUM CLOUDFLARE PROTECTION: {CLOUDFLARE_COOLDOWN}s cooldown, {STARTUP_DELAY}s startup delay")
+print("🛡️ EMERGENCY MODE: All connections will be heavily rate limited")
 
 # Keep-alive server for Render deployment
 app = Flask(__name__)
@@ -101,8 +103,29 @@ def mark_cloudflare_block():
     """Mark that we've been blocked by Cloudflare"""
     global last_cloudflare_block
     last_cloudflare_block = time.time()
-    print(f"🚫 CLOUDFLARE BLOCK DETECTED at {datetime.now().isoformat()}")
+    print(f"� CLOUDFLARE BLOCK DETECTED at {datetime.now().isoformat()}")
     print(f"🛡️ Entering {CLOUDFLARE_COOLDOWN}s protection mode")
+    
+    # Save to file for persistence across restarts
+    try:
+        with open('/tmp/cloudflare_block.txt', 'w') as f:
+            f.write(str(last_cloudflare_block))
+    except:
+        pass
+
+def load_previous_cloudflare_blocks():
+    """Load any previous Cloudflare block times"""
+    global last_cloudflare_block
+    try:
+        with open('/tmp/cloudflare_block.txt', 'r') as f:
+            last_cloudflare_block = float(f.read().strip())
+            if last_cloudflare_block > 0:
+                time_since = time.time() - last_cloudflare_block
+                print(f"🚨 Previous Cloudflare block detected {time_since:.0f}s ago")
+                return True
+    except:
+        pass
+    return False
 
 def should_wait_for_cloudflare():
     """Check if we should wait due to recent Cloudflare blocks"""
@@ -227,6 +250,13 @@ async def on_ready():
     if tree_commands:
         command_names = [cmd.name for cmd in tree_commands]
         print(f"📋 Available commands: {', '.join(command_names[:10])}{'...' if len(command_names) > 10 else ''}")
+    
+    # EMERGENCY MODE: Disable all command syncing
+    if EMERGENCY_MODE:
+        print("🚨 EMERGENCY MODE: Command sync DISABLED to prevent Cloudflare blocks")
+        print("🛡️ All slash commands MUST be synced manually when safe")
+        print("💡 Use the /sync command when Cloudflare protection period ends")
+        return
     
     # Emergency Cloudflare protection for command sync
     print("⚡ Starting emergency-protected command sync...")
@@ -524,13 +554,24 @@ async def background_user_sync():
         print(f"[Background] ❌ Background sync failed: {e}")
 
 async def main():
-    """Main function to run the bot with emergency Cloudflare protection"""
+    """Main function to run the bot with MAXIMUM Cloudflare protection"""
+    
+    # 🚨 CHECK FOR PREVIOUS CLOUDFLARE BLOCKS
+    print("🔍 Checking for previous Cloudflare blocks...")
+    if load_previous_cloudflare_blocks():
+        if should_wait_for_cloudflare():
+            remaining = CLOUDFLARE_COOLDOWN - (time.time() - last_cloudflare_block)
+            if remaining > 0:
+                print(f"🚨 STILL IN CLOUDFLARE COOLDOWN: {remaining:.0f}s remaining")
+                await emergency_delay("Previous Cloudflare block cooldown", int(remaining))
+    
+    # 🚨 MANDATORY EMERGENCY PROTECTION - NO EXCEPTIONS
+    print("🚨 EMERGENCY PROTECTION ACTIVATED")
+    print(f"⏰ MANDATORY {STARTUP_DELAY}s delay before ANY Discord operations")
+    await emergency_delay("MANDATORY startup protection", STARTUP_DELAY)
+    
     retry_count = 0
     max_retries = MAX_STARTUP_RETRIES
-    
-    # EMERGENCY CLOUDFLARE PROTECTION - Initial delay
-    if STARTUP_DELAY > 0:
-        await emergency_delay("Initial startup protection", STARTUP_DELAY)
     
     while retry_count < max_retries:
         try:
@@ -573,41 +614,44 @@ async def main():
             except Exception as e:
                 print(f"❌ Startup maintenance failed: {e}")
             
-            print("🎮 Starting Discord bot...")
+            print("🎮 Starting Discord bot with MAXIMUM protection...")
+            print("🛡️ Using extended timeout for safe connection")
             
-            # Start the bot with timeout protection
-            await asyncio.wait_for(bot.start(DISCORD_TOKEN), timeout=300)  # 5 minute timeout
+            # Start the bot with extended timeout protection
+            await asyncio.wait_for(bot.start(DISCORD_TOKEN), timeout=600)  # 10 minute timeout (doubled)
             
             # If we get here, the bot started successfully
             break
             
         except asyncio.TimeoutError:
-            print(f"⏰ Bot startup timed out on attempt {retry_count + 1}")
+            print(f"⏰ Bot startup timed out on attempt {retry_count + 1} (this may indicate Cloudflare blocking)")
+            print("🛡️ Treating timeout as potential Cloudflare issue")
+            mark_cloudflare_block()  # Treat timeouts as potential blocks
             retry_count += 1
             if retry_count < max_retries:
-                wait_time = min(30 * retry_count, 300)  # Progressive backoff, max 5 minutes
-                print(f"⏳ Waiting {wait_time} seconds before retry...")
-                await asyncio.sleep(wait_time)
+                wait_time = min(CLOUDFLARE_COOLDOWN * retry_count, 1800)  # Use Cloudflare delays for timeouts
+                await emergency_delay(f"Timeout protection (attempt {retry_count})", wait_time)
             
         except discord.HTTPException as e:
             print(f"[Main] ❌ Discord HTTP error on attempt {retry_count + 1}: {e}")
             
             if detect_cloudflare_block(str(e)):
                 mark_cloudflare_block()
-                print("🚫 EMERGENCY: Cloudflare blocking detected!")
-                print("💡 Implementing maximum protection delays")
+                print("� CRITICAL: Cloudflare blocking detected!")
+                print("�️ Implementing MAXIMUM emergency protection")
                 retry_count += 1
                 if retry_count < max_retries:
-                    # Very long delays for Cloudflare blocks
-                    wait_time = min(CLOUDFLARE_COOLDOWN * retry_count, 1800)  # Max 30 minutes
-                    await emergency_delay(f"Cloudflare block recovery (attempt {retry_count})", wait_time)
+                    # EXTREME delays for Cloudflare blocks
+                    wait_time = min(CLOUDFLARE_COOLDOWN * retry_count * 2, 3600)  # Max 1 hour, double cooldown
+                    await emergency_delay(f"MAXIMUM Cloudflare protection (attempt {retry_count})", wait_time)
                 
             elif "rate limit" in str(e).lower() or "429" in str(e):
-                print("🚫 Rate limited by Discord API")
+                print("🚫 Rate limited by Discord API - treating as Cloudflare risk")
+                mark_cloudflare_block()  # Treat rate limits as potential Cloudflare triggers
                 retry_count += 1
                 if retry_count < max_retries:
-                    wait_time = 300  # 5 minutes for rate limits (increased)
-                    await emergency_delay(f"Rate limit recovery (attempt {retry_count})", wait_time)
+                    wait_time = 600  # 10 minutes for rate limits (doubled)
+                    await emergency_delay(f"Rate limit protection (attempt {retry_count})", wait_time)
             else:
                 print("❌ Unknown HTTP error, not retrying")
                 break

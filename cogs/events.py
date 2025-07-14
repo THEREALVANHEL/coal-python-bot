@@ -161,9 +161,9 @@ class Events(commands.Cog):
                 print(f"❌ HTTP error assigning auto-role to {member}: {e}")
                 # Check for Cloudflare blocking in role assignment
                 if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
-                    print("🚫 EMERGENCY: Cloudflare blocking detected during role assignment!")
-                    print("🛡️ Implementing emergency delay to prevent further blocks")
-                    await asyncio.sleep(60)  # 1 minute emergency delay
+                    print("� CRITICAL: Cloudflare blocking during role assignment!")
+                    print("🛡️ Implementing MAXIMUM emergency delay")
+                    await asyncio.sleep(300)  # 5 minute emergency delay (increased)
                 else:
                     # Standard delay for other HTTP errors
                     await asyncio.sleep(5)
@@ -191,8 +191,8 @@ class Events(commands.Cog):
                         print(f"❌ Error sending welcome message: {e}")
                         # Check for Cloudflare blocking
                         if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
-                            print("🚫 Cloudflare blocking detected in welcome message!")
-                            await asyncio.sleep(30)  # Emergency delay
+                            print("� Cloudflare blocking in welcome message!")
+                            await asyncio.sleep(120)  # 2 minute emergency delay
                         else:
                             await asyncio.sleep(3)  # Standard delay
 
@@ -228,15 +228,15 @@ class Events(commands.Cog):
                         
                         if needs_xp_sync:
                             await leveling_cog.update_xp_roles(member, level)
-                            # Add delay between role operations
-                            await asyncio.sleep(0.5)
+                            # Extended delay between role operations
+                            await asyncio.sleep(3)  # Increased from 0.5 to 3 seconds
                         
                         if needs_cookie_sync:
                             cookies_cog = self.bot.get_cog('Cookies')
                             if cookies_cog:
                                 await cookies_cog.update_cookie_roles(member, cookies)
-                                # Add delay between role operations
-                                await asyncio.sleep(0.5)
+                                # Extended delay between role operations
+                                await asyncio.sleep(3)  # Increased from 0.5 to 3 seconds
             except Exception as e:
                 print(f"Error syncing roles for new member {member}: {e}")
 
@@ -251,15 +251,15 @@ class Events(commands.Cog):
                 print(f"❌ Error logging member join: {e}")
                 # Check for Cloudflare blocking
                 if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
-                    print("🚫 Cloudflare blocking detected in mod logging!")
-                    await asyncio.sleep(30)  # Emergency delay
+                    print("� Cloudflare blocking in mod logging!")
+                    await asyncio.sleep(120)  # 2 minute emergency delay
                 else:
                     await asyncio.sleep(3)  # Standard delay
 
         except Exception as e:
             print(f"Error in on_member_join: {e}")
-            # Add delay to prevent cascading errors
-            await asyncio.sleep(2)
+            # Extended delay to prevent cascading errors
+            await asyncio.sleep(10)  # Increased from 2 to 10 seconds
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
