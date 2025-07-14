@@ -17,18 +17,25 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 MONGODB_URI = os.getenv("MONGODB_URI")
 
-# EMERGENCY CLOUDFLARE PROTECTION - MAXIMUM SETTINGS
-CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "900"))  # 15 minutes default (increased)
-STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "300"))  # 5 minutes default (increased)
-MAX_STARTUP_RETRIES = int(os.getenv("MAX_STARTUP_RETRIES", "10"))    # More retries
+# 🚨 NUCLEAR CLOUDFLARE PROTECTION - COMPLETE DISCORD SHUTDOWN
+CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "3600"))  # 1 HOUR default (extreme)
+STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "7200"))  # 2 HOURS default (extreme)
+MAX_STARTUP_RETRIES = int(os.getenv("MAX_STARTUP_RETRIES", "3"))     # Fewer retries to prevent loops
 EMERGENCY_MODE = True  # Force maximum protection
+NUCLEAR_MODE = os.getenv("NUCLEAR_MODE", "true").lower() == "true"   # Complete Discord shutdown
+MANUAL_ENABLE_REQUIRED = True  # Require manual activation
 
 if not DISCORD_TOKEN:
     print("❌ NO TOKEN FOUND")
     exit(1)
 
-print(f"� MAXIMUM CLOUDFLARE PROTECTION: {CLOUDFLARE_COOLDOWN}s cooldown, {STARTUP_DELAY}s startup delay")
+print(f"🚨 NUCLEAR CLOUDFLARE PROTECTION: {CLOUDFLARE_COOLDOWN}s cooldown, {STARTUP_DELAY}s startup delay")
 print("🛡️ EMERGENCY MODE: All connections will be heavily rate limited")
+if NUCLEAR_MODE:
+    print("☢️ NUCLEAR MODE ACTIVE: Discord operations COMPLETELY DISABLED")
+    print("🔒 Manual activation required via /nuclear-enable endpoint")
+if MANUAL_ENABLE_REQUIRED:
+    print("✋ MANUAL ENABLE REQUIRED: Bot will NOT connect to Discord automatically")
 
 # Keep-alive server for Render deployment
 app = Flask(__name__)
@@ -43,8 +50,14 @@ def home():
     uptime_hours = uptime // 3600
     uptime_minutes = (uptime % 3600) // 60
     
+    # Check nuclear mode first
+    if NUCLEAR_MODE or MANUAL_ENABLE_REQUIRED:
+        if globals().get('discord_enabled', False):
+            status_msg = "⚠️ Discord manually enabled (nuclear protection bypassed)"
+        else:
+            status_msg = "☢️ NUCLEAR MODE: Discord operations DISABLED for maximum protection"
     # Check if we're in startup protection mode
-    if uptime < STARTUP_DELAY:
+    elif uptime < STARTUP_DELAY:
         remaining = STARTUP_DELAY - uptime
         status_msg = f"🛡️ Starting with Cloudflare protection ({remaining:.0f}s remaining)"
     else:
@@ -54,12 +67,20 @@ def home():
         "status": status_msg,
         "uptime": f"{int(uptime_hours)}h {int(uptime_minutes)}m",
         "timestamp": datetime.now().isoformat(),
-        "version": "2.0.0 - Maximum Cloudflare Protection",
+        "version": "2.0.0 - Nuclear Cloudflare Protection",
         "service": "Discord Bot",
         "port": int(os.environ.get('PORT', 10000)),
         "cloudflare_protection": True,
+        "nuclear_mode": NUCLEAR_MODE,
+        "discord_enabled": globals().get('discord_enabled', False),
+        "manual_enable_required": MANUAL_ENABLE_REQUIRED,
         "startup_delay": STARTUP_DELAY,
-        "protection_active": uptime < STARTUP_DELAY
+        "protection_active": uptime < STARTUP_DELAY or NUCLEAR_MODE or MANUAL_ENABLE_REQUIRED,
+        "manual_endpoints": {
+            "status": "/nuclear-status",
+            "enable": "POST /nuclear-enable",
+            "disable": "POST /nuclear-disable"
+        }
     })
 
 @app.route('/health')
@@ -67,7 +88,12 @@ def health_check():
     """Health check endpoint for Render"""
     try:
         # Check if bot is ready
-        if 'bot' in globals() and bot.is_ready():
+        if NUCLEAR_MODE or MANUAL_ENABLE_REQUIRED:
+            if globals().get('discord_enabled', False):
+                bot_status = "manually_enabled" if 'bot' in globals() and bot.is_ready() else "enabling"
+            else:
+                bot_status = "nuclear_disabled"
+        elif 'bot' in globals() and bot.is_ready():
             bot_status = "online"
         else:
             bot_status = "starting"
@@ -129,6 +155,58 @@ def ready_check():
 def ping():
     """Simple ping endpoint for Render"""
     return "PONG", 200
+
+@app.route('/nuclear-status')
+def nuclear_status():
+    """Check nuclear protection status"""
+    return jsonify({
+        "nuclear_mode": NUCLEAR_MODE,
+        "manual_enable_required": MANUAL_ENABLE_REQUIRED,
+        "discord_enabled": globals().get('discord_enabled', False),
+        "last_cloudflare_block": last_cloudflare_block,
+        "protection_active": should_wait_for_cloudflare(),
+        "startup_delay": STARTUP_DELAY,
+        "cooldown_period": CLOUDFLARE_COOLDOWN,
+        "timestamp": datetime.now().isoformat()
+    }), 200
+
+@app.route('/nuclear-enable', methods=['POST'])
+def nuclear_enable():
+    """Manually enable Discord operations (EXTREME CAUTION)"""
+    global MANUAL_ENABLE_REQUIRED, discord_enabled
+    
+    # Check if we're still in cooldown
+    if should_wait_for_cloudflare():
+        remaining = CLOUDFLARE_COOLDOWN - (time.time() - last_cloudflare_block)
+        return jsonify({
+            "error": "Still in Cloudflare cooldown period",
+            "remaining_seconds": int(remaining),
+            "message": "Wait for cooldown to complete before enabling"
+        }), 423  # Locked
+    
+    MANUAL_ENABLE_REQUIRED = False
+    discord_enabled = True
+    
+    return jsonify({
+        "message": "⚠️ Discord operations manually enabled",
+        "warning": "This bypasses nuclear protection - use EXTREME caution",
+        "discord_enabled": True,
+        "timestamp": datetime.now().isoformat()
+    }), 200
+
+@app.route('/nuclear-disable', methods=['POST'])
+def nuclear_disable():
+    """Manually disable Discord operations"""
+    global MANUAL_ENABLE_REQUIRED, discord_enabled
+    
+    MANUAL_ENABLE_REQUIRED = True
+    discord_enabled = False
+    
+    return jsonify({
+        "message": "🚨 Discord operations disabled - nuclear protection reactivated",
+        "discord_enabled": False,
+        "timestamp": datetime.now().isoformat()
+    }), 200
 
 def detect_cloudflare_block(error_text):
     """Detect if an error indicates Cloudflare blocking"""
@@ -605,14 +683,33 @@ async def background_user_sync():
         print(f"[Background] ❌ Background sync failed: {e}")
 
 async def main():
-    """Main function to run the bot with MAXIMUM Cloudflare protection"""
+    """Main function to run the bot with NUCLEAR Cloudflare protection"""
+    
+    # Initialize global variables
+    global discord_enabled
+    discord_enabled = False
     
     # 🌐 START WEB SERVER IMMEDIATELY for Render port detection
     print("🌐 Starting web server IMMEDIATELY for Render...")
     web_server_thread = start_web_server()
     print("✅ Web server running - Render should detect the port now")
     
-    # 🚨 CHECK FOR PREVIOUS CLOUDFLARE BLOCKS
+    # ☢️ NUCLEAR MODE CHECK - COMPLETELY DISABLE DISCORD
+    if NUCLEAR_MODE or MANUAL_ENABLE_REQUIRED:
+        print("☢️ NUCLEAR PROTECTION ACTIVE: Discord operations DISABLED")
+        print("🌐 Web server will continue running for health checks")
+        print("🔒 To enable Discord: POST to /nuclear-enable (EXTREME CAUTION)")
+        print("� Check status: GET /nuclear-status")
+        
+        # Run indefinitely serving only web requests
+        while True:
+            if not MANUAL_ENABLE_REQUIRED and discord_enabled:
+                print("✅ Discord manually enabled - proceeding with startup")
+                break
+            await asyncio.sleep(60)  # Check every minute for manual enable
+            print(f"☢️ Nuclear mode active - Discord disabled (check /nuclear-status)")
+    
+    # �� CHECK FOR PREVIOUS CLOUDFLARE BLOCKS (only if Discord enabled)
     print("🔍 Checking for previous Cloudflare blocks...")
     if load_previous_cloudflare_blocks():
         if should_wait_for_cloudflare():
@@ -621,7 +718,7 @@ async def main():
                 print(f"🚨 STILL IN CLOUDFLARE COOLDOWN: {remaining:.0f}s remaining")
                 await emergency_delay("Previous Cloudflare block cooldown", int(remaining))
     
-    # 🚨 MANDATORY EMERGENCY PROTECTION - NO EXCEPTIONS
+    # 🚨 MANDATORY EMERGENCY PROTECTION - NO EXCEPTIONS (only if Discord enabled)
     print("🚨 EMERGENCY PROTECTION ACTIVATED")
     print(f"⏰ MANDATORY {STARTUP_DELAY}s delay before Discord connection")
     print("🌐 NOTE: Web server is already running for Render port detection")
