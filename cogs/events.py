@@ -159,8 +159,14 @@ class Events(commands.Cog):
                 print(f"❌ Missing permissions to assign auto-role to {member}")
             except discord.HTTPException as e:
                 print(f"❌ HTTP error assigning auto-role to {member}: {e}")
-                # Add delay to prevent rate limiting
-                await asyncio.sleep(2)
+                # Check for Cloudflare blocking in role assignment
+                if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
+                    print("🚫 EMERGENCY: Cloudflare blocking detected during role assignment!")
+                    print("🛡️ Implementing emergency delay to prevent further blocks")
+                    await asyncio.sleep(60)  # 1 minute emergency delay
+                else:
+                    # Standard delay for other HTTP errors
+                    await asyncio.sleep(5)
             except Exception as e:
                 print(f"❌ Error assigning auto-role to {member}: {e}")
 
@@ -183,8 +189,12 @@ class Events(commands.Cog):
                         await channel.send(embed=embed)
                     except discord.HTTPException as e:
                         print(f"❌ Error sending welcome message: {e}")
-                        # Add delay to prevent rate limiting
-                        await asyncio.sleep(1)
+                        # Check for Cloudflare blocking
+                        if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
+                            print("🚫 Cloudflare blocking detected in welcome message!")
+                            await asyncio.sleep(30)  # Emergency delay
+                        else:
+                            await asyncio.sleep(3)  # Standard delay
 
             # Sync roles on join only if they have previous data and roles are missing
             try:
@@ -239,8 +249,12 @@ class Events(commands.Cog):
                 })
             except discord.HTTPException as e:
                 print(f"❌ Error logging member join: {e}")
-                # Add delay for rate limiting
-                await asyncio.sleep(1)
+                # Check for Cloudflare blocking
+                if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
+                    print("🚫 Cloudflare blocking detected in mod logging!")
+                    await asyncio.sleep(30)  # Emergency delay
+                else:
+                    await asyncio.sleep(3)  # Standard delay
 
         except Exception as e:
             print(f"Error in on_member_join: {e}")
