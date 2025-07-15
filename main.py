@@ -18,8 +18,8 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 MONGODB_URI = os.getenv("MONGODB_URI")
 
 # 🚨 NUCLEAR CLOUDFLARE PROTECTION - AUTO-ENABLE AFTER STARTUP DELAY
-CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "1800"))  # 30 minutes default (reduced)
-STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "300"))  # 5 MINUTES default (reduced for faster startup)
+CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "300"))  # 5 minutes (reduced from 30)
+STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "30"))  # 30 seconds (reduced from 5 minutes)
 MAX_STARTUP_RETRIES = int(os.getenv("MAX_STARTUP_RETRIES", "3"))     # Fewer retries to prevent loops
 EMERGENCY_MODE = True  # Force maximum protection
 NUCLEAR_MODE = os.getenv("NUCLEAR_MODE", "false").lower() == "true"   # Auto-enable Discord by default
@@ -40,7 +40,7 @@ elif MANUAL_ENABLE_REQUIRED:
     print("✋ MANUAL ENABLE REQUIRED: Bot will NOT connect to Discord automatically")
 elif AUTO_ENABLE_AFTER_STARTUP:
     print("⏰ AUTO-ENABLE MODE: Discord will connect automatically after startup delay")
-    print(f"🚀 Discord will be enabled after {STARTUP_DELAY}s protection delay")
+    print(f"🚀 Discord will be enabled after {STARTUP_DELAY}s protection delay (FAST MODE)")
 else:
     print("✅ STANDARD MODE: Discord will connect immediately after startup delay")
 
@@ -707,7 +707,7 @@ async def main():
         print("🌐 Web server will continue running for health checks")
         
         if AUTO_ENABLE_AFTER_STARTUP and not MANUAL_ENABLE_REQUIRED:
-            print(f"⏰ AUTO-ENABLE: Discord will be enabled after {STARTUP_DELAY}s startup delay")
+            print(f"⏰ AUTO-ENABLE: Discord will be enabled after {STARTUP_DELAY}s startup delay (FAST MODE)")
             print("🔍 Check status: GET /nuclear-status")
             
             # Wait for startup delay then auto-enable
