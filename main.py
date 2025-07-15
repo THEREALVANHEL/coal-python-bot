@@ -44,6 +44,9 @@ app = Flask(__name__)
 bot_start_time = time.time()
 last_cloudflare_block = 0  # Track when we last got blocked
 
+# Global Discord enable flag for nuclear protection
+discord_enabled = False
+
 @app.route('/')
 def home():
     uptime = time.time() - bot_start_time
@@ -685,9 +688,8 @@ async def background_user_sync():
 async def main():
     """Main function to run the bot with NUCLEAR Cloudflare protection"""
     
-    # Initialize global variables
+    # Use global discord_enabled variable
     global discord_enabled
-    discord_enabled = False
     
     # 🌐 START WEB SERVER IMMEDIATELY for Render port detection
     print("🌐 Starting web server IMMEDIATELY for Render...")
@@ -703,10 +705,11 @@ async def main():
         
         # Run indefinitely serving only web requests
         while True:
-            if not MANUAL_ENABLE_REQUIRED and discord_enabled:
+            # Check if Discord has been manually enabled
+            if discord_enabled:
                 print("✅ Discord manually enabled - proceeding with startup")
                 break
-            await asyncio.sleep(60)  # Check every minute for manual enable
+            await asyncio.sleep(10)  # Check every 10 seconds for manual enable
             print(f"☢️ Nuclear mode active - Discord disabled (check /nuclear-status)")
     
     # �� CHECK FOR PREVIOUS CLOUDFLARE BLOCKS (only if Discord enabled)
