@@ -712,7 +712,6 @@ async def main():
             
             # Wait for startup delay then auto-enable
             await asyncio.sleep(STARTUP_DELAY)
-            global discord_enabled
             discord_enabled = True
             print("✅ AUTO-ENABLE: Discord operations enabled after startup delay")
         else:
