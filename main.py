@@ -9,7 +9,7 @@ import logging
 import time
 from datetime import datetime
 
-# Deployment trigger: 2025-07-15T11:26:05 - Critical nuclear protection fix
+# Deployment trigger: 2025-07-15T12:54:30 - Cookie removal command aliases fix
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 
