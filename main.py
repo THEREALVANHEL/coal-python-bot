@@ -17,9 +17,9 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 MONGODB_URI = os.getenv("MONGODB_URI")
 
-# 🚨 NUCLEAR CLOUDFLARE PROTECTION - COMPLETE DISCORD SHUTDOWN
-CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "3600"))  # 1 HOUR default (extreme)
-STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "7200"))  # 2 HOURS default (extreme)
+# 🚨 NUCLEAR CLOUDFLARE PROTECTION - REDUCED DELAYS FOR FASTER STARTUP
+CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "1800"))  # 30 minutes default (reduced)
+STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "300"))  # 5 MINUTES default (reduced for faster startup)
 MAX_STARTUP_RETRIES = int(os.getenv("MAX_STARTUP_RETRIES", "3"))     # Fewer retries to prevent loops
 EMERGENCY_MODE = True  # Force maximum protection
 NUCLEAR_MODE = os.getenv("NUCLEAR_MODE", "true").lower() == "true"   # Complete Discord shutdown
