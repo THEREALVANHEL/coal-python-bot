@@ -1678,15 +1678,15 @@ def calculate_level_from_xp(xp: int) -> int:
     return level
 
 def calculate_xp_for_level(level: int) -> int:
-    """Calculate XP required for level"""
+    """Moderately reduced XP requirement per level - easier but not too easy"""
     if level <= 10:
-        return int(200 * (level ** 2))
+        return int(130 * (level ** 2))  # Reduced from 200 to 130 (35% reduction)
     elif level <= 50:
-        return int(300 * (level ** 2.2))
+        return int(195 * (level ** 2.2))  # Reduced from 300 to 195 (35% reduction)
     elif level <= 100:
-        return int(500 * (level ** 2.5))
+        return int(325 * (level ** 2.5))  # Reduced from 500 to 325 (35% reduction)
     else:
-        return int(1000 * (level ** 2.8))
+        return int(650 * (level ** 2.8))  # Reduced from 1000 to 650 (35% reduction)
 
 def backup_user_data():
     """Create a backup of all user data"""
