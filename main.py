@@ -17,25 +17,32 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 MONGODB_URI = os.getenv("MONGODB_URI")
 
-# 🚨 NUCLEAR CLOUDFLARE PROTECTION - REDUCED DELAYS FOR FASTER STARTUP
+# 🚨 NUCLEAR CLOUDFLARE PROTECTION - AUTO-ENABLE AFTER STARTUP DELAY
 CLOUDFLARE_COOLDOWN = int(os.getenv("CLOUDFLARE_COOLDOWN", "1800"))  # 30 minutes default (reduced)
 STARTUP_DELAY = int(os.getenv("STARTUP_DELAY", "300"))  # 5 MINUTES default (reduced for faster startup)
 MAX_STARTUP_RETRIES = int(os.getenv("MAX_STARTUP_RETRIES", "3"))     # Fewer retries to prevent loops
 EMERGENCY_MODE = True  # Force maximum protection
-NUCLEAR_MODE = os.getenv("NUCLEAR_MODE", "true").lower() == "true"   # Complete Discord shutdown
-MANUAL_ENABLE_REQUIRED = True  # Require manual activation
+NUCLEAR_MODE = os.getenv("NUCLEAR_MODE", "false").lower() == "true"   # Auto-enable Discord by default
+MANUAL_ENABLE_REQUIRED = os.getenv("MANUAL_ENABLE_REQUIRED", "false").lower() == "true"  # Auto-enable by default
+AUTO_ENABLE_AFTER_STARTUP = os.getenv("AUTO_ENABLE_AFTER_STARTUP", "true").lower() == "true"  # Auto-enable after startup delay
 
 if not DISCORD_TOKEN:
     print("❌ NO TOKEN FOUND")
     exit(1)
 
-print(f"🚨 NUCLEAR CLOUDFLARE PROTECTION: {CLOUDFLARE_COOLDOWN}s cooldown, {STARTUP_DELAY}s startup delay")
+print(f"🚨 CLOUDFLARE PROTECTION: {CLOUDFLARE_COOLDOWN}s cooldown, {STARTUP_DELAY}s startup delay")
 print("🛡️ EMERGENCY MODE: All connections will be heavily rate limited")
+
 if NUCLEAR_MODE:
     print("☢️ NUCLEAR MODE ACTIVE: Discord operations COMPLETELY DISABLED")
     print("🔒 Manual activation required via /nuclear-enable endpoint")
-if MANUAL_ENABLE_REQUIRED:
+elif MANUAL_ENABLE_REQUIRED:
     print("✋ MANUAL ENABLE REQUIRED: Bot will NOT connect to Discord automatically")
+elif AUTO_ENABLE_AFTER_STARTUP:
+    print("⏰ AUTO-ENABLE MODE: Discord will connect automatically after startup delay")
+    print(f"🚀 Discord will be enabled after {STARTUP_DELAY}s protection delay")
+else:
+    print("✅ STANDARD MODE: Discord will connect immediately after startup delay")
 
 # Keep-alive server for Render deployment
 app = Flask(__name__)
@@ -221,7 +228,7 @@ def mark_cloudflare_block():
     """Mark that we've been blocked by Cloudflare"""
     global last_cloudflare_block
     last_cloudflare_block = time.time()
-    print(f"� CLOUDFLARE BLOCK DETECTED at {datetime.now().isoformat()}")
+    print(f"🚨 CLOUDFLARE BLOCK DETECTED at {datetime.now().isoformat()}")
     print(f"🛡️ Entering {CLOUDFLARE_COOLDOWN}s protection mode")
     
     # Save to file for persistence across restarts
@@ -440,7 +447,7 @@ async def on_ready():
             mark_cloudflare_block()
             print("🚫 EMERGENCY: Cloudflare blocking detected during command sync!")
             print("💡 Bot will operate in minimal mode to prevent further blocks")
-            print(f"�️ All Discord operations suspended for {CLOUDFLARE_COOLDOWN}s")
+            print(f"🔧 All Discord operations suspended for {CLOUDFLARE_COOLDOWN}s")
             
         elif "rate limited" in str(e).lower() or "429" in str(e):
             print("🚫 Rate limited by Discord during command sync")
@@ -694,22 +701,33 @@ async def main():
     web_server_thread = start_web_server()
     print("✅ Web server running - Render should detect the port now")
     
-    # ☢️ NUCLEAR MODE CHECK - COMPLETELY DISABLE DISCORD
+    # ☢️ NUCLEAR MODE CHECK - AUTO-ENABLE AFTER STARTUP DELAY
     if NUCLEAR_MODE or MANUAL_ENABLE_REQUIRED:
         print("☢️ NUCLEAR PROTECTION ACTIVE: Discord operations DISABLED")
         print("🌐 Web server will continue running for health checks")
-        print("🔒 To enable Discord: POST to /nuclear-enable (EXTREME CAUTION)")
-        print("� Check status: GET /nuclear-status")
         
-        # Run indefinitely serving only web requests
-        while True:
-            if not MANUAL_ENABLE_REQUIRED and discord_enabled:
-                print("✅ Discord manually enabled - proceeding with startup")
-                break
-            await asyncio.sleep(60)  # Check every minute for manual enable
-            print(f"☢️ Nuclear mode active - Discord disabled (check /nuclear-status)")
+        if AUTO_ENABLE_AFTER_STARTUP and not MANUAL_ENABLE_REQUIRED:
+            print(f"⏰ AUTO-ENABLE: Discord will be enabled after {STARTUP_DELAY}s startup delay")
+            print("🔍 Check status: GET /nuclear-status")
+            
+            # Wait for startup delay then auto-enable
+            await asyncio.sleep(STARTUP_DELAY)
+            global discord_enabled
+            discord_enabled = True
+            print("✅ AUTO-ENABLE: Discord operations enabled after startup delay")
+        else:
+            print("🔒 To enable Discord: POST to /nuclear-enable (EXTREME CAUTION)")
+            print("🔍 Check status: GET /nuclear-status")
+            
+            # Run indefinitely serving only web requests
+            while True:
+                if not MANUAL_ENABLE_REQUIRED and discord_enabled:
+                    print("✅ Discord manually enabled - proceeding with startup")
+                    break
+                await asyncio.sleep(60)  # Check every minute for manual enable
+                print(f"☢️ Nuclear mode active - Discord disabled (check /nuclear-status)")
     
-    # �� CHECK FOR PREVIOUS CLOUDFLARE BLOCKS (only if Discord enabled)
+    # 🔍 CHECK FOR PREVIOUS CLOUDFLARE BLOCKS (only if Discord enabled)
     print("🔍 Checking for previous Cloudflare blocks...")
     if load_previous_cloudflare_blocks():
         if should_wait_for_cloudflare():
@@ -790,8 +808,8 @@ async def main():
             
             if detect_cloudflare_block(str(e)):
                 mark_cloudflare_block()
-                print("� CRITICAL: Cloudflare blocking detected!")
-                print("�️ Implementing MAXIMUM emergency protection")
+                print("🚫 CRITICAL: Cloudflare blocking detected!")
+                print("🔧 Implementing MAXIMUM emergency protection")
                 retry_count += 1
                 if retry_count < max_retries:
                     # EXTREME delays for Cloudflare blocks
