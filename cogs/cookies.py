@@ -740,6 +740,19 @@ class Cookies(commands.Cog):
             )
             await interaction.edit_original_response(embed=error_embed)
 
+    # Alias commands for consistency with documentation and common typos
+    @app_commands.command(name="cookiesremoveall", description="Remove cookies from everyone in the server (Manager only)")
+    @app_commands.describe(amount="Amount to remove (number, percentage like '50%', or 'all' for complete removal)")
+    async def cookiesremoveall(self, interaction: discord.Interaction, amount: str = "all"):
+        """Alias for removecookiesall - matches documentation"""
+        await self.removecookiesall(interaction, amount)
+
+    @app_commands.command(name="cookiesremoveal", description="Remove cookies from everyone in the server (Manager only)")
+    @app_commands.describe(amount="Amount to remove (number, percentage like '50%', or 'all' for complete removal)")
+    async def cookiesremoveal(self, interaction: discord.Interaction, amount: str = "all"):
+        """Alias for removecookiesall - fixes common typo"""
+        await self.removecookiesall(interaction, amount)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Cookies(bot))
     

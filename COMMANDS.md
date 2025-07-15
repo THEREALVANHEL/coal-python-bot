@@ -66,7 +66,9 @@
 | `/addcookies` | Add cookies to a user | Cookie Manager |
 | `/removecookies` | Remove cookies from a user with selection options | Cookie Manager |
 | `/cookiesgiveall` | Give cookies to everyone in server | Cookie Manager |
-| `/cookiesremoveall` | Remove all cookies from everyone in server | Cookie Manager |
+| `/removecookiesall` | Remove cookies from everyone in server | Cookie Manager |
+| `/cookiesremoveall` | Alias for `/removecookiesall` (matches documentation) | Cookie Manager |
+| `/cookiesremoveal` | Alias for `/removecookiesall` (fixes common typo) | Cookie Manager |
 
 ---
 
