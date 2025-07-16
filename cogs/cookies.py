@@ -645,7 +645,7 @@ class Cookies(commands.Cog):
             )
             embed.set_footer(text="🛑 Admin Action • Use with extreme caution")
             
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             
             def check(m):
                 return (m.author == interaction.user and 
@@ -765,7 +765,14 @@ class Cookies(commands.Cog):
                 description=f"An error occurred while processing the command: {str(e)}",
                 color=0xff6b6b
             )
-            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+            try:
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+            except:
+                # If followup fails, try editing the original response
+                try:
+                    await interaction.edit_original_response(embed=error_embed)
+                except:
+                    print(f"[RemoveCookiesAll] Failed to send error message: {e}")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Cookies(bot))
