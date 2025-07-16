@@ -705,26 +705,32 @@ async def main():
     if NUCLEAR_MODE or MANUAL_ENABLE_REQUIRED:
         print("☢️ NUCLEAR PROTECTION ACTIVE: Discord operations DISABLED")
         print("🌐 Web server will continue running for health checks")
+        print("🔒 To enable Discord: POST to /nuclear-enable (EXTREME CAUTION)")
+        print("🔍 Check status: GET /nuclear-status")
         
-        if AUTO_ENABLE_AFTER_STARTUP and not MANUAL_ENABLE_REQUIRED:
-            print(f"⏰ AUTO-ENABLE: Discord will be enabled after {STARTUP_DELAY}s startup delay (FAST MODE)")
-            print("🔍 Check status: GET /nuclear-status")
-            
-            # Wait for startup delay then auto-enable
-            await asyncio.sleep(STARTUP_DELAY)
-            discord_enabled = True
-            print("✅ AUTO-ENABLE: Discord operations enabled after startup delay")
-        else:
-            print("🔒 To enable Discord: POST to /nuclear-enable (EXTREME CAUTION)")
-            print("🔍 Check status: GET /nuclear-status")
-            
-            # Run indefinitely serving only web requests
-            while True:
-                if not MANUAL_ENABLE_REQUIRED and discord_enabled:
-                    print("✅ Discord manually enabled - proceeding with startup")
-                    break
-                await asyncio.sleep(60)  # Check every minute for manual enable
-                print(f"☢️ Nuclear mode active - Discord disabled (check /nuclear-status)")
+        # Run indefinitely serving only web requests
+        while True:
+            if not MANUAL_ENABLE_REQUIRED and discord_enabled:
+                print("✅ Discord manually enabled - proceeding with startup")
+                break
+            await asyncio.sleep(60)  # Check every minute for manual enable
+            print(f"☢️ Nuclear mode active - Discord disabled (check /nuclear-status)")
+    
+    # 🚀 AUTO-ENABLE MODE - Automatically enable Discord after startup delay
+    elif AUTO_ENABLE_AFTER_STARTUP:
+        print("⏰ AUTO-ENABLE MODE: Discord will connect automatically after startup delay")
+        print(f"🚀 Discord will be enabled after {STARTUP_DELAY}s protection delay (FAST MODE)")
+        print("🔍 Check status: GET /nuclear-status")
+        
+        # Wait for startup delay then auto-enable
+        await asyncio.sleep(STARTUP_DELAY)
+        discord_enabled = True
+        print("✅ AUTO-ENABLE: Discord operations enabled after startup delay")
+    
+    # ✅ IMMEDIATE MODE - Enable Discord immediately
+    else:
+        print("✅ IMMEDIATE MODE: Discord will connect immediately")
+        discord_enabled = True
     
     # 🔍 CHECK FOR PREVIOUS CLOUDFLARE BLOCKS (only if Discord enabled)
     print("🔍 Checking for previous Cloudflare blocks...")
@@ -735,12 +741,7 @@ async def main():
                 print(f"🚨 STILL IN CLOUDFLARE COOLDOWN: {remaining:.0f}s remaining")
                 await emergency_delay("Previous Cloudflare block cooldown", int(remaining))
     
-    # 🚨 MANDATORY EMERGENCY PROTECTION - NO EXCEPTIONS (only if Discord enabled)
-    print("🚨 EMERGENCY PROTECTION ACTIVATED")
-    print(f"⏰ MANDATORY {STARTUP_DELAY}s delay before Discord connection")
-    print("🌐 NOTE: Web server is already running for Render port detection")
-    await emergency_delay("MANDATORY Discord connection protection", STARTUP_DELAY)
-    
+    # 🚀 START DISCORD BOT
     retry_count = 0
     max_retries = MAX_STARTUP_RETRIES
     
@@ -748,9 +749,7 @@ async def main():
         try:
             print(f"🚀 Starting Coal Python Bot... (Attempt {retry_count + 1}/{max_retries})")
             
-            # Web server is already running from main() startup
-            
-            # Check for Cloudflare cooldown AFTER web server is running
+            # Check for Cloudflare cooldown before connecting
             if should_wait_for_cloudflare():
                 remaining = CLOUDFLARE_COOLDOWN - (time.time() - last_cloudflare_block)
                 await emergency_delay("Cloudflare cooldown before Discord connection", int(remaining))
@@ -761,7 +760,6 @@ async def main():
                 cogs_loaded = await asyncio.wait_for(load_cogs(), timeout=60)
                 if cogs_loaded:
                     print("✅ Cogs loaded successfully during startup")
-                    # Show what was loaded
                     loaded_extensions = list(bot.extensions.keys())
                     print(f"📋 Loaded extensions: {loaded_extensions}")
                 else:
@@ -772,7 +770,6 @@ async def main():
                 print("🔄 Will attempt to load again after bot connects")
             except Exception as e:
                 print(f"❌ Error during startup cog loading: {e}")
-                print(f"🔍 Error type: {type(e).__name__}")
                 print("🔄 Continuing with bot startup, will retry after connection")
             
             # Perform startup maintenance with timeout
@@ -784,22 +781,22 @@ async def main():
             except Exception as e:
                 print(f"❌ Startup maintenance failed: {e}")
             
-            print("🎮 Starting Discord bot with MAXIMUM protection...")
+            print("🎮 Starting Discord bot with protection...")
             print("🛡️ Using extended timeout for safe connection")
             
             # Start the bot with extended timeout protection
-            await asyncio.wait_for(bot.start(DISCORD_TOKEN), timeout=600)  # 10 minute timeout (doubled)
+            await asyncio.wait_for(bot.start(DISCORD_TOKEN), timeout=600)  # 10 minute timeout
             
             # If we get here, the bot started successfully
             break
             
         except asyncio.TimeoutError:
-            print(f"⏰ Bot startup timed out on attempt {retry_count + 1} (this may indicate Cloudflare blocking)")
+            print(f"⏰ Bot startup timed out on attempt {retry_count + 1}")
             print("🛡️ Treating timeout as potential Cloudflare issue")
-            mark_cloudflare_block()  # Treat timeouts as potential blocks
+            mark_cloudflare_block()
             retry_count += 1
             if retry_count < max_retries:
-                wait_time = min(CLOUDFLARE_COOLDOWN * retry_count, 1800)  # Use Cloudflare delays for timeouts
+                wait_time = min(CLOUDFLARE_COOLDOWN * retry_count, 1800)
                 await emergency_delay(f"Timeout protection (attempt {retry_count})", wait_time)
             
         except discord.HTTPException as e:
@@ -811,16 +808,15 @@ async def main():
                 print("🔧 Implementing MAXIMUM emergency protection")
                 retry_count += 1
                 if retry_count < max_retries:
-                    # EXTREME delays for Cloudflare blocks
-                    wait_time = min(CLOUDFLARE_COOLDOWN * retry_count * 2, 3600)  # Max 1 hour, double cooldown
+                    wait_time = min(CLOUDFLARE_COOLDOWN * retry_count * 2, 3600)
                     await emergency_delay(f"MAXIMUM Cloudflare protection (attempt {retry_count})", wait_time)
                 
             elif "rate limit" in str(e).lower() or "429" in str(e):
                 print("🚫 Rate limited by Discord API - treating as Cloudflare risk")
-                mark_cloudflare_block()  # Treat rate limits as potential Cloudflare triggers
+                mark_cloudflare_block()
                 retry_count += 1
                 if retry_count < max_retries:
-                    wait_time = 600  # 10 minutes for rate limits (doubled)
+                    wait_time = 600
                     await emergency_delay(f"Rate limit protection (attempt {retry_count})", wait_time)
             else:
                 print("❌ Unknown HTTP error, not retrying")
@@ -829,7 +825,7 @@ async def main():
         except discord.LoginFailure as e:
             print(f"[Main] ❌ Login failed: {e}")
             print("🔑 Check your DISCORD_TOKEN environment variable")
-            break  # Don't retry login failures
+            break
             
         except Exception as e:
             print(f"[Main] ❌ Unexpected error on attempt {retry_count + 1}: {e}")
