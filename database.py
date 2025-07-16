@@ -530,6 +530,22 @@ def remove_cookies(user_id, cookie_amount):
         print(f"Error removing cookies: {e}")
         return False
 
+def set_cookies(user_id, cookie_amount):
+    """Set cookies for user to exact amount"""
+    if users_collection is None:
+        return False
+
+    try:
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$set": {"cookies": max(0, cookie_amount)}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error setting cookies: {e}")
+        return False
+
 def add_coins(user_id, coin_amount):
     """Add coins to user"""
     if users_collection is None:

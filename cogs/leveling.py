@@ -123,15 +123,15 @@ class Leveling(commands.Cog):
         print("[Leveling] Loaded successfully.")
 
     def calculate_xp_for_level(self, level: int) -> int:
-        """Moderately reduced XP requirement per level - easier but not too easy"""
+        """Consistent XP requirement per level - 1 chat level up per message"""
         if level <= 10:
-            return int(130 * (level ** 2))  # Reduced from 200 to 130 (35% reduction)
+            return int(50 * (level ** 1.5))  # Very easy early levels
         elif level <= 50:
-            return int(195 * (level ** 2.2))  # Reduced from 300 to 195 (35% reduction)
+            return int(75 * (level ** 1.8))  # Moderate progression
         elif level <= 100:
-            return int(325 * (level ** 2.5))  # Reduced from 500 to 325 (35% reduction)
+            return int(100 * (level ** 2.0))  # Standard progression
         else:
-            return int(650 * (level ** 2.8))  # Reduced from 1000 to 650 (35% reduction)
+            return int(150 * (level ** 2.2))  # Higher levels slightly harder
 
     def calculate_level_from_xp(self, xp: int) -> int:
         """Calculate level from XP using binary search for efficiency"""

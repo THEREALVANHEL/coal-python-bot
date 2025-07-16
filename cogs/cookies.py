@@ -536,8 +536,8 @@ class Cookies(commands.Cog):
     @app_commands.command(name="removecookiesall", description="Remove cookies from everyone in the server (Manager only)")
     @app_commands.describe(amount="Amount to remove (number, percentage like '50%', or 'all' for complete removal)")
     async def removecookiesall(self, interaction: discord.Interaction, amount: str = "all"):
-        # Defer the response immediately to prevent timeout
-        await interaction.response.defer(ephemeral=True)
+        # Defer the response immediately to prevent timeout (PUBLIC, not ephemeral)
+        await interaction.response.defer(ephemeral=False)
         
         try:
             if not has_cookie_manager_role(interaction):
@@ -645,7 +645,7 @@ class Cookies(commands.Cog):
             )
             embed.set_footer(text="🛑 Admin Action • Use with extreme caution")
             
-            await interaction.followup.send(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=False)
             
             def check(m):
                 return (m.author == interaction.user and 

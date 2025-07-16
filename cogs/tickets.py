@@ -15,12 +15,11 @@ from permissions import has_special_permissions
 STAFF_ROLES = ["forgotten one", "overseer", "lead moderator", "moderator"]
 
 class ModernTicketControlPanel(View):
-    """🎫 Modern Ticket Control Panel - Cool & Simplistic Design"""
+    """🎫 Modern Ticket Control Panel - Simple & Elegant Design"""
     def __init__(self, creator_id: int):
         super().__init__(timeout=None)
         self.creator_id = creator_id
         self.claimed_by = None
-        self.is_locked = False
         
     def _is_staff(self, user) -> bool:
         """Check if user is authorized staff (the 4 roles) - ENHANCED MATCHING"""
@@ -56,7 +55,7 @@ class ModernTicketControlPanel(View):
             return
             
         try:
-            # FIXED: Handle reclaim scenarios properly
+            # Allow unlimited claims/transfers - no restrictions
             current_claimer_id = self.claimed_by
             current_user_id = interaction.user.id
             
@@ -69,7 +68,12 @@ class ModernTicketControlPanel(View):
                 # Update channel name to new claimer
                 claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
                 new_name = f"🟢┃{claimer_name}-ticket"
-                await interaction.channel.edit(name=new_name)
+                
+                try:
+                    await interaction.channel.edit(name=new_name)
+                except discord.HTTPException:
+                    # If name change fails, continue anyway
+                    pass
                 
                 # Update the view state
                 self.claimed_by = current_user_id
@@ -83,13 +87,13 @@ class ModernTicketControlPanel(View):
                 )
                 embed.add_field(name="🎯 Status", value="**TRANSFERRED**", inline=True)
                 embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
-                embed.add_field(name="📋 Next Steps", value="• Continue assisting the user\n• Use admin controls as needed\n• Close when resolved", inline=False)
+                embed.add_field(name="📋 Next Steps", value="• Continue assisting the user\n• Use /close when resolved", inline=False)
                 embed.set_footer(text="🎫 Modern Ticket System • Transfer Complete")
                 
                 await interaction.response.send_message(embed=embed)
                 
             elif current_claimer_id == current_user_id:
-                # This is a reclaim by the same person
+                # This is a reclaim by the same person - always allow
                 embed = discord.Embed(
                     title="🔄 Ticket Reclaimed",
                     description=f"**Staff Member:** {interaction.user.mention}\n**Status:** 🟢 **ACTIVE (Reclaimed)**",
@@ -98,7 +102,7 @@ class ModernTicketControlPanel(View):
                 )
                 embed.add_field(name="🎯 Status", value="**RECLAIMED**", inline=True)
                 embed.add_field(name="⏰ Time", value=f"<t:{int(datetime.now().timestamp())}:R>", inline=True)
-                embed.add_field(name="📋 Next Steps", value="• Continue assisting the user\n• Use admin controls as needed\n• Close when resolved", inline=False)
+                embed.add_field(name="📋 Next Steps", value="• Continue assisting the user\n• Use /close when resolved", inline=False)
                 embed.set_footer(text="🎫 Modern Ticket System • Reclaimed")
                 
                 await interaction.response.send_message(embed=embed)
@@ -107,7 +111,12 @@ class ModernTicketControlPanel(View):
                 # First time claim
                 claimer_name = interaction.user.display_name.lower().replace(' ', '-')[:10]
                 new_name = f"🟢┃{claimer_name}-ticket"
-                await interaction.channel.edit(name=new_name)
+                
+                try:
+                    await interaction.channel.edit(name=new_name)
+                except discord.HTTPException:
+                    # If name change fails, continue anyway
+                    pass
                 
                 self.claimed_by = current_user_id
                 
@@ -117,7 +126,7 @@ class ModernTicketControlPanel(View):
                     color=0x00ff7f,
                     timestamp=datetime.now()
                 )
-                embed.add_field(name="🎯 Next Steps", value="• Respond to the user's inquiry\n• Use admin controls as needed\n• Close when resolved", inline=False)
+                embed.add_field(name="🎯 Next Steps", value="• Respond to the user's inquiry\n• Use /close when resolved", inline=False)
                 embed.set_footer(text="🎫 Modern Ticket System • Claimed")
                 
                 await interaction.response.send_message(embed=embed)
@@ -136,7 +145,6 @@ class ModernTicketControlPanel(View):
                         # Create a new view instance to avoid state conflicts
                         new_view = ModernTicketControlPanel(self.creator_id)
                         new_view.claimed_by = current_user_id
-                        new_view.is_locked = self.is_locked
                         
                         await message.edit(embed=original_embed, view=new_view)
                         break
@@ -171,300 +179,26 @@ class ModernTicketControlPanel(View):
             
             await interaction.response.send_message(embed=embed)
             
+            # Add rate limit protection
             await asyncio.sleep(10)
-            await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
+            
+            try:
+                await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
+            except discord.HTTPException as e:
+                if "rate limit" in str(e).lower():
+                    await asyncio.sleep(60)  # Wait 1 minute if rate limited
+                    await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
+                else:
+                    raise
             
         except Exception as e:
             try:
-                await interaction.followup.send(f"❌ Error closing ticket: {str(e)}", ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ Error closing ticket: {str(e)}", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"❌ Error closing ticket: {str(e)}", ephemeral=True)
             except:
-                pass
-
-    @discord.ui.button(label="Lock", emoji="🔐", style=discord.ButtonStyle.secondary, custom_id="modern_lock", row=0)
-    async def lock_channel(self, interaction: discord.Interaction, button: Button):
-        if not self._is_staff(interaction.user):
-            await interaction.response.send_message("❌ Only **Forgotten One**, **Overseer**, **Lead Moderator**, and **Moderator** can lock channels.", ephemeral=True)
-            return
-            
-        try:
-            if self.is_locked:
-                await interaction.response.send_message("🔐 Channel is already locked!", ephemeral=True)
-                return
-            
-            # Lock the channel - only staff can talk
-            everyone_role = interaction.guild.default_role
-            await interaction.channel.set_permissions(everyone_role, send_messages=False, reason=f"Channel locked by {interaction.user}")
-            
-            # Ensure the 4 staff roles can still message
-            for role in interaction.guild.roles:
-                if role.name.lower() in STAFF_ROLES or role.permissions.administrator:
-                    await interaction.channel.set_permissions(role, send_messages=True, reason="Staff bypass")
-            
-            self.is_locked = True
-            
-            embed = discord.Embed(
-                title="🔐 Channel Locked",
-                description=f"**Locked by:** {interaction.user.mention}\n**Only staff can now send messages**",
-                color=0xff6b35,
-                timestamp=datetime.now()
-            )
-            embed.add_field(name="🛡️ Protected Roles", value="• Forgotten One\n• Overseer\n• Lead Moderator\n• Moderator", inline=True)
-            embed.add_field(name="🎯 Status", value="**LOCKED**", inline=True)
-            embed.set_footer(text="🎫 Modern Ticket System • Locked")
-            
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error locking channel: {str(e)}", ephemeral=True)
-    
-    @discord.ui.button(label="Unlock", emoji="🔓", style=discord.ButtonStyle.success, custom_id="modern_unlock", row=0)
-    async def unlock_channel(self, interaction: discord.Interaction, button: Button):
-        if not self._is_staff(interaction.user):
-            await interaction.response.send_message("❌ Only **Forgotten One**, **Overseer**, **Lead Moderator**, and **Moderator** can unlock channels.", ephemeral=True)
-            return
-            
-        try:
-            if not self.is_locked:
-                await interaction.response.send_message("🔓 Channel is already unlocked!", ephemeral=True)
-                return
-            
-            # Unlock the channel
-            everyone_role = interaction.guild.default_role
-            await interaction.channel.set_permissions(everyone_role, send_messages=None, reason=f"Channel unlocked by {interaction.user}")
-            
-            self.is_locked = False
-            
-            embed = discord.Embed(
-                title="🔓 Channel Unlocked",
-                description=f"**Unlocked by:** {interaction.user.mention}\n**Normal permissions restored**",
-                color=0x00d2d3,
-                timestamp=datetime.now()
-            )
-            embed.add_field(name="🎯 Status", value="**UNLOCKED**", inline=True)
-            embed.add_field(name="✅ Access", value="All users can message", inline=True)
-            embed.set_footer(text="🎫 Modern Ticket System • Unlocked")
-            
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error unlocking channel: {str(e)}", ephemeral=True)
-
-    # INTEGRATED ADMIN PANEL - Row 1
-    @discord.ui.button(label="Emergency Ban", emoji="🚨", style=discord.ButtonStyle.danger, custom_id="admin_emergency_ban", row=1)
-    async def emergency_ban(self, interaction: discord.Interaction, button: Button):
-        if not self._is_staff(interaction.user):
-            await interaction.response.send_message("❌ Only **Forgotten One**, **Overseer**, **Lead Moderator**, and **Moderator** can use admin controls.", ephemeral=True)
-            return
-            
-        class QuickBanModal(Modal):
-            def __init__(self):
-                super().__init__(title="🚨 Emergency Ban System")
-                
-            user_id = TextInput(
-                label="User ID to Ban",
-                placeholder="Enter the user ID of the person to ban",
-                required=True,
-                max_length=20
-            )
-            
-            reason = TextInput(
-                label="Ban Reason",
-                placeholder="Emergency ban reason",
-                required=True,
-                max_length=500,
-                style=discord.TextStyle.paragraph
-            )
-            
-            async def on_submit(self, modal_interaction):
-                try:
-                    user_id = int(self.user_id.value)
-                    user = modal_interaction.guild.get_member(user_id)
-                    
-                    if not user:
-                        try:
-                            user = await modal_interaction.client.fetch_user(user_id)
-                        except:
-                            await modal_interaction.response.send_message("❌ User not found!", ephemeral=True)
-                            return
-                    
-                    if user == modal_interaction.user:
-                        await modal_interaction.response.send_message("❌ You cannot ban yourself!", ephemeral=True)
-                        return
-                    
-                    if isinstance(user, discord.Member) and user.top_role >= modal_interaction.user.top_role:
-                        await modal_interaction.response.send_message("❌ Cannot ban user with equal or higher role!", ephemeral=True)
-                        return
-                    
-                    reason = f"Emergency ban by {modal_interaction.user}: {self.reason.value}"
-                    await modal_interaction.guild.ban(user, reason=reason, delete_message_days=1)
-                    
-                    embed = discord.Embed(
-                        title="🚨 Emergency Ban Executed",
-                        description=f"**User:** {user.mention} (`{user.id}`)\n**Reason:** {self.reason.value}\n**Banned by:** {modal_interaction.user.mention}",
-                        color=0xff3838,
-                        timestamp=datetime.now()
-                    )
-                    embed.set_footer(text="🛡️ Admin Panel • Emergency Ban")
-                    await modal_interaction.response.send_message(embed=embed)
-                    
-                except ValueError:
-                    await modal_interaction.response.send_message("❌ Invalid user ID format!", ephemeral=True)
-                except discord.Forbidden:
-                    await modal_interaction.response.send_message("❌ Missing permissions to ban this user!", ephemeral=True)
-                except Exception as e:
-                    await modal_interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
-        
-        await interaction.response.send_modal(QuickBanModal())
-
-    @discord.ui.button(label="Quick Warn", emoji="⚠️", style=discord.ButtonStyle.secondary, custom_id="admin_quick_warn", row=1)
-    async def quick_warn(self, interaction: discord.Interaction, button: Button):
-        if not self._is_staff(interaction.user):
-            await interaction.response.send_message("❌ Only **Forgotten One**, **Overseer**, **Lead Moderator**, and **Moderator** can use admin controls.", ephemeral=True)
-            return
-            
-        class QuickWarnModal(Modal):
-            def __init__(self):
-                super().__init__(title="⚠️ Quick Warning System")
-                
-            user_id = TextInput(
-                label="User ID to Warn",
-                placeholder="Enter the user ID",
-                required=True,
-                max_length=20
-            )
-            
-            reason = TextInput(
-                label="Warning Reason",
-                placeholder="Reason for the warning",
-                required=True,
-                max_length=500,
-                style=discord.TextStyle.paragraph
-            )
-            
-            async def on_submit(self, modal_interaction):
-                try:
-                    user_id = int(self.user_id.value)
-                    user = modal_interaction.guild.get_member(user_id)
-                    
-                    if not user:
-                        await modal_interaction.response.send_message("❌ User not found in server!", ephemeral=True)
-                        return
-                    
-                    warning_data = {
-                        'user_id': user.id,
-                        'warned_by': modal_interaction.user.id,
-                        'reason': self.reason.value,
-                        'timestamp': datetime.now(),
-                        'guild_id': modal_interaction.guild.id
-                    }
-                    
-                    success = db.add_warning(warning_data)
-                    if not success:
-                        await modal_interaction.response.send_message("❌ Failed to add warning to database!", ephemeral=True)
-                        return
-                    
-                    warnings = db.get_user_warnings(user.id)
-                    warning_count = len(warnings)
-                    
-                    embed = discord.Embed(
-                        title="⚠️ User Warning Issued",
-                        description=f"**User:** {user.mention}\n**Reason:** {self.reason.value}\n**Total Warnings:** {warning_count}\n**Warned by:** {modal_interaction.user.mention}",
-                        color=0xffa726,
-                        timestamp=datetime.now()
-                    )
-                    embed.set_footer(text="🛡️ Admin Panel • Warning System")
-                    await modal_interaction.response.send_message(embed=embed)
-                    
-                    # Try to DM the user
-                    try:
-                        dm_embed = discord.Embed(
-                            title="⚠️ Warning Received",
-                            description=f"You have been warned in **{modal_interaction.guild.name}**",
-                            color=0xffa726,
-                            timestamp=datetime.now()
-                        )
-                        dm_embed.add_field(name="Reason", value=self.reason.value, inline=False)
-                        dm_embed.add_field(name="Total Warnings", value=f"{warning_count} warning(s)", inline=True)
-                        dm_embed.set_footer(text="Please follow server rules to avoid further warnings")
-                        await user.send(embed=dm_embed)
-                    except:
-                        pass
-                    
-                except ValueError:
-                    await modal_interaction.response.send_message("❌ Invalid user ID format!", ephemeral=True)
-                except Exception as e:
-                    await modal_interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
-        
-        await interaction.response.send_modal(QuickWarnModal())
-
-    @discord.ui.button(label="Temp Mute", emoji="🔇", style=discord.ButtonStyle.secondary, custom_id="admin_temp_mute", row=1)
-    async def temp_mute(self, interaction: discord.Interaction, button: Button):
-        if not self._is_staff(interaction.user):
-            await interaction.response.send_message("❌ Only **Forgotten One**, **Overseer**, **Lead Moderator**, and **Moderator** can use admin controls.", ephemeral=True)
-            return
-            
-        class TempMuteModal(Modal):
-            def __init__(self):
-                super().__init__(title="🔇 Temporary Mute System")
-                
-            user_id = TextInput(
-                label="User ID to Mute",
-                placeholder="Enter the user ID",
-                required=True,
-                max_length=20
-            )
-            
-            duration = TextInput(
-                label="Duration (minutes)",
-                placeholder="Duration in minutes (e.g., 30 for 30 minutes)",
-                required=True,
-                max_length=10
-            )
-            
-            reason = TextInput(
-                label="Mute Reason",
-                placeholder="Reason for the temporary mute",
-                required=True,
-                max_length=500,
-                style=discord.TextStyle.paragraph
-            )
-            
-            async def on_submit(self, modal_interaction):
-                try:
-                    user_id = int(self.user_id.value)
-                    duration_minutes = int(self.duration.value)
-                    user = modal_interaction.guild.get_member(user_id)
-                    
-                    if not user:
-                        await modal_interaction.response.send_message("❌ User not found in server!", ephemeral=True)
-                        return
-                    
-                    if duration_minutes <= 0 or duration_minutes > 10080:  # Max 1 week
-                        await modal_interaction.response.send_message("❌ Duration must be between 1 minute and 1 week (10080 minutes)!", ephemeral=True)
-                        return
-                    
-                    # Apply timeout
-                    timeout_duration = timedelta(minutes=duration_minutes)
-                    await user.timeout(timeout_duration, reason=f"Temp mute by {modal_interaction.user}: {self.reason.value}")
-                    
-                    embed = discord.Embed(
-                        title="🔇 Temporary Mute Applied",
-                        description=f"**User:** {user.mention}\n**Duration:** {duration_minutes} minutes\n**Reason:** {self.reason.value}\n**Muted by:** {modal_interaction.user.mention}",
-                        color=0x95a5a6,
-                        timestamp=datetime.now()
-                    )
-                    embed.add_field(name="⏰ Expires", value=f"<t:{int((datetime.now() + timeout_duration).timestamp())}:F>", inline=True)
-                    embed.set_footer(text="🛡️ Admin Panel • Temporary Mute")
-                    await modal_interaction.response.send_message(embed=embed)
-                    
-                except ValueError:
-                    await modal_interaction.response.send_message("❌ Invalid user ID or duration format!", ephemeral=True)
-                except discord.Forbidden:
-                    await modal_interaction.response.send_message("❌ Missing permissions to mute this user!", ephemeral=True)
-                except Exception as e:
-                    await modal_interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
-        
-        await interaction.response.send_modal(TempMuteModal())
+                print(f"Critical error in close_ticket: {e}")
 
 class ModernTicketCreator(View):
     """🎫 Modern Ticket Creation Interface"""

@@ -81,19 +81,43 @@ class Events(commands.Cog):
 
         # Give XP for messages
         try:
+            # Add rate limiting to prevent spam
+            if not hasattr(self, 'last_xp_process'):
+                self.last_xp_process = {}
+            
+            current_time = message.created_at.timestamp()
+            last_process_time = self.last_xp_process.get(message.author.id, 0)
+            
+            # Only process XP every 5 seconds per user to prevent spam
+            if current_time - last_process_time < 5:
+                return
+                
+            self.last_xp_process[message.author.id] = current_time
+            
             # Reduced XP range from 15-25 to 5-10
             base_xp_gain = random.randint(5, 10)
             
-            # Check for XP boost
-            active_purchases = db.get_active_temporary_purchases(message.author.id)
-            xp_boost_active = any(purchase["item_type"] == "xp_boost" for purchase in active_purchases)
+            # Check for XP boost with error handling
+            active_purchases = []
+            try:
+                active_purchases = db.get_active_temporary_purchases(message.author.id)
+            except Exception as e:
+                print(f"Error getting active purchases: {e}")
+            
+            xp_boost_active = any(purchase.get("item_type") == "xp_boost" for purchase in active_purchases)
             
             # Double XP if boost is active
             xp_gain = base_xp_gain * 2 if xp_boost_active else base_xp_gain
             
-            # Use live user stats for accurate data
-            current_time = message.created_at.timestamp()
-            user_stats = db.get_live_user_stats(message.author.id)
+            # Use live user stats for accurate data with error handling
+            try:
+                user_stats = db.get_live_user_stats(message.author.id)
+                if not user_stats:
+                    user_stats = {"xp": 0, "last_xp_time": 0, "cookies": 0}
+            except Exception as e:
+                print(f"Error getting user stats: {e}")
+                user_stats = {"xp": 0, "last_xp_time": 0, "cookies": 0}
+                
             last_xp_time = user_stats.get('last_xp_time', 0)
             
             # Only give XP every 60 seconds to prevent spam
@@ -102,13 +126,21 @@ class Events(commands.Cog):
                 old_cookies = user_stats.get('cookies', 0)
                 new_xp = old_xp + xp_gain
                 
-                # Calculate level
-                old_level = self.calculate_level_from_xp(old_xp)
-                new_level = self.calculate_level_from_xp(new_xp)
+                # Calculate level with error handling
+                try:
+                    old_level = self.calculate_level_from_xp(old_xp)
+                    new_level = self.calculate_level_from_xp(new_xp)
+                except Exception as e:
+                    print(f"Error calculating level: {e}")
+                    return
                 
-                # Update database
-                db.add_xp(message.author.id, xp_gain)
-                db.update_last_xp_time(message.author.id, current_time)
+                # Update database with error handling
+                try:
+                    db.add_xp(message.author.id, xp_gain)
+                    db.update_last_xp_time(message.author.id, current_time)
+                except Exception as e:
+                    print(f"Error updating database: {e}")
+                    return
                 
                 # Update roles only when level changes or on major milestones
                 level_changed = new_level != old_level
@@ -124,21 +156,28 @@ class Events(commands.Cog):
                                 await leveling_cog.update_xp_roles(message.author, new_level)
                             
                             # Update cookie roles with current cookies (not old_cookies!)
-                            current_user_data = db.get_user_data(message.author.id)
-                            current_cookies = current_user_data.get('cookies', 0)
-                            
-                            cookies_cog = self.bot.get_cog('Cookies')
-                            if cookies_cog and current_cookies != old_cookies:
-                                await cookies_cog.update_cookie_roles(message.author, current_cookies)
+                            try:
+                                current_user_data = db.get_user_data(message.author.id)
+                                current_cookies = current_user_data.get('cookies', 0)
+                                
+                                cookies_cog = self.bot.get_cog('Cookies')
+                                if cookies_cog and current_cookies != old_cookies:
+                                    await cookies_cog.update_cookie_roles(message.author, current_cookies)
+                            except Exception as e:
+                                print(f"Error updating cookie roles: {e}")
                     except Exception as e:
                         print(f"Error updating roles: {e}")
                 
-                # Check for level up
+                # Check for level up with error handling
                 if new_level > old_level:
-                    await self.handle_level_up(message, new_level, old_level)
+                    try:
+                        await self.handle_level_up(message, new_level, old_level)
+                    except Exception as e:
+                        print(f"Error handling level up: {e}")
 
         except Exception as e:
             print(f"Error processing XP for message: {e}")
+            # Don't crash the bot, just log the error
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -161,7 +200,6 @@ class Events(commands.Cog):
                 print(f"❌ HTTP error assigning auto-role to {member}: {e}")
                 # Check for Cloudflare blocking in role assignment
                 if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
-                    print("� CRITICAL: Cloudflare blocking during role assignment!")
                     print("🛡️ Implementing MAXIMUM emergency delay")
                     await asyncio.sleep(300)  # 5 minute emergency delay (increased)
                 else:
@@ -191,7 +229,7 @@ class Events(commands.Cog):
                         print(f"❌ Error sending welcome message: {e}")
                         # Check for Cloudflare blocking
                         if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
-                            print("� Cloudflare blocking in welcome message!")
+                            print("🛡️ Implementing MAXIMUM emergency delay")
                             await asyncio.sleep(120)  # 2 minute emergency delay
                         else:
                             await asyncio.sleep(3)  # Standard delay
@@ -251,7 +289,7 @@ class Events(commands.Cog):
                 print(f"❌ Error logging member join: {e}")
                 # Check for Cloudflare blocking
                 if any(indicator in str(e).lower() for indicator in ["1015", "cloudflare", "banned you temporarily"]):
-                    print("� Cloudflare blocking in mod logging!")
+                    print("🛡️ Implementing MAXIMUM emergency delay")
                     await asyncio.sleep(120)  # 2 minute emergency delay
                 else:
                     await asyncio.sleep(3)  # Standard delay
@@ -651,15 +689,15 @@ class Events(commands.Cog):
         return level
 
     def calculate_xp_for_level(self, level: int) -> int:
-        """Increased XP requirement per level - much harder progression"""
+        """Consistent XP requirement per level - 1 chat level up per message"""
         if level <= 10:
-            return int(200 * (level ** 2))
+            return int(50 * (level ** 1.5))  # Very easy early levels
         elif level <= 50:
-            return int(300 * (level ** 2.2))
+            return int(75 * (level ** 1.8))  # Moderate progression
         elif level <= 100:
-            return int(500 * (level ** 2.5))
+            return int(100 * (level ** 2.0))  # Standard progression
         else:
-            return int(1000 * (level ** 2.8))
+            return int(150 * (level ** 2.2))  # Higher levels slightly harder
 
     async def handle_level_up(self, message, new_level, old_level):
         try:
