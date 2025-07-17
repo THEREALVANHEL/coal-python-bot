@@ -99,8 +99,8 @@ Tech Legend (Level 1000+)
 /spinwheel - Spin an enhanced wheel with arrow pointing to winner
 /askblecknephew [question] - Ask your nephew BleckNephew anything!
 /talktobleky - Start a conversation with your nephew Bleky
-/smart-trivia [difficulty] - AI-powered trivia with dynamic questions (easy/medium/hard)
-/smart-wordchain - Enhanced word chain game with no hints, skill-based
+/trivia [difficulty] - AI-powered trivia with dynamic questions (easy/medium/hard)
+/wordchain - Enhanced word chain game with no hints, skill-based
 ```
 **Permissions:** Everyone
 
@@ -125,25 +125,23 @@ Tech Legend (Level 1000+)
 
 ---
 
-### **🎫 SUPER TICKET SYSTEM COMMANDS**
+### **🎫 SIMPLE TICKET SYSTEM COMMANDS**
 
 ```
-/super-ticket-panel - Create the ultimate ticket system panel with smart routing
+/ticket-panel - Create simple ticket panel with one button
 ```
 **Permissions:** Administrator only
 
-**Super Ticket Features:**
-- Smart category selection (General, Priority, Bug, Feature, Technical, Other)
-- Priority-based routing and notifications
-- Staff role integration (4 roles)
-- Advanced ticket controls
+**Simple Ticket Features:**
+- Single ticket creation button
+- Channel naming: {username}ticket initially, 🟢{claimed_user} when claimed
+- Auto ping 4 staff roles when ticket created
+- Transferable between staff without limitation
+- Claim cooldown protection (2 seconds)
 
 **Ticket Management Buttons (Staff only):**
-- 🔒 Claim Ticket
-- 🔐 Close Ticket
-- 🔒 Lock Channel  
-- 🔓 Unlock Channel
-- ⚠️ Quick Ban (with confirmation)
+- 🔴 Claim Ticket (changes to 🟢 when claimed, renames channel)
+- 🔐 Close Ticket (deletes channel after 5 seconds)
 
 **Required roles for buttons:** Forgotten One, 🦥 Overseer, 🚨 Lead Moderator, Moderator
 
@@ -301,7 +299,7 @@ cogs.community - Fun commands and community features
 cogs.moderation - Warning system and mod tools
 cogs.enhanced_moderation - Advanced mod features
 cogs.settings - Server configuration
-cogs.super_tickets - Ultimate ticket system (merged premium + standard)
+cogs.simple_tickets - Simple ticket system (claim/close only)
 cogs.job_tracking - Work policy and job oversight
 cogs.cool_commands - Enhanced features and commands
 cogs.dashboard - Web dashboard functionality
@@ -333,7 +331,7 @@ New Member Role: 1384141744303636610
 - Economy/Shop: 6 commands  
 - Fun/Entertainment: 6 commands (includes AI games)
 - Events/Community: 6 commands
-- Super Tickets: 1 command + advanced button system
+- Simple Tickets: 1 command + basic button system
 - Moderation: 5 commands
 - Administration: 7 commands
 - Cookie Management: 4 commands
@@ -341,11 +339,11 @@ New Member Role: 1384141744303636610
 - Job Tracking: 2 commands
 
 **Recent Improvements:**
-- ✅ Merged ticket systems into super ticket system
-- ✅ AI-powered trivia with dynamic questions
+- ✅ Simplified ticket system with basic claim/close functionality
+- ✅ Fixed AI-powered trivia with dynamic questions
 - ✅ Fixed word chain game (no answer reveals)
-- ✅ Removed duplicate/useless commands
-- ✅ Enhanced staff controls with 4-role system
+- ✅ Auto role pings and channel renaming in tickets
+- ✅ Transferable tickets between staff with cooldown protection
 
 ---
 

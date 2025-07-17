@@ -218,8 +218,8 @@ class EnhancedMiniGames(commands.Cog):
             "category": category
         }
 
-    @app_commands.command(name="smart-trivia", description="🧠 AI-powered trivia with dynamic questions!")
-    async def smart_trivia(self, interaction: discord.Interaction, difficulty: str = "medium"):
+    @app_commands.command(name="trivia", description="🧠 AI-powered trivia with dynamic questions!")
+    async def trivia(self, interaction: discord.Interaction, difficulty: str = "medium"):
         # Check cooldown
         can_play, time_left = self.check_cooldown(interaction.user.id, "trivia", 60)
         if not can_play:
@@ -315,7 +315,7 @@ class EnhancedMiniGames(commands.Cog):
                 await button_interaction.followup.send(embed=result_embed)
 
         embed = discord.Embed(
-            title="🧠 Smart Trivia Challenge",
+            title="🧠 Trivia Challenge",
             description=f"**Category:** {question_data['category'].title()}\n"
                        f"**Difficulty:** {question_data['difficulty'].title()}\n"
                        f"**Reward:** {question_data['reward']} coins\n\n"
@@ -346,8 +346,8 @@ class EnhancedMiniGames(commands.Cog):
             "valid_words": valid_words
         }
 
-    @app_commands.command(name="smart-wordchain", description="🔤 Enhanced word chain - no hints, just skill!")
-    async def smart_word_chain(self, interaction: discord.Interaction):
+    @app_commands.command(name="wordchain", description="🔤 Enhanced word chain - no hints, just skill!")
+    async def wordchain(self, interaction: discord.Interaction):
         can_play, time_left = self.check_cooldown(interaction.user.id, "wordchain", 45)
         if not can_play:
             await interaction.response.send_message(
@@ -479,7 +479,7 @@ class EnhancedMiniGames(commands.Cog):
                 await modal_interaction.response.send_message(embed=success_embed)
         
         embed = discord.Embed(
-            title="🔤 Smart Word Chain Challenge",
+            title="🔤 Word Chain Challenge",
             description=f"**Starting word:** `{current_word.title()}`\n"
                        f"**Your task:** Find a word that starts with **'{last_letter.upper()}'**\n\n"
                        f"💡 **Tips:**\n"

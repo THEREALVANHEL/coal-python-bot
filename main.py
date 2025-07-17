@@ -189,7 +189,7 @@ async def load_cogs():
         'cogs.leveling',
         'cogs.cookies',
         'cogs.community',
-        'cogs.super_tickets',           # New super ticket system (replaces tickets & premium_tickets)
+        'cogs.simple_tickets',          # Simple ticket system
         'cogs.enhanced_moderation',
         'cogs.settings',
         'cogs.job_tracking',
