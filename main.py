@@ -181,31 +181,41 @@ async def on_ready():
     logger.info("🎉 Bot initialization complete!")
 
 async def load_cogs():
-    """Load all cogs with error handling"""
-    cogs = [
-        'cogs.leveling',
-        'cogs.cookies', 
-        'cogs.economy',
+    """Load all cogs"""
+    cogs_to_load = [
         'cogs.events',
+        'cogs.moderation', 
+        'cogs.economy',
+        'cogs.leveling',
+        'cogs.cookies',
         'cogs.community',
-        'cogs.moderation',
+        'cogs.tickets',
         'cogs.enhanced_moderation',
         'cogs.settings',
-        'cogs.tickets',
-        'cogs.job_tracking'
+        'cogs.job_tracking',
+        'cogs.event_commands',
+        'cogs.example_cog',
+        'cogs.minigames',        # New minigames system
+        'cogs.dashboard',        # Personal dashboard
+        'cogs.premium_tickets',  # Premium ticket features
+        'cogs.security_performance',  # Security and performance monitoring
+        'cogs.cool_commands'     # Cool additional commands
     ]
     
-    loaded_count = 0
-    for cog in cogs:
+    successful = 0
+    failed = 0
+    
+    for cog in cogs_to_load:
         try:
             await bot.load_extension(cog)
             logger.info(f"✅ Loaded {cog}")
-            loaded_count += 1
+            successful += 1
         except Exception as e:
             logger.error(f"❌ Failed to load {cog}: {e}")
-            continue
+            failed += 1
     
-    logger.info(f"📊 Loaded {loaded_count}/{len(cogs)} cogs")
+    logger.info(f"🎮 Cog loading complete: {successful} successful, {failed} failed")
+    return successful, failed
 
 async def sync_commands():
     """Sync slash commands with error handling"""
