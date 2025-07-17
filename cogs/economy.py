@@ -515,7 +515,7 @@ class Economy(commands.Cog):
             await interaction.response.defer()
             
             # Ensure database connection is available
-            if not hasattr(db, 'get_user_data'):
+            if not hasattr(db, 'get_user_data') or db.users_collection is None:
                 await interaction.followup.send("❌ Database connection error. Please try again later.", ephemeral=True)
                 return
                 
@@ -553,8 +553,12 @@ class Economy(commands.Cog):
             try:
                 job_stats = self.get_user_job_stats(interaction.user.id)
                 available_jobs = self.get_available_jobs(interaction.user.id)
+                print(f"[DEBUG] User {interaction.user.id} job stats: {job_stats}")
+                print(f"[DEBUG] Available jobs count: {len(available_jobs) if available_jobs else 0}")
             except Exception as e:
                 print(f"Error getting job data for user {interaction.user.id}: {e}")
+                import traceback
+                traceback.print_exc()
                 await interaction.followup.send(
                     "❌ Error loading your job data. Please try again in a moment.", 
                     ephemeral=True
@@ -579,10 +583,31 @@ class Economy(commands.Cog):
 
             # Create job selection view
             class JobSelectionView(discord.ui.View):
-                def __init__(self, economy_cog, user_id):
+                def __init__(self, economy_cog, user_id, available_jobs):
                     super().__init__(timeout=120)
                     self.economy_cog = economy_cog
                     self.user_id = user_id
+                    self.available_jobs = available_jobs
+                
+                async def on_timeout(self):
+                    """Handle view timeout"""
+                    try:
+                        # Disable all items
+                        for item in self.children:
+                            item.disabled = True
+                        
+                        # Create timeout embed
+                        timeout_embed = discord.Embed(
+                            title="⏰ **Work Selection Timed Out**",
+                            description="The job selection has expired. Use `/work` again to select a job.",
+                            color=0xff9966
+                        )
+                        
+                        # Try to edit the message
+                        if hasattr(self, 'message') and self.message:
+                            await self.message.edit(embed=timeout_embed, view=self)
+                    except Exception as e:
+                        print(f"Error handling timeout: {e}")
                 
                 @discord.ui.select(
                     placeholder="🎯 Choose your job opportunity...",
@@ -598,31 +623,46 @@ class Economy(commands.Cog):
                     ]
                 )
                 async def job_select(self, select_interaction: discord.Interaction, select: discord.ui.Select):
-                    if select_interaction.user.id != self.user_id:
-                        await select_interaction.response.send_message("❌ This is not your work selection!", ephemeral=True)
-                        return
-                    
-                    job_index = int(select.values[0])
-                    selected_job = available_jobs[job_index]
-                    
-                    # Calculate success rate
-                    success_rate = self.economy_cog.get_work_success_rate(self.user_id, selected_job)
-                    work_successful = random.random() < success_rate
-                    
-                    # Calculate earnings
-                    base_earnings = random.randint(selected_job["min_pay"], selected_job["max_pay"])
-                    
-                    # Experience bonus based on work streak
-                    streak_bonus = min(20, job_stats["work_streak"] * 2)  # Up to 20 coins bonus
-                    total_earnings = base_earnings + streak_bonus if work_successful else 0
-                    
-                    # Process work result
-                    result = self.economy_cog.process_work_result(
-                        self.user_id, selected_job, work_successful, total_earnings
-                    )
-                    
-                    if result.get("success") is False:
-                        await select_interaction.response.send_message(f"❌ Error processing work: {result.get('error')}", ephemeral=True)
+                    try:
+                        if select_interaction.user.id != self.user_id:
+                            await select_interaction.response.send_message("❌ This is not your work selection!", ephemeral=True)
+                            return
+                        
+                        job_index = int(select.values[0])
+                        if job_index >= len(self.available_jobs):
+                            await select_interaction.response.send_message("❌ Invalid job selection!", ephemeral=True)
+                            return
+                        
+                        selected_job = self.available_jobs[job_index]
+                        
+                        # Get current job stats for this user
+                        current_job_stats = self.economy_cog.get_user_job_stats(self.user_id)
+                        
+                        # Calculate success rate
+                        success_rate = self.economy_cog.get_work_success_rate(self.user_id, selected_job)
+                        work_successful = random.random() < success_rate
+                        
+                        # Calculate earnings
+                        base_earnings = random.randint(selected_job["min_pay"], selected_job["max_pay"])
+                        
+                        # Experience bonus based on work streak
+                        streak_bonus = min(20, current_job_stats["work_streak"] * 2)  # Up to 20 coins bonus
+                        total_earnings = base_earnings + streak_bonus if work_successful else 0
+                        
+                        # Process work result
+                        result = self.economy_cog.process_work_result(
+                            self.user_id, selected_job, work_successful, total_earnings
+                        )
+                        
+                        if result.get("success") is False:
+                            await select_interaction.response.send_message(f"❌ Error processing work: {result.get('error')}", ephemeral=True)
+                            return
+                    except Exception as e:
+                        print(f"Error in job_select: {e}")
+                        try:
+                            await select_interaction.response.send_message(f"❌ An error occurred while processing your job selection. Please try again.", ephemeral=True)
+                        except:
+                            pass
                         return
                     
                     # Create result embed
@@ -678,7 +718,7 @@ class Economy(commands.Cog):
                                 tier_name = new_tier_data.get("name", promotion_info.title())
                                 
                                 embed.add_field(
-                                    name="� **AUTOMATIC PROMOTION AWARDED!**",
+                                    name="🎉 **AUTOMATIC PROMOTION AWARDED!**",
                                     value=f"🏆 **Promoted to {tier_name}!**\n💰 Higher paying jobs unlocked\n🎯 New responsibilities available\n✨ Career advancement achieved!",
                                     inline=False
                                 )
@@ -800,17 +840,20 @@ class Economy(commands.Cog):
             )
             embed.set_footer(text="💼 Select a job from the dropdown below")
             
-            view = JobSelectionView(self, interaction.user.id)
-            await interaction.followup.send(embed=embed, view=view)
+            view = JobSelectionView(self, interaction.user.id, available_jobs)
+            message = await interaction.followup.send(embed=embed, view=view)
+            view.message = message
 
         except Exception as e:
             print(f"Work command error: {e}")
+            import traceback
+            traceback.print_exc()
             try:
-                await interaction.followup.send(f"❌ Error working: {str(e)}", ephemeral=True)
+                await interaction.followup.send("❌ An unexpected error occurred. Please try again in a moment.", ephemeral=True)
             except:
                 # If followup also fails, try edit_original_response
                 try:
-                    await interaction.edit_original_response(content=f"❌ Error working: {str(e)}")
+                    await interaction.edit_original_response(content="❌ An unexpected error occurred. Please try again in a moment.")
                 except:
                     print(f"Failed to send error message: {e}")
 
@@ -909,13 +952,13 @@ class Economy(commands.Cog):
         app_commands.Choice(name="⚡ XP Boost (100 coins - 2 hours)", value="xp_boost"),
         app_commands.Choice(name="💰 Coin Boost (150 coins - 4 hours)", value="coin_boost"),
         app_commands.Choice(name="🎯 Work Success (200 coins - 12 hours)", value="work_success"),
-        app_commands.Choice(name="� Luck Boost (250 coins - 24 hours)", value="luck_boost"),
+        app_commands.Choice(name="🎲 Luck Boost (250 coins - 24 hours)", value="luck_boost"),
         # Simple Access
-        app_commands.Choice(name="� Custom Nickname (75 coins - 7 days)", value="nickname_freedom"),
-        app_commands.Choice(name="� Color Role (125 coins - 5 days)", value="custom_color"),
+        app_commands.Choice(name="📝 Custom Nickname (75 coins - 7 days)", value="nickname_freedom"),
+        app_commands.Choice(name="🎨 Custom Color (125 coins - 5 days)", value="custom_color"),
         # Useful Features
         app_commands.Choice(name="📊 Double XP Daily (100 coins - 3 days)", value="double_daily"),
-        app_commands.Choice(name="� Work Cooldown Reset (50 coins - instant)", value="cooldown_reset")
+        app_commands.Choice(name="🔄 Work Cooldown Reset (50 coins - instant)", value="cooldown_reset")
     ])
     async def buy(self, interaction: discord.Interaction, item: str):
         shop_items = {
@@ -923,13 +966,13 @@ class Economy(commands.Cog):
             "xp_boost": {"price": 100, "name": "⚡ XP Boost", "duration": 7200, "description": "2 hours", "category": "Boost"},
             "coin_boost": {"price": 150, "name": "💰 Coin Boost", "duration": 14400, "description": "4 hours", "category": "Boost"},
             "work_success": {"price": 200, "name": "🎯 Work Success", "duration": 43200, "description": "12 hours", "category": "Boost"},
-            "luck_boost": {"price": 250, "name": "� Luck Boost", "duration": 86400, "description": "24 hours", "category": "Boost"},
+            "luck_boost": {"price": 250, "name": "🎲 Luck Boost", "duration": 86400, "description": "24 hours", "category": "Boost"},
             # Simple Access
             "nickname_freedom": {"price": 75, "name": "📝 Custom Nickname", "duration": 604800, "description": "7 days", "category": "Access"},
-            "custom_color": {"price": 125, "name": "� Color Role", "duration": 432000, "description": "5 days", "category": "Access"},
+            "custom_color": {"price": 125, "name": "🎨 Custom Color", "duration": 432000, "description": "5 days", "category": "Access"},
             # Useful Features
             "double_daily": {"price": 100, "name": "📊 Double XP Daily", "duration": 259200, "description": "3 days", "category": "Feature"},
-            "cooldown_reset": {"price": 50, "name": "� Work Cooldown Reset", "duration": 0, "description": "instant", "category": "Feature"}
+            "cooldown_reset": {"price": 50, "name": "🔄 Work Cooldown Reset", "duration": 0, "description": "instant", "category": "Feature"}
         }
         
         if item not in shop_items:
