@@ -99,8 +99,15 @@ Tech Legend (Level 1000+)
 /spinwheel - Spin an enhanced wheel with arrow pointing to winner
 /askblecknephew [question] - Ask your nephew BleckNephew anything!
 /talktobleky - Start a conversation with your nephew Bleky
+/smart-trivia [difficulty] - AI-powered trivia with dynamic questions (easy/medium/hard)
+/smart-wordchain - Enhanced word chain game with no hints, skill-based
 ```
 **Permissions:** Everyone
+
+**New AI Features:**
+- Smart trivia generates unique questions every time
+- Word chain doesn't reveal answers, purely skill-based
+- Dynamic difficulty and reward systems
 
 ---
 
@@ -118,20 +125,25 @@ Tech Legend (Level 1000+)
 
 ---
 
-### **🎫 TICKET SYSTEM COMMANDS**
+### **🎫 SUPER TICKET SYSTEM COMMANDS**
 
 ```
-/ticket-panel - Create a simple ticket panel
+/super-ticket-panel - Create the ultimate ticket system panel with smart routing
 ```
 **Permissions:** Administrator only
 
+**Super Ticket Features:**
+- Smart category selection (General, Priority, Bug, Feature, Technical, Other)
+- Priority-based routing and notifications
+- Staff role integration (4 roles)
+- Advanced ticket controls
+
 **Ticket Management Buttons (Staff only):**
-- Claim Ticket
-- Close Ticket
-- Lock Channel  
-- Unlock Channel
-- Admin Controls
-- Quick Ban
+- 🔒 Claim Ticket
+- 🔐 Close Ticket
+- 🔒 Lock Channel  
+- 🔓 Unlock Channel
+- ⚠️ Quick Ban (with confirmation)
 
 **Required roles for buttons:** Forgotten One, 🦥 Overseer, 🚨 Lead Moderator, Moderator
 
@@ -289,12 +301,11 @@ cogs.community - Fun commands and community features
 cogs.moderation - Warning system and mod tools
 cogs.enhanced_moderation - Advanced mod features
 cogs.settings - Server configuration
-cogs.tickets - Ticket management system
+cogs.super_tickets - Ultimate ticket system (merged premium + standard)
 cogs.job_tracking - Work policy and job oversight
-cogs.cool_commands - New enhanced features
+cogs.cool_commands - Enhanced features and commands
 cogs.dashboard - Web dashboard functionality
-cogs.minigames - Interactive games
-cogs.premium_tickets - Advanced ticket system
+cogs.enhanced_minigames - AI-powered games (trivia, word chain)
 cogs.security_performance - Security and performance tools
 ```
 
@@ -307,31 +318,36 @@ New Member Role: 1384141744303636610
 
 ---
 
-## 🚀 **TOTAL: 51+ SLASH COMMANDS + WEB API**
+## 🚀 **TOTAL: 49 SLASH COMMANDS + WEB API**
 
 **Permission Breakdown:**
-- **Public Access:** 25 commands (49%)
+- **Public Access:** 27 commands (55%)
 - **Staff Access:** 8 commands (16%)  
 - **Manager Access:** 4 commands (8%)
 - **Host Access:** 2 commands (4%)
-- **Admin Access:** 12 commands (23%)
+- **Admin Access:** 8 commands (17%)
 
 **Categories:**
 - Basic/Utility: 5 commands
 - Profile/Progress: 6 commands
 - Economy/Shop: 6 commands  
-- Fun/Entertainment: 4 commands
-- Events/Community: 7 commands
-- Tickets: 1 command + button system
+- Fun/Entertainment: 6 commands (includes AI games)
+- Events/Community: 6 commands
+- Super Tickets: 1 command + advanced button system
 - Moderation: 5 commands
-- Administration: 8 commands
+- Administration: 7 commands
 - Cookie Management: 4 commands
-- Host Commands: 2 commands
 - Settings: 3 commands
 - Job Tracking: 2 commands
-- New Features: Additional commands from new cogs
+
+**Recent Improvements:**
+- ✅ Merged ticket systems into super ticket system
+- ✅ AI-powered trivia with dynamic questions
+- ✅ Fixed word chain game (no answer reveals)
+- ✅ Removed duplicate/useless commands
+- ✅ Enhanced staff controls with 4-role system
 
 ---
 
 **✅ All commands are active and functional with nuclear protection enabled!**
-**🔄 Recently updated with new cogs for enhanced functionality!**
+**🚀 Recently optimized and enhanced with AI-powered features!**

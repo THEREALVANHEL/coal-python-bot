@@ -189,17 +189,14 @@ async def load_cogs():
         'cogs.leveling',
         'cogs.cookies',
         'cogs.community',
-        'cogs.tickets',
+        'cogs.super_tickets',           # New super ticket system (replaces tickets & premium_tickets)
         'cogs.enhanced_moderation',
         'cogs.settings',
         'cogs.job_tracking',
-        'cogs.event_commands',
-        'cogs.example_cog',
-        'cogs.minigames',        # New minigames system
-        'cogs.dashboard',        # Personal dashboard
-        'cogs.premium_tickets',  # Premium ticket features
-        'cogs.security_performance',  # Security and performance monitoring
-        'cogs.cool_commands'     # Cool additional commands
+        'cogs.enhanced_minigames',      # New enhanced minigames (replaces minigames)
+        'cogs.dashboard',               # Personal dashboard
+        'cogs.security_performance',    # Security and performance monitoring
+        'cogs.cool_commands'            # Cool additional commands
     ]
     
     successful = 0
