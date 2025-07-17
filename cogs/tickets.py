@@ -5,6 +5,7 @@ from discord.ui import Button, View, Modal, TextInput
 from datetime import datetime, timedelta
 import os, sys
 import asyncio
+import time # Added for cooldown protection
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -16,10 +17,13 @@ STAFF_ROLES = ["forgotten one", "overseer", "lead moderator", "moderator"]
 
 class ModernTicketControlPanel(View):
     """🎫 Modern Ticket Control Panel - Simple & Elegant Design"""
-    def __init__(self, creator_id: int):
+    def __init__(self, creator_id: int = None):
         super().__init__(timeout=None)
         self.creator_id = creator_id
         self.claimed_by = None
+        # Add cooldown tracking for claim button
+        self.last_claim_time = {}
+        self.claim_cooldown = 3  # 3 second cooldown
         
     def _is_staff(self, user) -> bool:
         """Check if user is authorized staff (the 4 roles) - ENHANCED MATCHING"""
@@ -53,6 +57,23 @@ class ModernTicketControlPanel(View):
         if not self._is_staff(interaction.user):
             await interaction.response.send_message("❌ Only **Forgotten One**, **Overseer**, **Lead Moderator**, and **Moderator** can claim tickets.", ephemeral=True)
             return
+        
+        # Cooldown protection to prevent rapid clicking and malfunction
+        current_time = time.time()
+        user_id = interaction.user.id
+        
+        if user_id in self.last_claim_time:
+            time_since_last = current_time - self.last_claim_time[user_id]
+            if time_since_last < self.claim_cooldown:
+                remaining = self.claim_cooldown - time_since_last
+                await interaction.response.send_message(
+                    f"⏰ Please wait {remaining:.1f} seconds before claiming again.", 
+                    ephemeral=True
+                )
+                return
+        
+        # Update last claim time
+        self.last_claim_time[user_id] = current_time
             
         try:
             # Allow unlimited claims/transfers - no restrictions

@@ -94,8 +94,8 @@ class Events(commands.Cog):
                 
             self.last_xp_process[message.author.id] = current_time
             
-            # Reduced XP range from 15-25 to 5-10
-            base_xp_gain = random.randint(5, 10)
+            # Reduced XP range from 15-25 to 3-7 for better balance
+            base_xp_gain = random.randint(3, 7)
             
             # Check for XP boost with error handling
             active_purchases = []
@@ -689,15 +689,15 @@ class Events(commands.Cog):
         return level
 
     def calculate_xp_for_level(self, level: int) -> int:
-        """Consistent XP requirement per level - 1 chat level up per message"""
+        """Consistent XP requirement per level - balanced progression"""
         if level <= 10:
-            return int(50 * (level ** 1.5))  # Very easy early levels
+            return int(75 * (level ** 1.6))  # Slightly harder early levels
         elif level <= 50:
-            return int(75 * (level ** 1.8))  # Moderate progression
+            return int(120 * (level ** 1.9))  # Increased progression
         elif level <= 100:
-            return int(100 * (level ** 2.0))  # Standard progression
+            return int(150 * (level ** 2.1))  # Higher standard progression
         else:
-            return int(150 * (level ** 2.2))  # Higher levels slightly harder
+            return int(200 * (level ** 2.3))  # Significantly harder high levels
 
     async def handle_level_up(self, message, new_level, old_level):
         try:
@@ -710,44 +710,18 @@ class Events(commands.Cog):
                 channel = message.channel
 
             if channel:
-                # Get job title
-                from cogs.leveling import JOB_TITLES
-                job = None
-                for job_data in JOB_TITLES:
-                    if job_data["min_level"] <= new_level <= job_data["max_level"]:
-                        job = job_data
-                        break
-                if not job:
-                    job = JOB_TITLES[-1]
-
-                # Check for promotion
-                promotion_happened = False
-                for job_data in JOB_TITLES:
-                    if job_data["min_level"] == new_level and new_level > 0:
-                        # User got promoted, give bonus coins
-                        db.add_coins(message.author.id, job_data["promotion_bonus"])
-                        promotion_happened = True
-                        break
-
+                # Create cool level up message with animated effect
                 embed = discord.Embed(
-                    title="🎉 Level Up!",
-                    description=f"Congratulations {message.author.mention}! You reached **Level {new_level}**!",
-                    color=0x00ff00
+                    title="🎊 **LEVEL UP!** 🎊",
+                    description=f"**{message.author.mention}** just leveled up!\n\n"
+                               f"**Previous Level:** `{old_level}`\n"
+                               f"**New Level:** `{new_level}` ⭐\n\n"
+                               f"🚀 **Keep chatting to level up even more!**",
+                    color=0xFFD700  # Gold color for level up
                 )
                 embed.set_thumbnail(url=message.author.display_avatar.url)
-                
-                if promotion_happened:
-                    embed.add_field(
-                        name="🎊 Promotion!",
-                        value=f"You've been promoted to **{job['name']}**!\nBonus: +{job['promotion_bonus']} coins",
-                        inline=False
-                    )
-                else:
-                    embed.add_field(
-                        name="💼 Current Position",
-                        value=job['name'],
-                        inline=True
-                    )
+                embed.set_footer(text="🎮 Keep the momentum going!", icon_url=message.guild.icon.url if message.guild.icon else None)
+                embed.timestamp = message.created_at
                 
                 await channel.send(embed=embed)
 
