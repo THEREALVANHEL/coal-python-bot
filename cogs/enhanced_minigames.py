@@ -59,6 +59,75 @@ class EnhancedMiniGames(commands.Cog):
         self.game_cooldowns[cooldown_key] = current_time + cooldown_seconds
         return True, 0
 
+    def validate_word(self, word: str, required_start_letter: str) -> bool:
+        """Enhanced word validation using comprehensive word lists"""
+        word = word.lower().strip()
+        
+        # Must start with correct letter
+        if not word.startswith(required_start_letter.lower()):
+            return False
+        
+        # Check against our word lists
+        all_words = []
+        for category in self.word_lists.values():
+            all_words.extend(category)
+        
+        if word in all_words:
+            return True
+        
+        # Common English words by length
+        common_words = {
+            3: ["cat", "dog", "car", "run", "sun", "fun", "bat", "hat", "rat", "mat", "sat", "fat", 
+                "pen", "ten", "hen", "den", "men", "net", "bet", "get", "set", "wet", "let", "met", 
+                "pet", "jet", "yet", "but", "cut", "gut", "hut", "jut", "nut", "put", "rut", "art",
+                "eat", "ice", "age", "ace", "add", "aid", "air", "all", "and", "any", "are", "arm",
+                "ask", "bad", "bag", "bar", "bed", "big", "bit", "box", "boy", "bus", "buy", "can",
+                "day", "did", "end", "eye", "far", "few", "for", "got", "had", "has", "her", "him",
+                "his", "how", "its", "job", "key", "law", "lay", "leg", "lot", "low", "man", "may",
+                "new", "now", "old", "one", "our", "out", "own", "pay", "red", "say", "see", "she",
+                "sit", "six", "son", "too", "top", "try", "two", "use", "war", "way", "who", "why",
+                "win", "yes", "you"],
+            4: ["able", "about", "even", "back", "also", "come", "down", "each", "find", "give", 
+                "good", "hand", "have", "help", "here", "home", "into", "just", "keep", "know",
+                "last", "left", "life", "like", "line", "live", "long", "look", "make", "many",
+                "more", "most", "move", "much", "name", "need", "next", "only", "open", "over",
+                "part", "play", "read", "real", "same", "seem", "show", "side", "some", "take",
+                "tell", "that", "then", "they", "this", "time", "turn", "used", "very", "want",
+                "week", "well", "went", "were", "what", "when", "with", "word", "work", "year"],
+            5: ["about", "after", "again", "being", "below", "could", "every", "first", "found",
+                "great", "group", "house", "large", "learn", "place", "plant", "point", "right",
+                "small", "sound", "still", "study", "their", "there", "these", "thing", "think",
+                "three", "under", "water", "where", "which", "while", "world", "would", "write"]
+        }
+        
+        word_length = len(word)
+        if word_length in common_words and word in common_words[word_length]:
+            return True
+        
+        # For longer words (6+ characters), be more lenient as they're likely real words
+        if word_length >= 6:
+            # Basic checks for likely valid words
+            vowels = set('aeiou')
+            consonants = set('bcdfghjklmnpqrstvwxyz')
+            
+            # Must have at least one vowel
+            if not any(c in vowels for c in word):
+                return False
+            
+            # Must have at least one consonant
+            if not any(c in consonants for c in word):
+                return False
+            
+            # No more than 3 consecutive identical letters
+            for i in range(len(word) - 2):
+                if word[i] == word[i+1] == word[i+2]:
+                    return False
+            
+            # Looks like a valid word
+            return True
+        
+        return False
+
     def generate_ai_trivia_question(self, difficulty: str = "medium") -> dict:
         """Generate AI-powered trivia questions dynamically"""
         # Categories and their question templates
@@ -68,19 +137,31 @@ class EnhancedMiniGames(commands.Cog):
                     "What programming language is known for its simplicity and readability?",
                     "What does 'HTML' stand for?",
                     "Which symbol is used for comments in Python?",
-                    "What is the file extension for Python files?"
+                    "What is the file extension for Python files?",
+                    "What does 'CSS' stand for?",
+                    "Which company created JavaScript?",
+                    "What does 'URL' stand for?",
+                    "Which tag is used for line breaks in HTML?"
                 ],
                 "medium": [
                     "What is the time complexity of binary search?",
                     "Which design pattern ensures only one instance of a class exists?",
                     "What does 'API' stand for in programming?",
-                    "Which data structure follows LIFO principle?"
+                    "Which data structure follows LIFO principle?",
+                    "What does 'JSON' stand for?",
+                    "Which HTTP method is used to retrieve data?",
+                    "What is the default port for HTTP?",
+                    "Which programming language was created by Guido van Rossum?"
                 ],
                 "hard": [
                     "What is the space complexity of merge sort?",
                     "Which algorithm is used for finding shortest path in unweighted graphs?",
                     "What is the difference between TCP and UDP?",
-                    "Which sorting algorithm has best average case performance?"
+                    "Which sorting algorithm has best average case performance?",
+                    "What is the time complexity of quicksort in worst case?",
+                    "Which data structure is best for implementing a priority queue?",
+                    "What does ACID stand for in database systems?",
+                    "Which consensus algorithm is used in Bitcoin?"
                 ]
             },
             "general": {
@@ -156,6 +237,42 @@ class EnhancedMiniGames(commands.Cog):
             elif "Singleton" in question_text or "one instance" in question_text:
                 options = ["Singleton", "Factory", "Observer", "Strategy"]
                 correct = 0
+            elif "CSS" in question_text:
+                options = ["Cascading Style Sheets", "Computer Style Sheets", "Creative Style Sheets", "Colorful Style Sheets"]
+                correct = 0
+            elif "JavaScript" in question_text and "company" in question_text:
+                options = ["Netscape", "Microsoft", "Google", "Mozilla"]
+                correct = 0
+            elif "URL" in question_text:
+                options = ["Uniform Resource Locator", "Universal Resource Locator", "Unique Resource Locator", "United Resource Locator"]
+                correct = 0
+            elif "line breaks" in question_text:
+                options = ["<br>", "<break>", "<lb>", "<newline>"]
+                correct = 0
+            elif "JSON" in question_text:
+                options = ["JavaScript Object Notation", "Java Standard Object Notation", "JavaScript Organized Notation", "Java Structured Object Notation"]
+                correct = 0
+            elif "HTTP method" in question_text and "retrieve" in question_text:
+                options = ["GET", "POST", "PUT", "DELETE"]
+                correct = 0
+            elif "default port" in question_text and "HTTP" in question_text:
+                options = ["80", "443", "8080", "3000"]
+                correct = 0
+            elif "Guido van Rossum" in question_text:
+                options = ["Python", "Java", "Ruby", "JavaScript"]
+                correct = 0
+            elif "quicksort" in question_text and "worst case" in question_text:
+                options = ["O(n²)", "O(n log n)", "O(n)", "O(log n)"]
+                correct = 0
+            elif "priority queue" in question_text:
+                options = ["Heap", "Stack", "Queue", "Array"]
+                correct = 0
+            elif "ACID" in question_text:
+                options = ["Atomicity Consistency Isolation Durability", "Advanced Computer Information Database", "Automatic Consistent Information Database", "Advanced Consistent Integrated Data"]
+                correct = 0
+            elif "Bitcoin" in question_text and "consensus" in question_text:
+                options = ["Proof of Work", "Proof of Stake", "Delegated Proof of Stake", "Proof of Authority"]
+                correct = 0
             else:
                 options = ["Option A", "Option B", "Option C", "Option D"]
                 correct = random.randint(0, 3)
@@ -207,7 +324,7 @@ class EnhancedMiniGames(commands.Cog):
         new_correct_index = options.index(correct_answer)
         
         # Calculate reward based on difficulty
-        reward_map = {"easy": 15, "medium": 25, "hard": 40}
+        reward_map = {"easy": 10, "medium": 20, "hard": 35}
         
         return {
             "question": question_text,
@@ -262,7 +379,18 @@ class EnhancedMiniGames(commands.Cog):
                     return
                 
                 self.answered = True
-                selected = int(button_interaction.custom_id)
+                # Get the button that was clicked
+                button = None
+                for item in self.children:
+                    if hasattr(item, 'custom_id') and item.custom_id == button_interaction.data.get('custom_id'):
+                        button = item
+                        break
+                
+                if not button:
+                    await button_interaction.response.send_message("Error identifying button!", ephemeral=True)
+                    return
+                
+                selected = int(button.custom_id)
                 correct = selected == self.question_data["correct"]
                 
                 # Disable all buttons
@@ -399,31 +527,18 @@ class EnhancedMiniGames(commands.Cog):
                     await modal_interaction.response.send_message(embed=embed, ephemeral=True)
                     return
                 
-                # Check if it's a valid English word (simplified check using our word lists)
-                all_words = []
-                for category in self.valid_words:
-                    if isinstance(category, list):
-                        all_words.extend(category)
+                # Enhanced word validation
+                is_valid_word = self.validate_word(user_word, self.last_letter)
                 
-                # More lenient validation - if word is reasonable length and starts correctly, accept it
-                is_valid_word = (
-                    user_word in self.valid_words or 
-                    len(user_word) >= 4 or  # Accept longer words as likely valid
-                    user_word in ["cat", "dog", "car", "run", "sun", "fun", "bat", "hat", "rat", "mat", "sat", "fat"]  # Common 3-letter words
-                )
-                
-                if not is_valid_word and len(user_word) == 3:
-                    # For 3-letter words, be more strict
-                    common_3_letter = ["cat", "dog", "car", "run", "sun", "fun", "bat", "hat", "rat", "mat", "sat", "fat", "pen", "ten", "hen", "den", "men", "net", "bet", "get", "set", "wet", "let", "met", "pet", "jet", "yet"]
-                    if user_word not in common_3_letter:
-                        embed = discord.Embed(
-                            title="❌ Invalid Word",
-                            description=f"**'{user_word}'** doesn't appear to be a valid English word.\n"
-                                       "Try a different word!",
-                            color=0xff0000
-                        )
-                        await modal_interaction.response.send_message(embed=embed, ephemeral=True)
-                        return
+                if not is_valid_word:
+                    embed = discord.Embed(
+                        title="❌ Invalid Word",
+                        description=f"**'{user_word}'** doesn't appear to be a valid English word.\n"
+                                   "Try a different word!",
+                        color=0xff0000
+                    )
+                    await modal_interaction.response.send_message(embed=embed, ephemeral=True)
+                    return
                 
                 # Calculate reward based on word length and difficulty
                 base_reward = len(user_word) * 3

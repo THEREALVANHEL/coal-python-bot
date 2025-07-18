@@ -621,8 +621,9 @@ class Economy(commands.Cog):
                         self.user_id, selected_job, work_successful, total_earnings
                     )
                     
-                    if result.get("success") is False:
-                        await select_interaction.response.send_message(f"❌ Error processing work: {result.get('error')}", ephemeral=True)
+                    if not result or result.get("success") is False:
+                        error_msg = result.get("error") if result else "Unknown error"
+                        await select_interaction.response.send_message(f"❌ Error processing work: {error_msg}", ephemeral=True)
                         return
                     
                     # Create result embed
