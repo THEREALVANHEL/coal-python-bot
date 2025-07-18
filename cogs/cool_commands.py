@@ -230,47 +230,7 @@ class CoolCommands(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="flip", description="🪙 Flip a coin or multiple coins!")
-    async def flip_coin(self, interaction: discord.Interaction, count: int = 1):
-        if count < 1 or count > 10:
-            await interaction.response.send_message("❌ You can flip 1-10 coins at a time", ephemeral=True)
-            return
-        
-        results = []
-        heads_count = 0
-        tails_count = 0
-        
-        for i in range(count):
-            result = random.choice(['Heads', 'Tails'])
-            results.append(result)
-            if result == 'Heads':
-                heads_count += 1
-            else:
-                tails_count += 1
-        
-        embed = discord.Embed(
-            title="🪙 Coin Flip Results",
-            color=0xf1c40f
-        )
-        
-        if count == 1:
-            emoji = "👑" if results[0] == "Heads" else "🔹"
-            embed.description = f"{emoji} **{results[0]}**!"
-        else:
-            result_text = ", ".join(results)
-            embed.add_field(name="📊 Results", value=result_text, inline=False)
-            embed.add_field(name="👑 Heads", value=str(heads_count), inline=True)
-            embed.add_field(name="🔹 Tails", value=str(tails_count), inline=True)
-            
-            if heads_count == tails_count:
-                embed.add_field(name="🎯 Outcome", value="Perfect tie!", inline=True)
-            elif heads_count > tails_count:
-                embed.add_field(name="🎯 Outcome", value="Heads wins!", inline=True)
-            else:
-                embed.add_field(name="🎯 Outcome", value="Tails wins!", inline=True)
-        
-        embed.set_footer(text="🪙 Fair and random!")
-        await interaction.response.send_message(embed=embed)
+
 
     @app_commands.command(name="calculate", description="🧮 Perform basic calculations!")
     async def calculate(self, interaction: discord.Interaction, expression: str):

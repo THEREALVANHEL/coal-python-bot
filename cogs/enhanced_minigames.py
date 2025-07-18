@@ -169,19 +169,31 @@ class EnhancedMiniGames(commands.Cog):
                     "What is the largest planet in our solar system?",
                     "How many continents are there?",
                     "What is the capital of France?",
-                    "Which animal is known as the king of the jungle?"
+                    "Which animal is known as the king of the jungle?",
+                    "What color do you get when you mix red and blue?",
+                    "How many sides does a triangle have?",
+                    "What is the largest ocean on Earth?",
+                    "Which season comes after summer?"
                 ],
                 "medium": [
                     "Who invented the telephone?",
                     "What is the speed of light in vacuum?",
                     "Which element has the symbol 'Au'?",
-                    "In which year did World War II end?"
+                    "In which year did World War II end?",
+                    "What is the capital of Australia?",
+                    "Which planet is closest to the Sun?",
+                    "Who painted the Mona Lisa?",
+                    "What is the smallest country in the world?"
                 ],
                 "hard": [
                     "What is the smallest unit of matter?",
                     "Who developed the theory of relativity?",
                     "What is the Planck constant approximately?",
-                    "Which mountain range separates Europe and Asia?"
+                    "Which mountain range separates Europe and Asia?",
+                    "What is the chemical formula for water?",
+                    "In which year was the first moon landing?",
+                    "What is the hardest natural substance on Earth?",
+                    "Which gas makes up most of Earth's atmosphere?"
                 ]
             },
             "technology": {
@@ -298,6 +310,42 @@ class EnhancedMiniGames(commands.Cog):
             elif "Au" in question_text:
                 options = ["Gold", "Silver", "Aluminum", "Argon"]
                 correct = 0
+            elif "mix red and blue" in question_text:
+                options = ["Purple", "Green", "Orange", "Yellow"]
+                correct = 0
+            elif "sides does a triangle" in question_text:
+                options = ["3", "4", "5", "6"]
+                correct = 0
+            elif "largest ocean" in question_text:
+                options = ["Pacific", "Atlantic", "Indian", "Arctic"]
+                correct = 0
+            elif "season comes after summer" in question_text:
+                options = ["Autumn", "Winter", "Spring", "Fall"]
+                correct = 0
+            elif "capital of Australia" in question_text:
+                options = ["Canberra", "Sydney", "Melbourne", "Brisbane"]
+                correct = 0
+            elif "closest to the Sun" in question_text:
+                options = ["Mercury", "Venus", "Earth", "Mars"]
+                correct = 0
+            elif "Mona Lisa" in question_text:
+                options = ["Leonardo da Vinci", "Michelangelo", "Picasso", "Van Gogh"]
+                correct = 0
+            elif "smallest country" in question_text:
+                options = ["Vatican City", "Monaco", "Malta", "San Marino"]
+                correct = 0
+            elif "chemical formula for water" in question_text:
+                options = ["H2O", "CO2", "O2", "H2SO4"]
+                correct = 0
+            elif "first moon landing" in question_text:
+                options = ["1969", "1968", "1970", "1971"]
+                correct = 0
+            elif "hardest natural substance" in question_text:
+                options = ["Diamond", "Quartz", "Steel", "Iron"]
+                correct = 0
+            elif "makes up most of Earth's atmosphere" in question_text:
+                options = ["Nitrogen", "Oxygen", "Carbon Dioxide", "Argon"]
+                correct = 0
             else:
                 options = ["Option A", "Option B", "Option C", "Option D"]
                 correct = random.randint(0, 3)
@@ -336,7 +384,13 @@ class EnhancedMiniGames(commands.Cog):
         }
 
     @app_commands.command(name="trivia", description="🧠 AI-powered trivia with dynamic questions!")
-    async def trivia(self, interaction: discord.Interaction, difficulty: str = "medium"):
+    @app_commands.describe(difficulty="Choose difficulty level")
+    @app_commands.choices(difficulty=[
+        app_commands.Choice(name="Easy", value="easy"),
+        app_commands.Choice(name="Normal", value="normal"), 
+        app_commands.Choice(name="Hard", value="hard")
+    ])
+    async def trivia(self, interaction: discord.Interaction, difficulty: app_commands.Choice[str] = None):
         # Check cooldown
         can_play, time_left = self.check_cooldown(interaction.user.id, "trivia", 60)
         if not can_play:
@@ -346,11 +400,17 @@ class EnhancedMiniGames(commands.Cog):
             )
             return
 
-        # Validate difficulty
-        if difficulty not in ["easy", "medium", "hard"]:
-            difficulty = "medium"
+        # Handle difficulty choice
+        if difficulty is None:
+            difficulty_str = "normal"
+        else:
+            difficulty_str = difficulty.value
+        
+        # Map normal to medium for backward compatibility
+        if difficulty_str == "normal":
+            difficulty_str = "medium"
 
-        question_data = self.generate_ai_trivia_question(difficulty)
+        question_data = self.generate_ai_trivia_question(difficulty_str)
         
         class SmartTriviaView(View):
             def __init__(self, question_data, user_id):
@@ -489,12 +549,13 @@ class EnhancedMiniGames(commands.Cog):
         last_letter = challenge["last_letter"]
         
         class SmartWordChainModal(Modal, title="Smart Word Chain Challenge"):
-            def __init__(self, current_word, last_letter, valid_words, user_id):
+            def __init__(self, current_word, last_letter, valid_words, user_id, minigames_cog):
                 super().__init__()
                 self.current_word = current_word
                 self.last_letter = last_letter
                 self.valid_words = valid_words
                 self.user_id = user_id
+                self.minigames_cog = minigames_cog
                 
             word_input = TextInput(
                 label=f"Enter a word starting with '{last_letter.upper()}':",
@@ -527,8 +588,8 @@ class EnhancedMiniGames(commands.Cog):
                     await modal_interaction.response.send_message(embed=embed, ephemeral=True)
                     return
                 
-                # Enhanced word validation
-                is_valid_word = self.validate_word(user_word, self.last_letter)
+                # Enhanced word validation using the minigames cog
+                is_valid_word = self.minigames_cog.validate_word(user_word, self.last_letter)
                 
                 if not is_valid_word:
                     embed = discord.Embed(
@@ -611,12 +672,13 @@ class EnhancedMiniGames(commands.Cog):
         embed.set_footer(text="Click the button below to enter your word!")
         
         class SmartWordChainView(View):
-            def __init__(self, current_word, last_letter, valid_words, user_id):
+            def __init__(self, current_word, last_letter, valid_words, user_id, minigames_cog):
                 super().__init__(timeout=90)
                 self.current_word = current_word
                 self.last_letter = last_letter
                 self.valid_words = valid_words
                 self.user_id = user_id
+                self.minigames_cog = minigames_cog
                 
             @discord.ui.button(label="Enter Word", emoji="✏️", style=discord.ButtonStyle.primary)
             async def enter_word(self, button_interaction: discord.Interaction, button: Button):
@@ -628,12 +690,228 @@ class EnhancedMiniGames(commands.Cog):
                     self.current_word, 
                     self.last_letter, 
                     self.valid_words, 
-                    self.user_id
+                    self.user_id,
+                    self.minigames_cog
                 )
                 await button_interaction.response.send_modal(modal)
         
-        view = SmartWordChainView(current_word, last_letter, challenge["valid_words"], interaction.user.id)
+        view = SmartWordChainView(current_word, last_letter, challenge["valid_words"], interaction.user.id, self)
         await interaction.response.send_message(embed=embed, view=view)
+
+    @app_commands.command(name="rps", description="🪨 Play Rock Paper Scissors with friends!")
+    @app_commands.describe(opponent="Challenge another user to RPS")
+    async def rock_paper_scissors(self, interaction: discord.Interaction, opponent: discord.Member = None):
+        if opponent is None:
+            await interaction.response.send_message("❌ You need to mention someone to play with!", ephemeral=True)
+            return
+            
+        if opponent.id == interaction.user.id:
+            await interaction.response.send_message("❌ You can't play against yourself!", ephemeral=True)
+            return
+            
+        if opponent.bot:
+            await interaction.response.send_message("❌ You can't play against bots!", ephemeral=True)
+            return
+        
+        # Check cooldown
+        can_play, time_left = self.check_cooldown(interaction.user.id, "rps", 30)
+        if not can_play:
+            await interaction.response.send_message(
+                f"🕐 You can play RPS again in {int(time_left)} seconds!", 
+                ephemeral=True
+            )
+            return
+
+        class RPSView(View):
+            def __init__(self, challenger, opponent):
+                super().__init__(timeout=60)
+                self.challenger = challenger
+                self.opponent = opponent
+                self.challenger_choice = None
+                self.opponent_choice = None
+                self.choices = {"🪨": "Rock", "📄": "Paper", "✂️": "Scissors"}
+                
+            @discord.ui.button(label="🪨 Rock", style=discord.ButtonStyle.secondary, emoji="🪨")
+            async def rock(self, button_interaction: discord.Interaction, button: Button):
+                await self.make_choice(button_interaction, "🪨")
+                
+            @discord.ui.button(label="📄 Paper", style=discord.ButtonStyle.secondary, emoji="📄")
+            async def paper(self, button_interaction: discord.Interaction, button: Button):
+                await self.make_choice(button_interaction, "📄")
+                
+            @discord.ui.button(label="✂️ Scissors", style=discord.ButtonStyle.secondary, emoji="✂️")
+            async def scissors(self, button_interaction: discord.Interaction, button: Button):
+                await self.make_choice(button_interaction, "✂️")
+            
+            async def make_choice(self, interaction: discord.Interaction, choice: str):
+                if interaction.user.id == self.challenger.id:
+                    if self.challenger_choice is not None:
+                        await interaction.response.send_message("You already made your choice!", ephemeral=True)
+                        return
+                    self.challenger_choice = choice
+                    await interaction.response.send_message(f"You chose {self.choices[choice]}!", ephemeral=True)
+                elif interaction.user.id == self.opponent.id:
+                    if self.opponent_choice is not None:
+                        await interaction.response.send_message("You already made your choice!", ephemeral=True)
+                        return
+                    self.opponent_choice = choice
+                    await interaction.response.send_message(f"You chose {self.choices[choice]}!", ephemeral=True)
+                else:
+                    await interaction.response.send_message("This game is not for you!", ephemeral=True)
+                    return
+                
+                # Check if both players have made choices
+                if self.challenger_choice and self.opponent_choice:
+                    await self.resolve_game()
+            
+            async def resolve_game(self):
+                # Determine winner
+                winner = None
+                if self.challenger_choice == self.opponent_choice:
+                    result = "It's a tie!"
+                elif (
+                    (self.challenger_choice == "🪨" and self.opponent_choice == "✂️") or
+                    (self.challenger_choice == "📄" and self.opponent_choice == "🪨") or
+                    (self.challenger_choice == "✂️" and self.opponent_choice == "📄")
+                ):
+                    winner = self.challenger
+                    result = f"{self.challenger.display_name} wins!"
+                else:
+                    winner = self.opponent
+                    result = f"{self.opponent.display_name} wins!"
+                
+                # Award coins to winner
+                if winner:
+                    db.add_coins(winner.id, 15)
+                    coin_msg = f"\n💰 {winner.display_name} earned 15 coins!"
+                else:
+                    coin_msg = "\n💰 No coins awarded for ties!"
+                
+                # Create result embed
+                result_embed = discord.Embed(
+                    title="🪨📄✂️ Rock Paper Scissors Results",
+                    description=f"**{self.challenger.display_name}**: {self.choices[self.challenger_choice]}\n"
+                               f"**{self.opponent.display_name}**: {self.choices[self.opponent_choice]}\n\n"
+                               f"**{result}**{coin_msg}",
+                    color=0x00ff00 if winner else 0xffff00
+                )
+                
+                # Disable all buttons
+                for item in self.children:
+                    item.disabled = True
+                
+                # Edit the original message
+                await interaction.edit_original_response(embed=result_embed, view=self)
+
+        embed = discord.Embed(
+            title="🪨📄✂️ Rock Paper Scissors Challenge!",
+            description=f"**{interaction.user.display_name}** challenged **{opponent.display_name}** to Rock Paper Scissors!\n\n"
+                       f"Both players choose your move below:\n"
+                       f"🪨 Rock beats ✂️ Scissors\n"
+                       f"📄 Paper beats 🪨 Rock\n"
+                       f"✂️ Scissors beats 📄 Paper\n\n"
+                       f"**Winner gets 15 coins!**",
+            color=0x7289da
+        )
+        
+        view = RPSView(interaction.user, opponent)
+        await interaction.response.send_message(f"{opponent.mention}", embed=embed, view=view)
+
+    @app_commands.command(name="slots", description="🎰 Play the slot machine and win coins!")
+    async def slots(self, interaction: discord.Interaction):
+        # Check cooldown
+        can_play, time_left = self.check_cooldown(interaction.user.id, "slots", 45)
+        if not can_play:
+            await interaction.response.send_message(
+                f"🕐 You can play slots again in {int(time_left)} seconds!", 
+                ephemeral=True
+            )
+            return
+
+        # Check if user has enough coins
+        user_data = db.get_user_data(interaction.user.id)
+        current_coins = user_data.get("coins", 0)
+        
+        bet_amount = 25  # Fixed bet amount
+        if current_coins < bet_amount:
+            await interaction.response.send_message(
+                f"❌ You need at least {bet_amount} coins to play slots!\n"
+                f"💰 You currently have {current_coins} coins.",
+                ephemeral=True
+            )
+            return
+        
+        # Deduct bet amount
+        db.add_coins(interaction.user.id, -bet_amount)
+        
+        # Slot symbols with different rarities
+        symbols = {
+            "🍒": {"weight": 35, "value": 2},   # Common - 2x
+            "🍋": {"weight": 30, "value": 3},   # Common - 3x  
+            "🍊": {"weight": 25, "value": 4},   # Uncommon - 4x
+            "🍇": {"weight": 15, "value": 6},   # Rare - 6x
+            "⭐": {"weight": 10, "value": 10},  # Very Rare - 10x
+            "💎": {"weight": 5, "value": 20},   # Ultra Rare - 20x
+        }
+        
+        # Create weighted list
+        weighted_symbols = []
+        for symbol, data in symbols.items():
+            weighted_symbols.extend([symbol] * data["weight"])
+        
+        # Spin the slots
+        result = [random.choice(weighted_symbols) for _ in range(3)]
+        
+        # Calculate winnings
+        winnings = 0
+        if result[0] == result[1] == result[2]:  # Three of a kind
+            multiplier = symbols[result[0]]["value"]
+            winnings = bet_amount * multiplier
+        elif result[0] == result[1] or result[1] == result[2] or result[0] == result[2]:  # Two of a kind
+            # Find the matching symbol
+            matching_symbol = result[0] if result[0] == result[1] else (result[1] if result[1] == result[2] else result[0])
+            multiplier = symbols[matching_symbol]["value"] // 2
+            winnings = bet_amount * max(1, multiplier)
+        
+        # Award winnings
+        if winnings > 0:
+            db.add_coins(interaction.user.id, winnings)
+            profit = winnings - bet_amount
+        else:
+            profit = -bet_amount
+        
+        # Create result embed
+        if winnings > 0:
+            if result[0] == result[1] == result[2]:
+                title = "🎉 JACKPOT! Three of a Kind!"
+                color = 0x00ff00
+            else:
+                title = "✨ Winner! Two of a Kind!"
+                color = 0xffff00
+        else:
+            title = "💔 No Match - Better luck next time!"
+            color = 0xff0000
+        
+        embed = discord.Embed(
+            title=title,
+            description=f"**🎰 SLOT MACHINE 🎰**\n\n"
+                       f"┌─────────────┐\n"
+                       f"│ {result[0]} │ {result[1]} │ {result[2]} │\n"
+                       f"└─────────────┘\n\n"
+                       f"**Bet:** {bet_amount} coins\n"
+                       f"**Won:** {winnings} coins\n"
+                       f"**Profit:** {'+' if profit >= 0 else ''}{profit} coins\n\n"
+                       f"💰 **Balance:** {current_coins - bet_amount + winnings} coins",
+            color=color
+        )
+        
+        embed.add_field(
+            name="🎰 Slot Values",
+            value="🍒 = 2x | 🍋 = 3x | 🍊 = 4x\n🍇 = 6x | ⭐ = 10x | 💎 = 20x",
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(EnhancedMiniGames(bot))

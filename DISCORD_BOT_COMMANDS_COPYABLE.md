@@ -99,14 +99,18 @@ Tech Legend (Level 1000+)
 /spinwheel - Spin an enhanced wheel with arrow pointing to winner
 /askblecknephew [question] - Ask your nephew BleckNephew anything!
 /talktobleky - Start a conversation with your nephew Bleky
-/trivia [difficulty] - AI-powered trivia with dynamic questions (easy/medium/hard)
-/wordchain - Enhanced word chain game with no hints, skill-based
+/trivia [difficulty] - AI-powered trivia with dynamic questions (Easy/Normal/Hard choices)
+/wordchain - Enhanced word chain game with AI validation, no hints
+/rps [opponent] - Play Rock Paper Scissors with friends (winner gets 15 coins)
+/slots - Play the slot machine and win coins (25 coin bet, up to 20x multiplier)
 ```
 **Permissions:** Everyone
 
-**New AI Features:**
-- Smart trivia generates unique questions every time
-- Word chain doesn't reveal answers, purely skill-based
+**Enhanced AI Features:**
+- Smart trivia with dropdown difficulty selection (Easy/Normal/Hard)
+- Word chain with comprehensive AI validation (500+ word database)
+- RPS multiplayer with real-time interaction
+- Slot machine with 6 symbols and weighted probability
 - Dynamic difficulty and reward systems
 
 ---
@@ -316,10 +320,10 @@ New Member Role: 1384141744303636610
 
 ---
 
-## 🚀 **TOTAL: 49 SLASH COMMANDS + WEB API**
+## 🚀 **TOTAL: 51 SLASH COMMANDS + WEB API**
 
 **Permission Breakdown:**
-- **Public Access:** 27 commands (55%)
+- **Public Access:** 29 commands (57%)
 - **Staff Access:** 8 commands (16%)  
 - **Manager Access:** 4 commands (8%)
 - **Host Access:** 2 commands (4%)
@@ -329,7 +333,7 @@ New Member Role: 1384141744303636610
 - Basic/Utility: 5 commands
 - Profile/Progress: 6 commands
 - Economy/Shop: 6 commands  
-- Fun/Entertainment: 6 commands (includes AI games)
+- Fun/Entertainment: 8 commands (includes AI games)
 - Events/Community: 6 commands
 - Simple Tickets: 1 command + basic button system
 - Moderation: 5 commands
@@ -339,11 +343,12 @@ New Member Role: 1384141744303636610
 - Job Tracking: 2 commands
 
 **Recent Improvements:**
-- ✅ Simplified ticket system with basic claim/close functionality
-- ✅ Fixed AI-powered trivia with dynamic questions
-- ✅ Fixed word chain game (no answer reveals)
-- ✅ Auto role pings and channel renaming in tickets
-- ✅ Transferable tickets between staff with cooldown protection
+- ✅ Enhanced trivia with dropdown difficulty selection (Easy/Normal/Hard)
+- ✅ Fixed AI word validation - no more free coins for fake words
+- ✅ Added RPS multiplayer game with real-time interaction
+- ✅ Added slot machine with 6 symbols and 20x max multiplier  
+- ✅ Fixed duplicate command conflicts and cog loading
+- ✅ Comprehensive AI validation for all mini-games
 
 ---
 
