@@ -391,6 +391,17 @@ class EnhancedMiniGames(commands.Cog):
         app_commands.Choice(name="Hard", value="hard")
     ])
     async def trivia(self, interaction: discord.Interaction, difficulty: app_commands.Choice[str] = None):
+        # Deduct coins for playing trivia
+        entry_fee = 25
+        user_data = db.get_user_data(interaction.user.id)
+        balance = user_data.get('coins', 0)
+        if balance < entry_fee:
+            await interaction.response.send_message(
+                f"❌ You need at least {entry_fee} coins to play trivia! You have {balance}.",
+                ephemeral=True
+            )
+            return
+        db.remove_coins(interaction.user.id, entry_fee)
         # Check cooldown
         can_play, time_left = self.check_cooldown(interaction.user.id, "trivia", 60)
         if not can_play:

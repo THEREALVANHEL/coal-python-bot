@@ -867,98 +867,69 @@ class Economy(commands.Cog):
             color=0x9932cc
         )
         
-        # Organize items by category for better presentation
-        power_items = [
-            {"name": "⚡ XP Boost", "price": 200, "description": "Double XP gain for 1 hour", "duration": "1 hour", "category": "🚀 Power-Ups"},
-            {"name": "💰 Coin Boost", "price": 250, "description": "1.5x coin earnings for 3 hours", "duration": "3 hours", "category": "🚀 Power-Ups"},
-            {"name": "🎯 Work Success", "price": 400, "description": "Guaranteed work success for 1 day", "duration": "24 hours", "category": "🚀 Power-Ups"}
+        # Updated items: Only possible ones, prices increased moderately
+        shop_items = [
+            {"name": "⚡ XP Boost", "price": 300, "description": "Double XP gain for 2 hours", "duration": "2 hours", "category": "🚀 Power-Ups", "id": "xp_boost"},
+            {"name": "💰 Coin Boost", "price": 400, "description": "1.5x coin earnings for 4 hours", "duration": "4 hours", "category": "🚀 Power-Ups", "id": "coin_boost"},
+            {"name": "🎯 Work Success", "price": 600, "description": "Guaranteed work success for 12 hours", "duration": "12 hours", "category": "🚀 Power-Ups", "id": "work_success"},
+            {"name": "🎲 Luck Boost", "price": 500, "description": "Better RNG in games for 24 hours", "duration": "24 hours", "category": "🚀 Power-Ups", "id": "luck_boost"},
+            {"name": "📝 Custom Nickname", "price": 200, "description": "Change nickname anytime (7 days)", "duration": "7 days", "category": "🔑 Access", "id": "nickname_freedom"},
+            {"name": "🎨 Custom Color", "price": 350, "description": "Personalized role color (5 days)", "duration": "5 days", "category": "🔑 Access", "id": "custom_color"},
+            {"name": "📊 Double XP Daily", "price": 250, "description": "Claim double XP from daily for 3 days", "duration": "3 days", "category": "🎮 Fun & Games", "id": "double_daily"},
+            {"name": "⏱️ Work Cooldown Reset", "price": 150, "description": "Instantly reset your work cooldown", "duration": "instant", "category": "🎮 Fun & Games", "id": "cooldown_reset"}
         ]
-        
-        social_items = [
-            {"name": "🌟 VIP Role", "price": 500, "description": "VIP status with exclusive perks", "duration": "3 days", "category": "👑 Social Status"},
-            {"name": "🎨 Custom Color", "price": 800, "description": "Personalized role color", "duration": "7 days", "category": "👑 Social Status"},
-            {"name": "👑 Crown Badge", "price": 600, "description": "Golden crown on your profile", "duration": "14 days", "category": "👑 Social Status"},
-            {"name": "🌈 Rainbow Name", "price": 1200, "description": "Animated rainbow nickname", "duration": "5 days", "category": "👑 Social Status"}
-        ]
-        
-        access_items = [
-            {"name": "🚪 VIP Channels", "price": 1000, "description": "Access to exclusive channels", "duration": "14 days", "category": "🔑 Access"},
-            {"name": "📝 Nickname Freedom", "price": 150, "description": "Change nickname anytime", "duration": "7 days", "category": "🔑 Access"},
-            {"name": "🎤 Voice Priority", "price": 350, "description": "Skip voice channel queue", "duration": "10 days", "category": "🔑 Access"},
-            {"name": "📱 Early Access", "price": 750, "description": "Beta features and updates", "duration": "30 days", "category": "🔑 Access"}
-        ]
-        
-        fun_items = [
-            {"name": "🎲 Luck Boost", "price": 450, "description": "Better RNG in games for 1 week", "duration": "7 days", "category": "🎮 Fun & Games"},
-            {"name": "🎊 Party Mode", "price": 200, "description": "Special effects on messages", "duration": "6 hours", "category": "🎮 Fun & Games"},
-            {"name": "🎯 Double Daily", "price": 300, "description": "Can claim daily rewards twice", "duration": "3 days", "category": "🎮 Fun & Games"},
-            {"name": "🔮 Mystery Box", "price": 500, "description": "Random surprise reward daily", "duration": "7 days", "category": "🎮 Fun & Games"}
-        ]
-        
-        all_items = power_items + social_items + access_items + fun_items
         
         # Group items by category
         categories = {}
-        for item in all_items:
+        for item in shop_items:
             cat = item["category"]
             if cat not in categories:
                 categories[cat] = []
             categories[cat].append(item)
         
-        # Add category sections to embed
         for category, items in categories.items():
             item_list = []
             for item in items:
                 item_list.append(f"**{item['name']}** - `{item['price']}` coins\n_{item['description']} • {item['duration']}_")
-            
             embed.add_field(
                 name=f"{category}",
                 value="\n\n".join(item_list),
                 inline=True
             )
         
-        # Add helpful footer with tips
         embed.add_field(
             name="💡 **Pro Shopping Tips**",
-            value="• Stack compatible boosts for maximum effect\n• VIP items unlock special server features\n• Check `/myitems` to see active purchases\n• All items are temporary but provide great value!",
+            value="• Stack compatible boosts for maximum effect\n• Check `/myitems` to see active purchases\n• All items are temporary but provide great value!",
             inline=False
         )
         
         embed.set_footer(text="✨ Premium Temporary Shop • All purchases enhance your experience!")
         embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
-        
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="buy", description="🛒 Purchase simple and useful items from the shop")
     @app_commands.describe(item="Item to purchase from the shop")
     @app_commands.choices(item=[
-        # Essential Boosts - Simple and Useful
-        app_commands.Choice(name="⚡ XP Boost (100 coins - 2 hours)", value="xp_boost"),
-        app_commands.Choice(name="💰 Coin Boost (150 coins - 4 hours)", value="coin_boost"),
-        app_commands.Choice(name="🎯 Work Success (200 coins - 12 hours)", value="work_success"),
-        app_commands.Choice(name="� Luck Boost (250 coins - 24 hours)", value="luck_boost"),
-        # Simple Access
-        app_commands.Choice(name="� Custom Nickname (75 coins - 7 days)", value="nickname_freedom"),
-        app_commands.Choice(name="� Color Role (125 coins - 5 days)", value="custom_color"),
-        # Useful Features
-        app_commands.Choice(name="📊 Double XP Daily (100 coins - 3 days)", value="double_daily"),
-        app_commands.Choice(name="� Work Cooldown Reset (50 coins - instant)", value="cooldown_reset")
+        app_commands.Choice(name="⚡ XP Boost (300 coins - 2 hours)", value="xp_boost"),
+        app_commands.Choice(name="💰 Coin Boost (400 coins - 4 hours)", value="coin_boost"),
+        app_commands.Choice(name="🎯 Work Success (600 coins - 12 hours)", value="work_success"),
+        app_commands.Choice(name="🎲 Luck Boost (500 coins - 24 hours)", value="luck_boost"),
+        app_commands.Choice(name="📝 Custom Nickname (200 coins - 7 days)", value="nickname_freedom"),
+        app_commands.Choice(name="🎨 Custom Color (350 coins - 5 days)", value="custom_color"),
+        app_commands.Choice(name="📊 Double XP Daily (250 coins - 3 days)", value="double_daily"),
+        app_commands.Choice(name="⏱️ Work Cooldown Reset (150 coins - instant)", value="cooldown_reset")
     ])
     async def buy(self, interaction: discord.Interaction, item: str):
         shop_items = {
-            # Essential Boosts - Simple and Useful
-            "xp_boost": {"price": 100, "name": "⚡ XP Boost", "duration": 7200, "description": "2 hours", "category": "Boost"},
-            "coin_boost": {"price": 150, "name": "💰 Coin Boost", "duration": 14400, "description": "4 hours", "category": "Boost"},
-            "work_success": {"price": 200, "name": "🎯 Work Success", "duration": 43200, "description": "12 hours", "category": "Boost"},
-            "luck_boost": {"price": 250, "name": "� Luck Boost", "duration": 86400, "description": "24 hours", "category": "Boost"},
-            # Simple Access
-            "nickname_freedom": {"price": 75, "name": "📝 Custom Nickname", "duration": 604800, "description": "7 days", "category": "Access"},
-            "custom_color": {"price": 125, "name": "� Color Role", "duration": 432000, "description": "5 days", "category": "Access"},
-            # Useful Features
-            "double_daily": {"price": 100, "name": "📊 Double XP Daily", "duration": 259200, "description": "3 days", "category": "Feature"},
-            "cooldown_reset": {"price": 50, "name": "� Work Cooldown Reset", "duration": 0, "description": "instant", "category": "Feature"}
+            "xp_boost": {"price": 300, "name": "⚡ XP Boost", "duration": 7200, "description": "2 hours", "category": "Boost"},
+            "coin_boost": {"price": 400, "name": "💰 Coin Boost", "duration": 14400, "description": "4 hours", "category": "Boost"},
+            "work_success": {"price": 600, "name": "🎯 Work Success", "duration": 43200, "description": "12 hours", "category": "Boost"},
+            "luck_boost": {"price": 500, "name": "🎲 Luck Boost", "duration": 86400, "description": "24 hours", "category": "Boost"},
+            "nickname_freedom": {"price": 200, "name": "📝 Custom Nickname", "duration": 604800, "description": "7 days", "category": "Access"},
+            "custom_color": {"price": 350, "name": "🎨 Custom Color", "duration": 432000, "description": "5 days", "category": "Access"},
+            "double_daily": {"price": 250, "name": "📊 Double XP Daily", "duration": 259200, "description": "3 days", "category": "Feature"},
+            "cooldown_reset": {"price": 150, "name": "⏱️ Work Cooldown Reset", "duration": 0, "description": "instant", "category": "Feature"}
         }
-        
         if item not in shop_items:
             await interaction.response.send_message("❌ Invalid item!", ephemeral=True)
             return
@@ -1011,25 +982,7 @@ class Economy(commands.Cog):
             )
             
             # Handle specific items with enhanced features
-            if item == "vip_role":
-                # Find or create VIP role
-                vip_role = discord.utils.get(interaction.guild.roles, name="🌟 VIP")
-                if not vip_role:
-                    vip_role = await interaction.guild.create_role(
-                        name="🌟 VIP", 
-                        color=discord.Color.gold(),
-                        reason="Premium VIP role from shop"
-                    )
-                
-                await interaction.user.add_roles(vip_role)
-                db.add_temporary_role(interaction.user.id, vip_role.id, item_data['duration'])
-                embed.add_field(name="🌟 **VIP Status Active**", value="• Exclusive role color\n• Special permissions\n• VIP channel access\n• Priority support", inline=False)
-                
-            elif item == "custom_color":
-                db.add_temporary_purchase(interaction.user.id, "custom_color", item_data['duration'])
-                embed.add_field(name="🎨 **Custom Color Ready**", value=f"Contact a moderator to set your personalized role color!\nActive for {item_data['description']}", inline=False)
-                
-            elif item == "xp_boost":
+            if item == "xp_boost":
                 db.add_temporary_purchase(interaction.user.id, "xp_boost", item_data['duration'])
                 embed.add_field(name="⚡ **XP Boost Activated**", value="You now earn **2x XP** from all activities!", inline=False)
                 
@@ -1041,45 +994,25 @@ class Economy(commands.Cog):
                 db.add_temporary_purchase(interaction.user.id, "work_success", item_data['duration'])
                 embed.add_field(name="🎯 **Work Success Guaranteed**", value="All work attempts will succeed for 24 hours!", inline=False)
                 
-            elif item == "crown_badge":
-                db.add_temporary_purchase(interaction.user.id, "crown_badge", item_data['duration'])
-                embed.add_field(name="👑 **Crown Badge Equipped**", value="Your profile now displays a golden crown!", inline=False)
-                
-            elif item == "rainbow_name":
-                db.add_temporary_purchase(interaction.user.id, "rainbow_name", item_data['duration'])
-                embed.add_field(name="🌈 **Rainbow Name Active**", value="Your nickname now has animated rainbow effects!", inline=False)
-                
-            elif item == "vip_channels":
-                db.add_temporary_purchase(interaction.user.id, "vip_channels", item_data['duration'])
-                embed.add_field(name="🚪 **VIP Channels Unlocked**", value="Access granted to exclusive premium channels!", inline=False)
+            elif item == "luck_boost":
+                db.add_temporary_purchase(interaction.user.id, "luck_boost", item_data['duration'])
+                embed.add_field(name="🎲 **Luck Boost Active**", value="Improved RNG in games, gambling, and random events!", inline=False)
                 
             elif item == "nickname_freedom":
                 db.add_temporary_purchase(interaction.user.id, "nickname_freedom", item_data['duration'])
                 embed.add_field(name="📝 **Nickname Freedom Granted**", value="Change your nickname anytime using Discord's nickname feature!", inline=False)
                 
-            elif item == "voice_priority":
-                db.add_temporary_purchase(interaction.user.id, "voice_priority", item_data['duration'])
-                embed.add_field(name="🎤 **Voice Priority Enabled**", value="Skip the queue in voice channels and get priority access!", inline=False)
-                
-            elif item == "early_access":
-                db.add_temporary_purchase(interaction.user.id, "early_access", item_data['duration'])
-                embed.add_field(name="📱 **Early Access Activated**", value="Get beta features and updates before everyone else!", inline=False)
-                
-            elif item == "luck_boost":
-                db.add_temporary_purchase(interaction.user.id, "luck_boost", item_data['duration'])
-                embed.add_field(name="🎲 **Luck Boost Active**", value="Improved RNG in games, gambling, and random events!", inline=False)
-                
-            elif item == "party_mode":
-                db.add_temporary_purchase(interaction.user.id, "party_mode", item_data['duration'])
-                embed.add_field(name="🎊 **Party Mode ON**", value="Your messages now have special party effects and animations!", inline=False)
+            elif item == "custom_color":
+                db.add_temporary_purchase(interaction.user.id, "custom_color", item_data['duration'])
+                embed.add_field(name="🎨 **Custom Color Ready**", value=f"Contact a moderator to set your personalized role color!\nActive for {item_data['description']}", inline=False)
                 
             elif item == "double_daily":
                 db.add_temporary_purchase(interaction.user.id, "double_daily", item_data['duration'])
                 embed.add_field(name="🎯 **Double Daily Active**", value="Claim daily rewards twice per day for the next 3 days!", inline=False)
                 
-            elif item == "mystery_box":
-                db.add_temporary_purchase(interaction.user.id, "mystery_box", item_data['duration'])
-                embed.add_field(name="🔮 **Mystery Box Ready**", value="Receive random surprise rewards daily for a week!", inline=False)
+            elif item == "cooldown_reset":
+                db.add_temporary_purchase(interaction.user.id, "cooldown_reset", item_data['duration'])
+                embed.add_field(name="⏱️ **Work Cooldown Reset**", value="Your work cooldown has been reset! You can work again immediately.", inline=False)
             
             # Add usage tips
             embed.add_field(
@@ -1204,18 +1137,11 @@ class Economy(commands.Cog):
                     "xp_boost": "🚀 Power-Ups",
                     "coin_boost": "🚀 Power-Ups", 
                     "work_success": "🚀 Power-Ups",
-                    "vip_role": "👑 Social Status",
-                    "custom_color": "👑 Social Status",
-                    "crown_badge": "👑 Social Status",
-                    "rainbow_name": "👑 Social Status",
-                    "vip_channels": "🔑 Access",
+                    "luck_boost": "🚀 Power-Ups",
                     "nickname_freedom": "🔑 Access",
-                    "voice_priority": "🔑 Access",
-                    "early_access": "🔑 Access",
-                    "luck_boost": "🎮 Fun & Games",
-                    "party_mode": "🎮 Fun & Games",
+                    "custom_color": "🔑 Access",
                     "double_daily": "🎮 Fun & Games",
-                    "mystery_box": "🎮 Fun & Games"
+                    "cooldown_reset": "🎮 Fun & Games"
                 }
                 
                 # Process temporary purchases
@@ -1233,17 +1159,11 @@ class Economy(commands.Cog):
                         "xp_boost": "⚡ XP Boost",
                         "coin_boost": "💰 Coin Boost", 
                         "work_success": "🎯 Work Success",
-                        "custom_color": "🎨 Custom Color",
-                        "crown_badge": "👑 Crown Badge",
-                        "rainbow_name": "🌈 Rainbow Name",
-                        "vip_channels": "🚪 VIP Channels",
-                        "nickname_freedom": "📝 Nickname Freedom",
-                        "voice_priority": "🎤 Voice Priority",
-                        "early_access": "📱 Early Access",
                         "luck_boost": "🎲 Luck Boost",
-                        "party_mode": "🎊 Party Mode",
-                        "double_daily": "🎯 Double Daily",
-                        "mystery_box": "🔮 Mystery Box"
+                        "nickname_freedom": "📝 Custom Nickname",
+                        "custom_color": "🎨 Custom Color",
+                        "double_daily": "📊 Double XP Daily",
+                        "cooldown_reset": "⏱️ Work Cooldown Reset"
                     }
                     
                     item_name = item_names.get(item_type, item_type.title())
