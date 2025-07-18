@@ -298,7 +298,16 @@ class Economy(commands.Cog):
     def process_work_result(self, user_id, job, success, earnings=0):
         """Process work result and update job statistics"""
         try:
+            # Validate inputs
+            if not user_id or not job:
+                return {"success": False, "error": "Invalid user ID or job data"}
+            
+            if not isinstance(job, dict) or "name" not in job:
+                return {"success": False, "error": "Invalid job data structure"}
+                
             user_data = db.get_user_data(user_id)
+            if not user_data:
+                user_data = {}
             
             # Update work statistics
             total_works = user_data.get("total_works", 0) + 1
@@ -598,12 +607,29 @@ class Economy(commands.Cog):
                     ]
                 )
                 async def job_select(self, select_interaction: discord.Interaction, select: discord.ui.Select):
-                    if select_interaction.user.id != self.user_id:
-                        await select_interaction.response.send_message("❌ This is not your work selection!", ephemeral=True)
+                    try:
+                        if select_interaction.user.id != self.user_id:
+                            await select_interaction.response.send_message("❌ This is not your work selection!", ephemeral=True)
+                            return
+                        
+                        if not select.values:
+                            await select_interaction.response.send_message("❌ No job selected!", ephemeral=True)
+                            return
+                        
+                        job_index = int(select.values[0])
+                        if job_index >= len(available_jobs):
+                            await select_interaction.response.send_message("❌ Invalid job selection!", ephemeral=True)
+                            return
+                            
+                        selected_job = available_jobs[job_index]
+                        
+                        if not selected_job or not isinstance(selected_job, dict):
+                            await select_interaction.response.send_message("❌ Job data corrupted. Please try again.", ephemeral=True)
+                            return
+                    except Exception as e:
+                        print(f"Error in job_select: {e}")
+                        await select_interaction.response.send_message("❌ Work system error. Please try again.", ephemeral=True)
                         return
-                    
-                    job_index = int(select.values[0])
-                    selected_job = available_jobs[job_index]
                     
                     # Calculate success rate
                     success_rate = self.economy_cog.get_work_success_rate(self.user_id, selected_job)

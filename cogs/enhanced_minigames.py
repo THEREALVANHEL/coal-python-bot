@@ -536,10 +536,23 @@ class EnhancedMiniGames(commands.Cog):
 
     @app_commands.command(name="wordchain", description="🔤 Enhanced word chain - no hints, just skill!")
     async def wordchain(self, interaction: discord.Interaction):
-        can_play, time_left = self.check_cooldown(interaction.user.id, "wordchain", 45)
+        # Check for 3-hour time limit to prevent exploitation
+        can_play, time_left = self.check_cooldown(interaction.user.id, "wordchain", 10800)  # 3 hours = 10800 seconds
         if not can_play:
+            hours = int(time_left // 3600)
+            minutes = int((time_left % 3600) // 60)
+            seconds = int(time_left % 60)
+            
+            if hours > 0:
+                time_msg = f"{hours}h {minutes}m {seconds}s"
+            elif minutes > 0:
+                time_msg = f"{minutes}m {seconds}s"
+            else:
+                time_msg = f"{seconds}s"
+                
             await interaction.response.send_message(
-                f"🕐 You can play word chain again in {int(time_left)} seconds!", 
+                f"🕐 **Word Chain Cooldown** - You can play again in **{time_msg}**!\n"
+                f"⏰ This prevents exploitation and keeps the game fair for everyone.", 
                 ephemeral=True
             )
             return

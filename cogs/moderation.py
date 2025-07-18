@@ -330,48 +330,84 @@ Respond as Bleky:"""
 
 class TalkToBlekyView(discord.ui.View):
     def __init__(self, conversation_history: list = None):
-        super().__init__(timeout=3600)  # 1 hour timeout
+        super().__init__(timeout=900)  # 15 minutes timeout to prevent expired interactions
         self.conversation_history = conversation_history or []
 
     @discord.ui.button(label="💬 Continue Talking", style=discord.ButtonStyle.primary, emoji="💬")
     async def continue_talking(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = ContinueTalkModal(self.conversation_history)
-        await interaction.response.send_modal(modal)
+        try:
+            modal = ContinueTalkModal(self.conversation_history)
+            
+            # Check if interaction is still valid
+            if interaction.response.is_done():
+                await interaction.followup.send("⏰ This conversation has expired. Please start a new one with `/talktobleky`", ephemeral=True)
+            else:
+                await interaction.response.send_modal(modal)
+                
+        except discord.errors.NotFound:
+            # Interaction expired, ignore silently
+            pass
+        except Exception as e:
+            print(f"Error in continue_talking: {e}")
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("❌ This conversation has expired. Please start a new one with `/talktobleky`", ephemeral=True)
+            except:
+                pass
 
     @discord.ui.button(label="📱 Bleky Info", style=discord.ButtonStyle.secondary, emoji="📱")
     async def bleky_info(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = discord.Embed(
-            title="📱 **About Your Nephew Bleky**",
-            description="Get to know your favorite nephew better! 😄",
-            color=0x5865f2
-        )
-        
-        embed.add_field(
-            name="🎮 **Interests**",
-            value="• Gaming (especially competitive games)\n• Music and concerts\n• Technology and gadgets\n• Hanging out with friends\n• Memes and internet culture",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="💡 **What to Talk About**",
-            value="• Ask about his day or school\n• Share family news or stories\n• Ask for tech help or advice\n• Talk about games or music\n• Just chat about anything!",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="😄 **His Personality**",
-            value="• Energetic and fun-loving\n• Sometimes dramatic (he's a teenager!)\n• Loves inside jokes with family\n• Always up for a good conversation\n• Genuinely cares about family",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="🎯 **Tips for Great Conversations**",
-            value="• Be natural and casual\n• Ask follow-up questions\n• Share your own stories\n• He remembers what you talked about!\n• Don't be afraid to be playful",
-            inline=False
-        )
-        
-        embed.set_footer(text="💬 Ready to chat with Bleky?")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        try:
+            embed = discord.Embed(
+                title="📱 **About Your Nephew Bleky**",
+                description="Get to know your favorite nephew better! 😄",
+                color=0x5865f2
+            )
+            
+            embed.add_field(
+                name="🎮 **Interests**",
+                value="• Gaming (especially competitive games)\n• Music and concerts\n• Technology and gadgets\n• Hanging out with friends\n• Memes and internet culture",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="💡 **What to Talk About**",
+                value="• Ask about his day or school\n• Share family news or stories\n• Ask for tech help or advice\n• Talk about games or music\n• Just chat about anything!",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="😄 **His Personality**",
+                value="• Energetic and fun-loving\n• Sometimes dramatic (he's a teenager!)\n• Loves inside jokes with family\n• Always up for a good conversation\n• Genuinely cares about family",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🎯 **Tips for Great Conversations**",
+                value="• Be natural and casual\n• Ask follow-up questions\n• Share your own stories\n• He remembers what you talked about!\n• Don't be afraid to be playful",
+                inline=False
+            )
+            
+            embed.set_footer(text="💬 Ready to chat with Bleky?")
+            
+            # Check if interaction is still valid
+            if interaction.response.is_done():
+                # Interaction already responded to, use followup
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                # Normal response
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                
+        except discord.errors.NotFound:
+            # Interaction expired, ignore silently
+            pass
+        except Exception as e:
+            print(f"Error in bleky_info: {e}")
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
+            except:
+                pass
 
 class Moderation(commands.Cog):
     def __init__(self, bot: commands.Bot):
