@@ -9,4 +9,6 @@ google-generativeai>=0.3.2
 gunicorn>=22.0.0
 Pillow>=10.0.0
 psutil>=5.9.0
+# New dependencies for enhanced features
+bson>=0.5.10
 # Force redeploy Sun Jul  6 01:52:59 PM UTC 2025

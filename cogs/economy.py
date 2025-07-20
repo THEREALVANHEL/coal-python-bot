@@ -859,24 +859,46 @@ class Economy(commands.Cog):
         else:
             return int(1000 * (level ** 2.8))
 
-    @app_commands.command(name="shop", description="🛒 View the premium temporary items shop")
+    @app_commands.command(name="shop", description="🛒 View the enhanced shop with pet items and premium goods")
     async def shop(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="🛒 **Premium Temporary Shop**",
-            description="✨ **Enhance your server experience with temporary perks!**\nUse `/buy <item>` to purchase items.",
+            title="🛒 **Enhanced Shop**",
+            description="✨ **Premium items, pet supplies, and exclusive goods!**\nUse `/buy <item>` to purchase items.",
             color=0x9932cc
         )
         
-        # Updated items: Only possible ones, prices increased moderately
+        # Enhanced shop items with pet items and better goods
         shop_items = [
+            # Pet Items
+            {"name": "🍖 Premium Food", "price": 100, "description": "High-quality pet food (+50 hunger, +20 happiness, +30 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "premium_food"},
+            {"name": "🍖 Basic Food", "price": 25, "description": "Standard pet food (+20 hunger, +5 happiness, +10 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "basic_food"},
+            {"name": "🍪 Pet Treat", "price": 50, "description": "Delicious treat (+10 hunger, +30 happiness, +5 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "treat"},
+            {"name": "💊 Medicine", "price": 150, "description": "Pet medicine (+80 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "medicine"},
+            {"name": "🎾 Pet Toy", "price": 75, "description": "Interactive toy (+40 happiness)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "toy"},
+            {"name": "💊 Vitamin", "price": 200, "description": "Pet vitamins (+50 health, +10 happiness)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "vitamin"},
+            {"name": "🍖 Super Food", "price": 300, "description": "Ultimate pet food (+100 hunger, +50 happiness, +100 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "super_food"},
+            
+            # Power-Ups
             {"name": "⚡ XP Boost", "price": 300, "description": "Double XP gain for 2 hours", "duration": "2 hours", "category": "🚀 Power-Ups", "id": "xp_boost"},
             {"name": "💰 Coin Boost", "price": 400, "description": "1.5x coin earnings for 4 hours", "duration": "4 hours", "category": "🚀 Power-Ups", "id": "coin_boost"},
             {"name": "🎯 Work Success", "price": 600, "description": "Guaranteed work success for 12 hours", "duration": "12 hours", "category": "🚀 Power-Ups", "id": "work_success"},
             {"name": "🎲 Luck Boost", "price": 500, "description": "Better RNG in games for 24 hours", "duration": "24 hours", "category": "🚀 Power-Ups", "id": "luck_boost"},
+            {"name": "🔥 Mega Boost", "price": 1000, "description": "2x XP + 2x coins for 1 hour", "duration": "1 hour", "category": "🚀 Power-Ups", "id": "mega_boost"},
+            
+            # Access & Customization
             {"name": "📝 Custom Nickname", "price": 200, "description": "Change nickname anytime (7 days)", "duration": "7 days", "category": "🔑 Access", "id": "nickname_freedom"},
             {"name": "🎨 Custom Color", "price": 350, "description": "Personalized role color (5 days)", "duration": "5 days", "category": "🔑 Access", "id": "custom_color"},
+            {"name": "🌟 VIP Status", "price": 800, "description": "Exclusive VIP role and perks (3 days)", "duration": "3 days", "category": "🔑 Access", "id": "vip_status"},
+            
+            # Fun & Games
             {"name": "📊 Double XP Daily", "price": 250, "description": "Claim double XP from daily for 3 days", "duration": "3 days", "category": "🎮 Fun & Games", "id": "double_daily"},
-            {"name": "⏱️ Work Cooldown Reset", "price": 150, "description": "Instantly reset your work cooldown", "duration": "instant", "category": "🎮 Fun & Games", "id": "cooldown_reset"}
+            {"name": "⏱️ Work Cooldown Reset", "price": 150, "description": "Instantly reset your work cooldown", "duration": "instant", "category": "🎮 Fun & Games", "id": "cooldown_reset"},
+            {"name": "🎰 Casino Pass", "price": 400, "description": "Free casino games for 24 hours", "duration": "24 hours", "category": "🎮 Fun & Games", "id": "casino_pass"},
+            
+            # Premium Items
+            {"name": "💎 Diamond Pack", "price": 1500, "description": "Exclusive diamond role and 500 bonus coins", "duration": "7 days", "category": "💎 Premium", "id": "diamond_pack"},
+            {"name": "👑 Royal Pass", "price": 2000, "description": "Royal role, 1000 bonus coins, and exclusive commands", "duration": "14 days", "category": "💎 Premium", "id": "royal_pass"},
+            {"name": "🚀 Legendary Boost", "price": 3000, "description": "3x XP + 3x coins + guaranteed success for 6 hours", "duration": "6 hours", "category": "💎 Premium", "id": "legendary_boost"}
         ]
         
         # Group items by category
@@ -907,28 +929,64 @@ class Economy(commands.Cog):
         embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="buy", description="🛒 Purchase simple and useful items from the shop")
+    @app_commands.command(name="buy", description="🛒 Purchase items from the enhanced shop")
     @app_commands.describe(item="Item to purchase from the shop")
     @app_commands.choices(item=[
+        # Pet Items
+        app_commands.Choice(name="🍖 Premium Food (100 coins)", value="premium_food"),
+        app_commands.Choice(name="🍖 Basic Food (25 coins)", value="basic_food"),
+        app_commands.Choice(name="🍪 Pet Treat (50 coins)", value="treat"),
+        app_commands.Choice(name="💊 Medicine (150 coins)", value="medicine"),
+        app_commands.Choice(name="🎾 Pet Toy (75 coins)", value="toy"),
+        app_commands.Choice(name="💊 Vitamin (200 coins)", value="vitamin"),
+        app_commands.Choice(name="🍖 Super Food (300 coins)", value="super_food"),
+        # Power-Ups
         app_commands.Choice(name="⚡ XP Boost (300 coins - 2 hours)", value="xp_boost"),
         app_commands.Choice(name="💰 Coin Boost (400 coins - 4 hours)", value="coin_boost"),
         app_commands.Choice(name="🎯 Work Success (600 coins - 12 hours)", value="work_success"),
         app_commands.Choice(name="🎲 Luck Boost (500 coins - 24 hours)", value="luck_boost"),
+        app_commands.Choice(name="🔥 Mega Boost (1000 coins - 1 hour)", value="mega_boost"),
+        # Access & Customization
         app_commands.Choice(name="📝 Custom Nickname (200 coins - 7 days)", value="nickname_freedom"),
         app_commands.Choice(name="🎨 Custom Color (350 coins - 5 days)", value="custom_color"),
+        app_commands.Choice(name="🌟 VIP Status (800 coins - 3 days)", value="vip_status"),
+        # Fun & Games
         app_commands.Choice(name="📊 Double XP Daily (250 coins - 3 days)", value="double_daily"),
-        app_commands.Choice(name="⏱️ Work Cooldown Reset (150 coins - instant)", value="cooldown_reset")
+        app_commands.Choice(name="⏱️ Work Cooldown Reset (150 coins - instant)", value="cooldown_reset"),
+        app_commands.Choice(name="🎰 Casino Pass (400 coins - 24 hours)", value="casino_pass"),
+        # Premium Items
+        app_commands.Choice(name="💎 Diamond Pack (1500 coins - 7 days)", value="diamond_pack"),
+        app_commands.Choice(name="👑 Royal Pass (2000 coins - 14 days)", value="royal_pass"),
+        app_commands.Choice(name="🚀 Legendary Boost (3000 coins - 6 hours)", value="legendary_boost")
     ])
     async def buy(self, interaction: discord.Interaction, item: str):
         shop_items = {
+            # Pet Items
+            "premium_food": {"price": 100, "name": "🍖 Premium Food", "duration": 0, "description": "permanent", "category": "Pet Supply"},
+            "basic_food": {"price": 25, "name": "🍖 Basic Food", "duration": 0, "description": "permanent", "category": "Pet Supply"},
+            "treat": {"price": 50, "name": "🍪 Pet Treat", "duration": 0, "description": "permanent", "category": "Pet Supply"},
+            "medicine": {"price": 150, "name": "💊 Medicine", "duration": 0, "description": "permanent", "category": "Pet Supply"},
+            "toy": {"price": 75, "name": "🎾 Pet Toy", "duration": 0, "description": "permanent", "category": "Pet Supply"},
+            "vitamin": {"price": 200, "name": "💊 Vitamin", "duration": 0, "description": "permanent", "category": "Pet Supply"},
+            "super_food": {"price": 300, "name": "🍖 Super Food", "duration": 0, "description": "permanent", "category": "Pet Supply"},
+            # Power-Ups
             "xp_boost": {"price": 300, "name": "⚡ XP Boost", "duration": 7200, "description": "2 hours", "category": "Boost"},
             "coin_boost": {"price": 400, "name": "💰 Coin Boost", "duration": 14400, "description": "4 hours", "category": "Boost"},
             "work_success": {"price": 600, "name": "🎯 Work Success", "duration": 43200, "description": "12 hours", "category": "Boost"},
             "luck_boost": {"price": 500, "name": "🎲 Luck Boost", "duration": 86400, "description": "24 hours", "category": "Boost"},
+            "mega_boost": {"price": 1000, "name": "🔥 Mega Boost", "duration": 3600, "description": "1 hour", "category": "Boost"},
+            # Access & Customization
             "nickname_freedom": {"price": 200, "name": "📝 Custom Nickname", "duration": 604800, "description": "7 days", "category": "Access"},
             "custom_color": {"price": 350, "name": "🎨 Custom Color", "duration": 432000, "description": "5 days", "category": "Access"},
+            "vip_status": {"price": 800, "name": "🌟 VIP Status", "duration": 259200, "description": "3 days", "category": "Access"},
+            # Fun & Games
             "double_daily": {"price": 250, "name": "📊 Double XP Daily", "duration": 259200, "description": "3 days", "category": "Feature"},
-            "cooldown_reset": {"price": 150, "name": "⏱️ Work Cooldown Reset", "duration": 0, "description": "instant", "category": "Feature"}
+            "cooldown_reset": {"price": 150, "name": "⏱️ Work Cooldown Reset", "duration": 0, "description": "instant", "category": "Feature"},
+            "casino_pass": {"price": 400, "name": "🎰 Casino Pass", "duration": 86400, "description": "24 hours", "category": "Feature"},
+            # Premium Items
+            "diamond_pack": {"price": 1500, "name": "💎 Diamond Pack", "duration": 604800, "description": "7 days", "category": "Premium"},
+            "royal_pass": {"price": 2000, "name": "👑 Royal Pass", "duration": 1209600, "description": "14 days", "category": "Premium"},
+            "legendary_boost": {"price": 3000, "name": "🚀 Legendary Boost", "duration": 21600, "description": "6 hours", "category": "Premium"}
         }
         if item not in shop_items:
             await interaction.response.send_message("❌ Invalid item!", ephemeral=True)
@@ -946,7 +1004,50 @@ class Economy(commands.Cog):
                 )
                 return
 
-            # Check if user already has this item
+            # Handle pet items (permanent inventory items)
+            if item_data['category'] == "Pet Supply":
+                # Add to inventory instead of temporary purchases
+                user_data = db.get_user_data(interaction.user.id)
+                inventory = user_data.get('inventory', {})
+                inventory[item] = inventory.get(item, 0) + 1
+                user_data['inventory'] = inventory
+                db.update_user_data(interaction.user.id, user_data)
+                
+                # Process purchase
+                db.remove_coins(interaction.user.id, item_data['price'])
+                new_balance = db.get_user_data(interaction.user.id).get('coins', 0)
+                
+                embed = discord.Embed(
+                    title="🛒 **Pet Item Purchased!**",
+                    description=f"**{item_data['name']}** has been added to your inventory!",
+                    color=0x4ecdc4
+                )
+                
+                embed.add_field(
+                    name="🛒 **Purchase Details**", 
+                    value=f"**Item:** {item_data['name']}\n**Cost:** {item_data['price']:,} coins\n**Type:** Pet Supply\n**Quantity:** 1", 
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="💰 **Account Info**", 
+                    value=f"**New Balance:** {new_balance:,} coins\n**Total {item_data['name']}:** {inventory[item]}", 
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="🐾 **Usage**",
+                    value=f"Use `/feed {item}` to feed your pet with this item!",
+                    inline=False
+                )
+                
+                embed.set_footer(text="🐾 Pet Shop • Thank you for your purchase!")
+                embed.set_thumbnail(url=interaction.user.display_avatar.url)
+                
+                await interaction.response.send_message(embed=embed)
+                return
+            
+            # Check if user already has this temporary item
             active_purchases = db.get_active_temporary_purchases(interaction.user.id)
             has_item = any(purchase["item_type"] == item for purchase in active_purchases)
             
@@ -957,7 +1058,7 @@ class Economy(commands.Cog):
                 )
                 return
 
-            # Process purchase
+            # Process purchase for temporary items
             db.remove_coins(interaction.user.id, item_data['price'])
             new_balance = db.get_user_data(interaction.user.id).get('coins', 0)
             
@@ -1013,6 +1114,32 @@ class Economy(commands.Cog):
             elif item == "cooldown_reset":
                 db.add_temporary_purchase(interaction.user.id, "cooldown_reset", item_data['duration'])
                 embed.add_field(name="⏱️ **Work Cooldown Reset**", value="Your work cooldown has been reset! You can work again immediately.", inline=False)
+                
+            elif item == "mega_boost":
+                db.add_temporary_purchase(interaction.user.id, "mega_boost", item_data['duration'])
+                embed.add_field(name="🔥 **Mega Boost Activated**", value="You now earn **2x XP** and **2x coins** from all activities!", inline=False)
+                
+            elif item == "vip_status":
+                db.add_temporary_purchase(interaction.user.id, "vip_status", item_data['duration'])
+                embed.add_field(name="🌟 **VIP Status Granted**", value="You now have exclusive VIP perks and access!", inline=False)
+                
+            elif item == "casino_pass":
+                db.add_temporary_purchase(interaction.user.id, "casino_pass", item_data['duration'])
+                embed.add_field(name="🎰 **Casino Pass Active**", value="Free access to all casino games for 24 hours!", inline=False)
+                
+            elif item == "diamond_pack":
+                db.add_temporary_purchase(interaction.user.id, "diamond_pack", item_data['duration'])
+                db.add_coins(interaction.user.id, 500)  # Bonus coins
+                embed.add_field(name="💎 **Diamond Pack Activated**", value="Exclusive diamond role + 500 bonus coins!", inline=False)
+                
+            elif item == "royal_pass":
+                db.add_temporary_purchase(interaction.user.id, "royal_pass", item_data['duration'])
+                db.add_coins(interaction.user.id, 1000)  # Bonus coins
+                embed.add_field(name="👑 **Royal Pass Activated**", value="Royal role + 1000 bonus coins + exclusive commands!", inline=False)
+                
+            elif item == "legendary_boost":
+                db.add_temporary_purchase(interaction.user.id, "legendary_boost", item_data['duration'])
+                embed.add_field(name="🚀 **Legendary Boost Activated**", value="3x XP + 3x coins + guaranteed success for 6 hours!", inline=False)
             
             # Add usage tips
             embed.add_field(

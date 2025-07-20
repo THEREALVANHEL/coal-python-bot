@@ -196,7 +196,11 @@ async def load_cogs():
         'cogs.enhanced_minigames',      # New enhanced minigames (replaces minigames)
         'cogs.dashboard',               # Personal dashboard
         'cogs.security_performance',    # Security and performance monitoring
-        'cogs.cool_commands'            # Cool additional commands
+        'cogs.cool_commands',           # Cool additional commands
+        'cogs.pet_system',              # Pet system with feeding and training
+        'cogs.stock_market',            # Stock market trading system
+        'cogs.backup_system',           # Database backup and cloud storage
+        'cogs.expedition_tickets'       # EXPEDITION antarctica ticket panel
     ]
     
     successful = 0
