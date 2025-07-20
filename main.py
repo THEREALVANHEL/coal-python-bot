@@ -199,8 +199,7 @@ async def load_cogs():
         'cogs.cool_commands',           # Cool additional commands
         'cogs.pet_system',              # Pet system with feeding and training
         'cogs.stock_market',            # Stock market trading system
-        'cogs.backup_system',           # Database backup and cloud storage
-        'cogs.expedition_tickets'       # EXPEDITION antarctica ticket panel
+        'cogs.backup_system'            # Database backup and cloud storage
     ]
     
     successful = 0

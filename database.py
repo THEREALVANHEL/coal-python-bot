@@ -2485,4 +2485,87 @@ def clear_user_warnings(user_id):
         print(f"Error clearing user warnings: {e}")
         return False
 
-print("[Database] All functions loaded successfully with enhanced MongoDB support and reminder system")
+# ========================
+# ENHANCED TICKET SYSTEM
+# ========================
+
+async def set_ticket_data(user_id: int, ticket_data: dict):
+    """Save ticket data to database"""
+    try:
+        tickets = db.tickets
+        await tickets.update_one(
+            {"user_id": user_id},
+            {"$set": ticket_data},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error saving ticket data: {e}")
+        return False
+
+async def get_ticket_data(user_id: int):
+    """Get ticket data from database"""
+    try:
+        tickets = db.tickets
+        return await tickets.find_one({"user_id": user_id})
+    except Exception as e:
+        print(f"Error getting ticket data: {e}")
+        return None
+
+async def save_ticket_transcript(ticket_id: int, transcript_data: dict):
+    """Save ticket transcript to database"""
+    try:
+        transcripts = db.ticket_transcripts
+        await transcripts.update_one(
+            {"ticket_id": ticket_id},
+            {"$set": transcript_data},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error saving ticket transcript: {e}")
+        return False
+
+async def get_ticket_statistics():
+    """Get ticket system statistics"""
+    try:
+        tickets = db.tickets
+        transcripts = db.ticket_transcripts
+        
+        # Count total tickets
+        total_tickets = await tickets.count_documents({})
+        
+        # Count resolved tickets
+        resolved_tickets = await transcripts.count_documents({})
+        
+        # Count by priority
+        high_priority = await tickets.count_documents({"priority": "High"})
+        medium_priority = await tickets.count_documents({"priority": "Medium"})
+        low_priority = await tickets.count_documents({"priority": "Low"})
+        
+        # Count by category
+        general = await tickets.count_documents({"category": "general"})
+        bug = await tickets.count_documents({"category": "bug"})
+        appeal = await tickets.count_documents({"category": "appeal"})
+        report = await tickets.count_documents({"category": "report"})
+        suggestion = await tickets.count_documents({"category": "suggestion"})
+        
+        return {
+            "total_tickets": total_tickets,
+            "resolved_tickets": resolved_tickets,
+            "high_priority": high_priority,
+            "medium_priority": medium_priority,
+            "low_priority": low_priority,
+            "general": general,
+            "bug": bug,
+            "appeal": appeal,
+            "report": report,
+            "suggestion": suggestion,
+            "avg_response_time": "N/A"  # Could be calculated with more data
+        }
+        
+    except Exception as e:
+        print(f"Error getting ticket statistics: {e}")
+        return {}
+
+print("[Database] All functions loaded successfully with enhanced MongoDB support, reminder system, and ticket system")
