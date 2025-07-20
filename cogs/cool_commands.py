@@ -16,6 +16,103 @@ class CoolCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         
+    @app_commands.command(name="test", description="🧪 Simple test command to verify bot functionality")
+    async def test(self, interaction: discord.Interaction):
+        """Simple test command"""
+        embed = discord.Embed(
+            title="🧪 Bot Test",
+            description="✅ **Bot is working perfectly!**",
+            color=0x00ff00
+        )
+        embed.add_field(
+            name="📊 Status",
+            value="All systems operational",
+            inline=True
+        )
+        embed.add_field(
+            name="⏱️ Response Time",
+            value=f"{round(self.bot.latency * 1000)}ms",
+            inline=True
+        )
+        embed.add_field(
+            name="🤖 Bot Version",
+            value="Coal Python Bot v2.0",
+            inline=True
+        )
+        embed.set_footer(text="🧪 Test completed successfully")
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="hello", description="👋 Basic hello command and response test")
+    async def hello(self, interaction: discord.Interaction):
+        """Basic hello command"""
+        greetings = [
+            f"Hello there, {interaction.user.display_name}! 👋",
+            f"Hey {interaction.user.display_name}! How's it going? 😊",
+            f"Greetings, {interaction.user.display_name}! 🌟",
+            f"Hi {interaction.user.display_name}! Nice to see you! 🎉",
+            f"Hello {interaction.user.display_name}! Hope you're having a great day! ☀️"
+        ]
+        
+        greeting = random.choice(greetings)
+        
+        embed = discord.Embed(
+            title="👋 Hello!",
+            description=greeting,
+            color=0x7289da
+        )
+        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        embed.set_footer(text="👋 Thanks for saying hello!")
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="info", description="ℹ️ Show bot information and status")
+    async def info(self, interaction: discord.Interaction):
+        """Show bot information"""
+        embed = discord.Embed(
+            title="ℹ️ Bot Information",
+            description="**Coal Python Bot** - Your friendly Discord companion!",
+            color=0x7289da
+        )
+        
+        embed.add_field(
+            name="🤖 Bot Name",
+            value=f"{self.bot.user.name}",
+            inline=True
+        )
+        embed.add_field(
+            name="🆔 Bot ID",
+            value=f"{self.bot.user.id}",
+            inline=True
+        )
+        embed.add_field(
+            name="📡 Latency",
+            value=f"{round(self.bot.latency * 1000)}ms",
+            inline=True
+        )
+        embed.add_field(
+            name="🏠 Servers",
+            value=f"{len(self.bot.guilds)}",
+            inline=True
+        )
+        embed.add_field(
+            name="👥 Users",
+            value=f"{len(set(self.bot.get_all_members()))}",
+            inline=True
+        )
+        embed.add_field(
+            name="⚡ Commands",
+            value="80+ slash commands",
+            inline=True
+        )
+        embed.add_field(
+            name="🔧 Features",
+            value="• Economy System\n• Pet System\n• Stock Market\n• Banking\n• Tickets\n• Games & More!",
+            inline=False
+        )
+        
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="ℹ️ Coal Python Bot | Developed with ❤️")
+        await interaction.response.send_message(embed=embed)
+        
     @app_commands.command(name="inspire", description="💫 Get an inspirational quote to boost your day!")
     async def inspire(self, interaction: discord.Interaction):
         quotes = [

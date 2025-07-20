@@ -1384,5 +1384,121 @@ class EnhancedMiniGames(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.command(name="tournament", description="🏆 Join or create tournaments with other players")
+    async def tournament(self, interaction: discord.Interaction, game: str = "trivia"):
+        """Tournament system for competitive play"""
+        user_data = db.get_user_data(interaction.user.id)
+        
+        # Tournament games available
+        tournament_games = {
+            "trivia": {"name": "Trivia Tournament", "entry_fee": 100, "prize": 500},
+            "rps": {"name": "Rock Paper Scissors Tournament", "entry_fee": 50, "prize": 250},
+            "slots": {"name": "Slots Tournament", "entry_fee": 200, "prize": 1000}
+        }
+        
+        if game not in tournament_games:
+            game = "trivia"
+        
+        tournament_info = tournament_games[game]
+        
+        embed = discord.Embed(
+            title=f"🏆 {tournament_info['name']}",
+            description="**Tournament System Coming Soon!**\n\nCompete against other players for prizes!",
+            color=0xffd700
+        )
+        
+        embed.add_field(
+            name="💰 Entry Fee",
+            value=f"{tournament_info['entry_fee']} coins",
+            inline=True
+        )
+        embed.add_field(
+            name="🏆 Prize Pool",
+            value=f"{tournament_info['prize']} coins",
+            inline=True
+        )
+        embed.add_field(
+            name="👥 Players",
+            value="1/8 (You!)",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="📋 Tournament Rules",
+            value=f"• {tournament_info['name']} format\n• Single elimination\n• Winner takes all\n• Entry fee required",
+            inline=False
+        )
+        
+        embed.set_footer(text="🏆 Tournament system in development - Stay tuned!")
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="dailychallenge", description="🎯 Complete daily challenges for bonus rewards")
+    async def dailychallenge(self, interaction: discord.Interaction):
+        """Daily challenge system"""
+        user_data = db.get_user_data(interaction.user.id)
+        
+        # Check if user has completed today's challenge
+        last_challenge = user_data.get('last_daily_challenge', 0)
+        current_time = datetime.now().timestamp()
+        
+        if current_time - last_challenge < 86400:  # 24 hours
+            time_left = 86400 - (current_time - last_challenge)
+            hours = int(time_left // 3600)
+            minutes = int((time_left % 3600) // 60)
+            
+            embed = discord.Embed(
+                title="🎯 Daily Challenge",
+                description=f"⏰ **Challenge completed!**\n\nNext challenge available in **{hours}h {minutes}m**",
+                color=0x00ff00
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Generate today's challenge
+        challenges = [
+            {"name": "High Roller", "desc": "Win 500+ coins in slots", "reward": 200, "type": "gambling"},
+            {"name": "Trivia Master", "desc": "Answer 5 trivia questions correctly", "reward": 150, "type": "knowledge"},
+            {"name": "Lucky Streak", "desc": "Win 3 coinflips in a row", "reward": 100, "type": "luck"},
+            {"name": "Worker Bee", "desc": "Complete 3 work sessions", "reward": 250, "type": "work"},
+            {"name": "Social Butterfly", "desc": "Use 5 different commands", "reward": 100, "type": "activity"}
+        ]
+        
+        # Use user ID as seed for consistent daily challenge
+        import hashlib
+        seed = int(hashlib.md5(f"{interaction.user.id}{int(current_time // 86400)}".encode()).hexdigest()[:8], 16)
+        random.seed(seed)
+        daily_challenge = random.choice(challenges)
+        random.seed()  # Reset seed
+        
+        embed = discord.Embed(
+            title="🎯 Daily Challenge",
+            description=f"**Today's Challenge: {daily_challenge['name']}**",
+            color=0xffd700
+        )
+        
+        embed.add_field(
+            name="📋 Objective",
+            value=daily_challenge['desc'],
+            inline=False
+        )
+        embed.add_field(
+            name="🏆 Reward",
+            value=f"{daily_challenge['reward']} coins + XP bonus",
+            inline=True
+        )
+        embed.add_field(
+            name="⏰ Time Limit",
+            value="24 hours",
+            inline=True
+        )
+        embed.add_field(
+            name="📊 Progress",
+            value="0% Complete",
+            inline=True
+        )
+        
+        embed.set_footer(text="🎯 Complete the challenge to claim your reward!")
+        await interaction.response.send_message(embed=embed)
+
 async def setup(bot):
     await bot.add_cog(EnhancedMiniGames(bot))

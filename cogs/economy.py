@@ -1812,5 +1812,278 @@ class Economy(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.command(name="loan", description="🏦 Apply for loans with different interest rates")
+    async def loan(self, interaction: discord.Interaction, amount: int, loan_type: str = "personal"):
+        """Apply for a loan"""
+        if amount <= 0:
+            await interaction.response.send_message("❌ Loan amount must be positive!", ephemeral=True)
+            return
+        
+        if amount > 50000:
+            await interaction.response.send_message("❌ Maximum loan amount is 50,000 coins!", ephemeral=True)
+            return
+        
+        user_data = db.get_user_data(interaction.user.id)
+        current_loans = user_data.get('loans', [])
+        
+        # Check if user already has a loan
+        if len(current_loans) >= 3:
+            await interaction.response.send_message("❌ You can only have 3 active loans at a time!", ephemeral=True)
+            return
+        
+        # Loan types with different interest rates
+        loan_types = {
+            "personal": {"rate": 0.15, "term": 30, "name": "Personal Loan"},
+            "business": {"rate": 0.12, "term": 60, "name": "Business Loan"}, 
+            "emergency": {"rate": 0.20, "term": 14, "name": "Emergency Loan"}
+        }
+        
+        if loan_type not in loan_types:
+            loan_type = "personal"
+        
+        loan_info = loan_types[loan_type]
+        interest = amount * loan_info["rate"]
+        total_repayment = amount + interest
+        daily_payment = total_repayment / loan_info["term"]
+        
+        # Add loan to user data
+        new_loan = {
+            "amount": amount,
+            "type": loan_type,
+            "interest": interest,
+            "total_repayment": total_repayment,
+            "daily_payment": daily_payment,
+            "days_remaining": loan_info["term"],
+            "taken_date": datetime.now().timestamp()
+        }
+        
+        current_loans.append(new_loan)
+        
+        # Give coins to user
+        success = db.update_user_data(interaction.user.id, {
+            'coins': user_data.get('coins', 0) + amount,
+            'loans': current_loans
+        })
+        
+        if success:
+            embed = discord.Embed(
+                title="🏦 Loan Approved!",
+                description=f"Your **{loan_info['name']}** has been approved!",
+                color=0x00ff00
+            )
+            embed.add_field(
+                name="💰 Loan Amount",
+                value=f"{amount:,} coins",
+                inline=True
+            )
+            embed.add_field(
+                name="📈 Interest Rate",
+                value=f"{loan_info['rate']*100:.1f}%",
+                inline=True
+            )
+            embed.add_field(
+                name="💳 Total Repayment",
+                value=f"{total_repayment:,} coins",
+                inline=True
+            )
+            embed.add_field(
+                name="📅 Loan Term",
+                value=f"{loan_info['term']} days",
+                inline=True
+            )
+            embed.add_field(
+                name="💸 Daily Payment",
+                value=f"{daily_payment:.0f} coins/day",
+                inline=True
+            )
+            embed.add_field(
+                name="⚠️ Warning",
+                value="Failure to repay may affect your credit score!",
+                inline=True
+            )
+            embed.set_footer(text="🏦 Loan funds have been added to your wallet")
+            
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("❌ Failed to process loan. Please try again.", ephemeral=True)
+
+    @app_commands.command(name="creditcard", description="💳 Apply for credit cards with spending limits")
+    async def creditcard(self, interaction: discord.Interaction):
+        """Apply for a credit card"""
+        user_data = db.get_user_data(interaction.user.id)
+        current_cards = user_data.get('credit_cards', [])
+        
+        if len(current_cards) >= 2:
+            await interaction.response.send_message("❌ You can only have 2 credit cards!", ephemeral=True)
+            return
+        
+        # Credit card types based on user's wealth
+        total_wealth = user_data.get('coins', 0) + user_data.get('bank', 0)
+        
+        if total_wealth < 1000:
+            card_type = "Basic"
+            limit = 2000
+            apr = 0.25
+        elif total_wealth < 10000:
+            card_type = "Silver"
+            limit = 7500
+            apr = 0.20
+        elif total_wealth < 50000:
+            card_type = "Gold"
+            limit = 20000
+            apr = 0.15
+        else:
+            card_type = "Platinum"
+            limit = 50000
+            apr = 0.12
+        
+        new_card = {
+            "type": card_type,
+            "limit": limit,
+            "balance": 0,
+            "apr": apr,
+            "issued_date": datetime.now().timestamp(),
+            "last_payment": datetime.now().timestamp()
+        }
+        
+        current_cards.append(new_card)
+        
+        success = db.update_user_data(interaction.user.id, {'credit_cards': current_cards})
+        
+        if success:
+            embed = discord.Embed(
+                title="💳 Credit Card Approved!",
+                description=f"Congratulations! Your **{card_type} Credit Card** has been approved!",
+                color=0x00ff00
+            )
+            embed.add_field(
+                name="💎 Card Type",
+                value=card_type,
+                inline=True
+            )
+            embed.add_field(
+                name="💰 Credit Limit",
+                value=f"{limit:,} coins",
+                inline=True
+            )
+            embed.add_field(
+                name="📈 APR",
+                value=f"{apr*100:.1f}%",
+                inline=True
+            )
+            embed.add_field(
+                name="💳 Current Balance",
+                value="0 coins",
+                inline=True
+            )
+            embed.add_field(
+                name="✅ Benefits",
+                value="• Build credit history\n• Emergency spending\n• Purchase protection",
+                inline=False
+            )
+            embed.set_footer(text="💳 Use responsibly and pay on time!")
+            
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("❌ Failed to process credit card application.", ephemeral=True)
+
+    @app_commands.command(name="creditscore", description="📊 View your detailed credit analysis")
+    async def creditscore(self, interaction: discord.Interaction):
+        """View credit score and analysis"""
+        user_data = db.get_user_data(interaction.user.id)
+        
+        # Calculate credit score based on various factors
+        base_score = 300
+        
+        # Wealth factor (max +200 points)
+        total_wealth = user_data.get('coins', 0) + user_data.get('bank', 0)
+        wealth_score = min(200, total_wealth // 500)
+        
+        # Banking history factor (max +150 points)
+        bank_balance = user_data.get('bank', 0)
+        banking_score = min(150, bank_balance // 300)
+        
+        # Activity factor (max +100 points)
+        daily_streak = user_data.get('daily_streak', 0)
+        activity_score = min(100, daily_streak * 2)
+        
+        # Loan history factor (max +100 points or -200 for bad history)
+        loans = user_data.get('loans', [])
+        loan_score = 50  # Default neutral
+        if len(loans) == 0:
+            loan_score = 25  # No credit history
+        elif len(loans) > 3:
+            loan_score = -100  # Too much debt
+        
+        # Credit card factor (max +50 points)
+        cards = user_data.get('credit_cards', [])
+        card_score = len(cards) * 25
+        
+        total_score = base_score + wealth_score + banking_score + activity_score + loan_score + card_score
+        total_score = max(300, min(850, total_score))  # Clamp between 300-850
+        
+        # Determine credit rating
+        if total_score >= 750:
+            rating = "Excellent"
+            color = 0x00ff00
+        elif total_score >= 700:
+            rating = "Good"
+            color = 0x90EE90
+        elif total_score >= 650:
+            rating = "Fair"
+            color = 0xffff00
+        elif total_score >= 600:
+            rating = "Poor"
+            color = 0xffa500
+        else:
+            rating = "Very Poor"
+            color = 0xff0000
+        
+        embed = discord.Embed(
+            title="📊 Credit Score Analysis",
+            description=f"**{interaction.user.display_name}'s Credit Report**",
+            color=color
+        )
+        
+        embed.add_field(
+            name="🎯 Credit Score",
+            value=f"**{total_score}/850**\n*{rating}*",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="📈 Score Breakdown",
+            value=f"💰 Wealth: +{wealth_score}\n🏦 Banking: +{banking_score}\n⚡ Activity: +{activity_score}\n💳 Loans: {'+' if loan_score >= 0 else ''}{loan_score}\n💎 Cards: +{card_score}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="💼 Financial Profile",
+            value=f"**Total Wealth:** {total_wealth:,} coins\n**Bank Balance:** {bank_balance:,} coins\n**Active Loans:** {len(loans)}\n**Credit Cards:** {len(cards)}",
+            inline=True
+        )
+        
+        # Recommendations
+        recommendations = []
+        if total_score < 650:
+            recommendations.append("• Build wealth by working daily")
+            recommendations.append("• Maintain a bank account")
+        if bank_balance < 5000:
+            recommendations.append("• Increase your bank savings")
+        if daily_streak < 30:
+            recommendations.append("• Maintain daily activity streak")
+        if len(cards) == 0 and total_wealth > 1000:
+            recommendations.append("• Consider applying for a credit card")
+        
+        if recommendations:
+            embed.add_field(
+                name="💡 Recommendations",
+                value="\n".join(recommendations),
+                inline=False
+            )
+        
+        embed.set_footer(text="📊 Credit scores update daily based on your financial activity")
+        await interaction.response.send_message(embed=embed)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Economy(bot))

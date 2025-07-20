@@ -422,7 +422,10 @@ def get_user_data(user_id):
                 "last_work": 0,
                 "temporary_purchases": [],
                 "last_updated": time.time(),
-                "bank": 0
+                "bank": 0,
+                "loans": [],
+                "credit_cards": [],
+                "last_daily_challenge": 0
             }
             
             for key, default_value in defaults.items():
@@ -458,7 +461,10 @@ def create_user_data(user_id):
             "temporary_purchases": [],
             "created_at": current_time,
             "last_updated": current_time,
-            "bank": 0
+            "bank": 0,
+            "loans": [],
+            "credit_cards": [],
+            "last_daily_challenge": 0
         }
         
         users_collection.insert_one(user_data)
