@@ -554,6 +554,29 @@ def set_cookies(user_id, cookie_amount):
         print(f"Error setting cookies: {e}")
         return False
 
+def update_user_data(user_id, update_fields):
+    """Update user data with multiple fields"""
+    if users_collection is None:
+        return False
+
+    try:
+        # Ensure user exists first
+        user_data = users_collection.find_one({"user_id": user_id})
+        if not user_data:
+            # Create user if doesn't exist
+            create_user_data(user_id)
+        
+        # Update the specified fields
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$set": update_fields},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        print(f"Error updating user data: {e}")
+        return False
+
 def add_coins(user_id, coin_amount):
     """Add coins to user"""
     if users_collection is None:
