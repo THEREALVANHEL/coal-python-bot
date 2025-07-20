@@ -17,34 +17,39 @@ class ExpeditionTickets(commands.Cog):
         # Ticket configuration
         self.ticket_types = {
             "player_report": {
-                "name": "🚨 Player Report",
-                "description": "Report a player for breaking rules",
+                "name": "🛡️ Player Report",
+                "description": "Report other players for using third-party software (exploits) to gain unfair advantage",
                 "color": 0xff0000,
-                "emoji": "🚨"
+                "emoji": "🛡️",
+                "requirements": "Please provide clear evidence, preferably a video file, when reporting another player for using third-party software (exploits). Players that are banned for cheating cannot appeal, unless their innocence is proven."
             },
             "bug_report": {
                 "name": "🐛 Bug Report",
-                "description": "Report a bug or technical issue",
+                "description": "Report bugs that need immediate attention from developers",
                 "color": 0xff6b6b,
-                "emoji": "🐛"
+                "emoji": "🐛",
+                "requirements": "Include as much detail as possible (device type, steps to reproduce the issue and any error messages) when reporting a bug."
             },
             "suggestion": {
                 "name": "💡 Suggestion",
                 "description": "Suggest improvements or new features",
                 "color": 0x4ecdc4,
-                "emoji": "💡"
+                "emoji": "💡",
+                "requirements": "Provide detailed explanation of your suggestion and how it would benefit the community."
             },
             "appeal": {
                 "name": "⚖️ Appeal",
                 "description": "Appeal a ban or punishment",
                 "color": 0xffa500,
-                "emoji": "⚖️"
+                "emoji": "⚖️",
+                "requirements": "Explain why you believe the punishment was unjustified. Provide any evidence to support your appeal."
             },
             "general": {
                 "name": "❓ General Support",
                 "description": "General questions or support",
                 "color": 0x9b59b6,
-                "emoji": "❓"
+                "emoji": "❓",
+                "requirements": "Ask your question clearly and provide any relevant context to help us assist you better."
             }
         }
 
@@ -55,15 +60,16 @@ class ExpeditionTickets(commands.Cog):
             title="🎫 EXPEDITION Antarctica - Support Tickets",
             description="Welcome to the EXPEDITION Antarctica support system!\n\n"
                        "**Choose the appropriate ticket type below:**\n"
-                       "• 🚨 **Player Report** - Report rule violations\n"
-                       "• 🐛 **Bug Report** - Report technical issues\n"
-                       "• 💡 **Suggestion** - Suggest improvements\n"
-                       "• ⚖️ **Appeal** - Appeal punishments\n"
-                       "• ❓ **General Support** - General questions\n\n"
-                       "**📋 Guidelines:**\n"
-                       "• Provide clear and detailed information\n"
-                       "• Include evidence when reporting players\n"
-                       "• Be respectful and patient\n"
+                       "• 🛡️ **Player Report** - Report players using exploits/third-party software\n"
+                       "• 🐛 **Bug Report** - Report bugs needing immediate developer attention\n"
+                       "• 💡 **Suggestion** - Suggest improvements or new features\n"
+                       "• ⚖️ **Appeal** - Appeal bans or punishments\n"
+                       "• ❓ **General Support** - General questions or support\n\n"
+                       "**📋 Important Guidelines:**\n"
+                       "• **Player Reports**: Provide clear evidence, preferably video files\n"
+                       "• **Bug Reports**: Include device type, steps to reproduce, and error messages\n"
+                       "• **Cheating Bans**: Cannot be appealed unless innocence is proven\n"
+                       "• Be respectful and patient with support staff\n"
                        "• One ticket per issue",
             color=0x4ecdc4
         )
@@ -137,9 +143,11 @@ class ExpeditionTickets(commands.Cog):
                            f"**Ticket Type:** {ticket_info['name']}\n"
                            f"**Created:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
                            f"**User:** {user.mention} ({user.id})\n\n"
-                           f"**Please provide the following information:**\n"
+                           f"**📋 Requirements:**\n"
+                           f"{ticket_info.get('requirements', 'Please provide detailed information about your issue.')}\n\n"
+                           f"**Please provide:**\n"
                            f"• Detailed description of your issue\n"
-                           f"• Any relevant evidence (screenshots, logs)\n"
+                           f"• Any relevant evidence (screenshots, logs, videos)\n"
                            f"• Steps to reproduce (if applicable)\n"
                            f"• What you've already tried (if applicable)\n\n"
                            f"Support staff will assist you as soon as possible.",
@@ -332,7 +340,7 @@ class TicketSelectionView(View):
         super().__init__(timeout=None)
         self.ticket_system = ticket_system
 
-    @discord.ui.button(label="🚨 Player Report", style=discord.ButtonStyle.danger, custom_id="ticket_player_report")
+    @discord.ui.button(label="🛡️ Player Report", style=discord.ButtonStyle.danger, custom_id="ticket_player_report")
     async def player_report(self, interaction: discord.Interaction, button: Button):
         await self.ticket_system.create_ticket(interaction, "player_report")
 

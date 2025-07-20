@@ -9,7 +9,7 @@ import os
 from datetime import datetime, timedelta
 import database as db
 import pymongo
-from bson import json_util
+from pymongo import json_util
 import hashlib
 import threading
 import time
