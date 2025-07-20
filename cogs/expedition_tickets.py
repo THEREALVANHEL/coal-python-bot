@@ -13,19 +13,20 @@ class ExpeditionTickets(commands.Cog):
         self.ticket_category_id = None  # Set this to your ticket category ID
         self.support_role_id = None  # Set this to your support role ID
         self.log_channel_id = None  # Set this to your log channel ID
+        self.forgotten_role_id = None  # Role to ping when tickets are created
         
         # Ticket configuration
         self.ticket_types = {
             "player_report": {
-                "name": "🛡️ Player Report",
-                "description": "Report other players for using third-party software (exploits) to gain unfair advantage",
+                "name": "🛡️ Player Report (In Expedition Antarctica)",
+                "description": "Report other players for using a third-party software (exploits) to gain an unfair advantage. Provide us with sufficient evidence to help us review the report and take appropriate action, preferably video files. Players that are banned for cheating cannot appeal, unless their innocence is proven.",
                 "color": 0xff0000,
                 "emoji": "🛡️",
-                "requirements": "Please provide clear evidence, preferably a video file, when reporting another player for using third-party software (exploits). Players that are banned for cheating cannot appeal, unless their innocence is proven."
+                "requirements": "Please provide clear evidence, preferable a video file, when reporting another player for using a third-party software (exploits)."
             },
             "bug_report": {
                 "name": "🐛 Bug Report",
-                "description": "Report bugs that need immediate attention from developers",
+                "description": "Is something not working as intended and it needs immediate attention from the developers? Report it and ensure to include sufficient details to help us identify and resolve the issue.",
                 "color": 0xff6b6b,
                 "emoji": "🐛",
                 "requirements": "Include as much detail as possible (device type, steps to reproduce the issue and any error messages) when reporting a bug."
@@ -60,15 +61,14 @@ class ExpeditionTickets(commands.Cog):
             title="🎫 EXPEDITION Antarctica - Support Tickets",
             description="Welcome to the EXPEDITION Antarctica support system!\n\n"
                        "**Choose the appropriate ticket type below:**\n"
-                       "• 🛡️ **Player Report** - Report players using exploits/third-party software\n"
+                       "• 🛡️ **Player Report (In Expedition Antarctica)** - Report players using exploits/third-party software\n"
                        "• 🐛 **Bug Report** - Report bugs needing immediate developer attention\n"
                        "• 💡 **Suggestion** - Suggest improvements or new features\n"
                        "• ⚖️ **Appeal** - Appeal bans or punishments\n"
                        "• ❓ **General Support** - General questions or support\n\n"
                        "**📋 Important Guidelines:**\n"
-                       "• **Player Reports**: Provide clear evidence, preferably video files\n"
+                       "• **Player Reports**: Provide clear evidence, preferably video files. Players banned for cheating cannot appeal unless innocence is proven.\n"
                        "• **Bug Reports**: Include device type, steps to reproduce, and error messages\n"
-                       "• **Cheating Bans**: Cannot be appealed unless innocence is proven\n"
                        "• Be respectful and patient with support staff\n"
                        "• One ticket per issue",
             color=0x4ecdc4
@@ -92,6 +92,20 @@ class ExpeditionTickets(commands.Cog):
         # Create ticket selection view
         view = TicketSelectionView(self)
         await interaction.response.send_message(embed=embed, view=view)
+
+    @app_commands.command(name="set_forgotten_role", description="🔧 Set the role to ping when tickets are created")
+    @app_commands.default_permissions(administrator=True)
+    async def set_forgotten_role(self, interaction: discord.Interaction, role: discord.Role):
+        """Set the forgotten role that gets pinged when tickets are created"""
+        self.forgotten_role_id = role.id
+        
+        embed = discord.Embed(
+            title="✅ Forgotten Role Set",
+            description=f"The forgotten role has been set to {role.mention}\n\n"
+                       f"This role will be pinged whenever a new ticket is created.",
+            color=0x00ff00
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def create_ticket(self, interaction: discord.Interaction, ticket_type: str):
         """Create a new support ticket"""
@@ -128,6 +142,12 @@ class ExpeditionTickets(commands.Cog):
                 support_role = interaction.guild.get_role(self.support_role_id)
                 if support_role:
                     overwrites[support_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True)
+            
+            # Add forgotten role permissions
+            if self.forgotten_role_id:
+                forgotten_role = interaction.guild.get_role(self.forgotten_role_id)
+                if forgotten_role:
+                    overwrites[forgotten_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True)
             
             ticket_channel = await interaction.guild.create_text_channel(
                 name=channel_name,
@@ -168,7 +188,22 @@ class ExpeditionTickets(commands.Cog):
             # Create ticket management buttons
             view = TicketManagementView(self, ticket_channel, user)
             
+            # Send the embed first
             await ticket_channel.send(embed=embed, view=view)
+            
+            # Then ping the forgotten role if it exists
+            if self.forgotten_role_id:
+                forgotten_role = interaction.guild.get_role(self.forgotten_role_id)
+                if forgotten_role:
+                    ping_embed = discord.Embed(
+                        title="🔔 New Ticket Created",
+                        description=f"A new {ticket_info['name']} ticket has been created by {user.mention}\n\n"
+                                   f"**Ticket:** {ticket_channel.mention}\n"
+                                   f"**Type:** {ticket_info['name']}\n"
+                                   f"**User:** {user.mention}",
+                        color=0xffd700
+                    )
+                    await ticket_channel.send(f"{forgotten_role.mention}", embed=ping_embed)
             
             # Send confirmation to user
             confirm_embed = discord.Embed(

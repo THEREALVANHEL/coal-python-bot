@@ -1,6 +1,13 @@
-PYMONGO_FIX_DEPLOYMENT_TRIGGER - 2025-01-20 07:55:00 UTC
+PYMONGO_FIX_AND_EXPEDITION_UPDATE - 2025-01-20 08:00:00 UTC
 Fixed PyMongo version from 4.7.1 to 4.6.3 to resolve SON import error
-This should fix all cog loading failures
+Updated Expedition Ticket System with:
+- New "forgotten role" ping functionality when tickets are created
+- Updated Player Report title to "🛡️ Player Report (In Expedition Antarctica)"
+- Enhanced Bug Report description as requested
+- Added /set_forgotten_role command for administrators
+- Role gets pinged with notification embed when new tickets are created
+
+This should fix all cog loading failures and improve ticket system
 All 18 cogs should now load successfully
 Bot should be fully functional after this deployment
 
