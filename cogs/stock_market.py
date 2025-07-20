@@ -157,7 +157,7 @@ class StockMarket(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="buy", description="💰 Buy stocks")
+    @app_commands.command(name="buystock", description="💰 Buy stocks")
     async def buy(self, interaction: discord.Interaction, symbol: str, shares: int):
         symbol = symbol.upper()
         
@@ -300,7 +300,7 @@ class StockMarket(commands.Cog):
         if not portfolio:
             embed = discord.Embed(
                 title="💼 Empty Portfolio",
-                description="You don't own any stocks yet. Use `/stocks` to view available stocks and `/buy` to start investing!",
+                description="You don't own any stocks yet. Use `/stocks` to view available stocks and `/buystock` to start investing!",
                 color=0xff6b6b
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
