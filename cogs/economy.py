@@ -1663,5 +1663,154 @@ class Economy(commands.Cog):
             except:
                 await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
+    @app_commands.command(name="deposit", description="🏦 Deposit coins into your bank account")
+    async def deposit(self, interaction: discord.Interaction, amount: int):
+        """Deposit coins into bank account"""
+        if amount <= 0:
+            await interaction.response.send_message("❌ You must deposit a positive amount!", ephemeral=True)
+            return
+        
+        user_data = db.get_user_data(interaction.user.id)
+        current_coins = user_data.get('coins', 0)
+        current_bank = user_data.get('bank', 0)
+        
+        if current_coins < amount:
+            await interaction.response.send_message(f"❌ You don't have enough coins! You have {current_coins} coins.", ephemeral=True)
+            return
+        
+        # Remove coins from wallet and add to bank
+        new_coins = current_coins - amount
+        new_bank = current_bank + amount
+        
+        # Update database
+        success = db.update_user_data(interaction.user.id, {'coins': new_coins, 'bank': new_bank})
+        
+        if success:
+            embed = discord.Embed(
+                title="🏦 Deposit Successful!",
+                description=f"You deposited **{amount:,}** coins into your bank account.",
+                color=0x00ff00
+            )
+            embed.add_field(
+                name="💰 Wallet Balance",
+                value=f"{new_coins:,} coins",
+                inline=True
+            )
+            embed.add_field(
+                name="🏦 Bank Balance", 
+                value=f"{new_bank:,} coins",
+                inline=True
+            )
+            embed.add_field(
+                name="💎 Total Worth",
+                value=f"{new_coins + new_bank:,} coins",
+                inline=True
+            )
+            embed.set_footer(text="💡 Your bank account is safe from gambling losses!")
+            
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("❌ Failed to deposit coins. Please try again.", ephemeral=True)
+
+    @app_commands.command(name="withdraw", description="🏦 Withdraw coins from your bank account")
+    async def withdraw(self, interaction: discord.Interaction, amount: int):
+        """Withdraw coins from bank account"""
+        if amount <= 0:
+            await interaction.response.send_message("❌ You must withdraw a positive amount!", ephemeral=True)
+            return
+        
+        user_data = db.get_user_data(interaction.user.id)
+        current_coins = user_data.get('coins', 0)
+        current_bank = user_data.get('bank', 0)
+        
+        if current_bank < amount:
+            await interaction.response.send_message(f"❌ You don't have enough coins in your bank! You have {current_bank} coins in the bank.", ephemeral=True)
+            return
+        
+        # Remove coins from bank and add to wallet
+        new_coins = current_coins + amount
+        new_bank = current_bank - amount
+        
+        # Update database
+        success = db.update_user_data(interaction.user.id, {'coins': new_coins, 'bank': new_bank})
+        
+        if success:
+            embed = discord.Embed(
+                title="🏦 Withdrawal Successful!",
+                description=f"You withdrew **{amount:,}** coins from your bank account.",
+                color=0x00ff00
+            )
+            embed.add_field(
+                name="💰 Wallet Balance",
+                value=f"{new_coins:,} coins",
+                inline=True
+            )
+            embed.add_field(
+                name="🏦 Bank Balance",
+                value=f"{new_bank:,} coins", 
+                inline=True
+            )
+            embed.add_field(
+                name="💎 Total Worth",
+                value=f"{new_coins + new_bank:,} coins",
+                inline=True
+            )
+            embed.set_footer(text="💰 Use your coins wisely!")
+            
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message("❌ Failed to withdraw coins. Please try again.", ephemeral=True)
+
+    @app_commands.command(name="bank", description="🏦 Check your bank account balance")
+    async def bank_balance(self, interaction: discord.Interaction):
+        """Check bank account balance"""
+        user_data = db.get_user_data(interaction.user.id)
+        wallet_coins = user_data.get('coins', 0)
+        bank_coins = user_data.get('bank', 0)
+        total_worth = wallet_coins + bank_coins
+        
+        embed = discord.Embed(
+            title="🏦 Bank Account Summary",
+            description=f"**{interaction.user.display_name}'s Financial Overview**",
+            color=0x7289da
+        )
+        
+        embed.add_field(
+            name="💰 Wallet Balance",
+            value=f"**{wallet_coins:,}** coins\n*Available for spending*",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🏦 Bank Balance", 
+            value=f"**{bank_coins:,}** coins\n*Safe from gambling*",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="💎 Total Net Worth",
+            value=f"**{total_worth:,}** coins\n*Combined wealth*",
+            inline=True
+        )
+        
+        # Add some banking tips
+        if bank_coins == 0:
+            embed.add_field(
+                name="💡 Banking Tip",
+                value="Consider depositing some coins to keep them safe from gambling losses!",
+                inline=False
+            )
+        elif bank_coins > wallet_coins * 2:
+            embed.add_field(
+                name="💡 Banking Tip", 
+                value="You have most of your wealth in the bank - very safe strategy!",
+                inline=False
+            )
+        
+        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        embed.set_footer(text="🏦 Use /deposit and /withdraw to manage your money")
+        
+        await interaction.response.send_message(embed=embed)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Economy(bot))

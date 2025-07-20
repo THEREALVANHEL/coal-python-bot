@@ -405,7 +405,7 @@ if client is not None:
 def get_user_data(user_id):
     """Get user data from database"""
     if users_collection is None:
-        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
+        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0, "bank": 0}
 
     try:
         # Get user data directly without validation to prevent recursion
@@ -421,7 +421,8 @@ def get_user_data(user_id):
                 "last_daily": 0,
                 "last_work": 0,
                 "temporary_purchases": [],
-                "last_updated": time.time()
+                "last_updated": time.time(),
+                "bank": 0
             }
             
             for key, default_value in defaults.items():
@@ -436,12 +437,12 @@ def get_user_data(user_id):
     except Exception as e:
         print(f"Error getting user data for {user_id}: {e}")
         # Return safe defaults if database fails
-        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
+        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0, "bank": 0}
 
 def create_user_data(user_id):
     """Create new user data with all required fields"""
     if users_collection is None:
-        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
+        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0, "bank": 0}
 
     try:
         current_time = time.time()
@@ -456,7 +457,8 @@ def create_user_data(user_id):
             "last_work": 0,
             "temporary_purchases": [],
             "created_at": current_time,
-            "last_updated": current_time
+            "last_updated": current_time,
+            "bank": 0
         }
         
         users_collection.insert_one(user_data)
@@ -464,7 +466,7 @@ def create_user_data(user_id):
         
     except Exception as e:
         print(f"Error creating user data for {user_id}: {e}")
-        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0}
+        return {"user_id": user_id, "xp": 0, "level": 0, "cookies": 0, "coins": 0, "daily_streak": 0, "bank": 0}
 
 def add_xp(user_id, xp_amount):
     """Add XP to user"""
