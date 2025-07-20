@@ -808,9 +808,9 @@ class EnhancedMiniGames(commands.Cog):
         
         # Set reward based on difficulty
         rewards = {
-            "easy": 50,
-            "medium": 100,
-            "hard": 200
+            "easy": 2,
+            "medium": 2,
+            "hard": 2
         }
         
         return {
