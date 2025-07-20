@@ -129,8 +129,8 @@ class EnhancedMiniGames(commands.Cog):
         return False
 
     def generate_ai_trivia_question(self, difficulty: str = "medium") -> dict:
-        """Generate AI-powered trivia questions dynamically"""
-        # Categories and their question templates
+        """Generate AI-powered trivia questions dynamically with enhanced categories"""
+        # Enhanced categories and their question templates
         categories = {
             "programming": {
                 "easy": [
@@ -141,7 +141,19 @@ class EnhancedMiniGames(commands.Cog):
                     "What does 'CSS' stand for?",
                     "Which company created JavaScript?",
                     "What does 'URL' stand for?",
-                    "Which tag is used for line breaks in HTML?"
+                    "Which tag is used for line breaks in HTML?",
+                    "What does 'API' stand for?",
+                    "Which data structure follows LIFO principle?",
+                    "What does 'JSON' stand for?",
+                    "Which HTTP method is used to retrieve data?",
+                    "What is the default port for HTTP?",
+                    "Which programming language was created by Guido van Rossum?",
+                    "What does 'SQL' stand for?",
+                    "Which browser engine does Chrome use?",
+                    "What is the main purpose of Git?",
+                    "Which language is used for Android development?",
+                    "What does 'IDE' stand for?",
+                    "Which protocol is used for secure web communication?"
                 ],
                 "medium": [
                     "What is the time complexity of binary search?",
@@ -151,7 +163,19 @@ class EnhancedMiniGames(commands.Cog):
                     "What does 'JSON' stand for?",
                     "Which HTTP method is used to retrieve data?",
                     "What is the default port for HTTP?",
-                    "Which programming language was created by Guido van Rossum?"
+                    "Which programming language was created by Guido van Rossum?",
+                    "What is the difference between TCP and UDP?",
+                    "Which sorting algorithm has best average case performance?",
+                    "What is the time complexity of quicksort in worst case?",
+                    "Which data structure is best for implementing a priority queue?",
+                    "What does ACID stand for in database systems?",
+                    "Which consensus algorithm is used in Bitcoin?",
+                    "What is the space complexity of merge sort?",
+                    "Which algorithm is used for finding shortest path in unweighted graphs?",
+                    "What is the difference between machine learning and deep learning?",
+                    "Which encryption algorithm is considered quantum-resistant?",
+                    "What is the theoretical maximum speed of USB 3.0?",
+                    "Which protocol is used for secure web communication?"
                 ],
                 "hard": [
                     "What is the space complexity of merge sort?",
@@ -161,7 +185,19 @@ class EnhancedMiniGames(commands.Cog):
                     "What is the time complexity of quicksort in worst case?",
                     "Which data structure is best for implementing a priority queue?",
                     "What does ACID stand for in database systems?",
-                    "Which consensus algorithm is used in Bitcoin?"
+                    "Which consensus algorithm is used in Bitcoin?",
+                    "What is the difference between machine learning and deep learning?",
+                    "Which encryption algorithm is considered quantum-resistant?",
+                    "What is the theoretical maximum speed of USB 3.0?",
+                    "Which protocol is used for secure web communication?",
+                    "What is the time complexity of Dijkstra's algorithm?",
+                    "Which data structure is used in garbage collection?",
+                    "What is the difference between synchronous and asynchronous programming?",
+                    "Which algorithm is used for RSA encryption?",
+                    "What is the time complexity of matrix multiplication?",
+                    "Which protocol is used for real-time communication?",
+                    "What is the difference between REST and GraphQL?",
+                    "Which algorithm is used for blockchain consensus?"
                 ]
             },
             "general": {
@@ -173,7 +209,19 @@ class EnhancedMiniGames(commands.Cog):
                     "What color do you get when you mix red and blue?",
                     "How many sides does a triangle have?",
                     "What is the largest ocean on Earth?",
-                    "Which season comes after summer?"
+                    "Which season comes after summer?",
+                    "What is the capital of Japan?",
+                    "Which planet is closest to the Sun?",
+                    "What is the chemical symbol for gold?",
+                    "How many days are in a leap year?",
+                    "What is the largest mammal on Earth?",
+                    "Which country is home to the kangaroo?",
+                    "What is the capital of Australia?",
+                    "Which element has the symbol 'O'?",
+                    "What is the smallest country in the world?",
+                    "Which mountain is the tallest in the world?",
+                    "What is the capital of Brazil?",
+                    "Which planet is known as the Red Planet?"
                 ],
                 "medium": [
                     "Who invented the telephone?",
@@ -183,7 +231,19 @@ class EnhancedMiniGames(commands.Cog):
                     "What is the capital of Australia?",
                     "Which planet is closest to the Sun?",
                     "Who painted the Mona Lisa?",
-                    "What is the smallest country in the world?"
+                    "What is the smallest country in the world?",
+                    "What is the chemical formula for water?",
+                    "In which year was the first moon landing?",
+                    "What is the hardest natural substance on Earth?",
+                    "Which gas makes up most of Earth's atmosphere?",
+                    "Who developed the theory of relativity?",
+                    "What is the Planck constant approximately?",
+                    "Which mountain range separates Europe and Asia?",
+                    "What is the smallest unit of matter?",
+                    "Which country has the largest population?",
+                    "What is the capital of South Africa?",
+                    "Which element is most abundant in the universe?",
+                    "What is the largest desert in the world?"
                 ],
                 "hard": [
                     "What is the smallest unit of matter?",
@@ -193,7 +253,19 @@ class EnhancedMiniGames(commands.Cog):
                     "What is the chemical formula for water?",
                     "In which year was the first moon landing?",
                     "What is the hardest natural substance on Earth?",
-                    "Which gas makes up most of Earth's atmosphere?"
+                    "Which gas makes up most of Earth's atmosphere?",
+                    "What is the speed of sound in air?",
+                    "Which element is most abundant in the universe?",
+                    "What is the largest desert in the world?",
+                    "Which country has the largest population?",
+                    "What is the capital of South Africa?",
+                    "Which element is most abundant in the universe?",
+                    "What is the largest desert in the world?",
+                    "What is the speed of sound in air?",
+                    "Which element is most abundant in the universe?",
+                    "What is the largest desert in the world?",
+                    "Which country has the largest population?",
+                    "What is the capital of South Africa?"
                 ]
             },
             "technology": {
@@ -201,19 +273,203 @@ class EnhancedMiniGames(commands.Cog):
                     "What does 'WWW' stand for?",
                     "Which company created the iPhone?",
                     "What is the most popular search engine?",
-                    "What does 'USB' stand for?"
+                    "What does 'USB' stand for?",
+                    "Which company owns YouTube?",
+                    "What does 'CPU' stand for?",
+                    "Which operating system is used by most smartphones?",
+                    "What does 'RAM' stand for?",
+                    "Which company created Windows?",
+                    "What does 'WiFi' stand for?",
+                    "Which company owns Instagram?",
+                    "What does 'GPU' stand for?",
+                    "Which browser is most popular?",
+                    "What does 'SSD' stand for?",
+                    "Which company created Android?",
+                    "What does 'LAN' stand for?",
+                    "Which company owns WhatsApp?",
+                    "What does 'HDD' stand for?",
+                    "Which company created macOS?",
+                    "What does 'VPN' stand for?"
                 ],
                 "medium": [
                     "Who founded Microsoft?",
                     "What is the latest version of HTTP?",
                     "Which programming language was created by Google?",
-                    "What does 'IoT' stand for?"
+                    "What does 'IoT' stand for?",
+                    "Who founded Apple?",
+                    "What is the latest version of HTML?",
+                    "Which company owns GitHub?",
+                    "What does 'AI' stand for?",
+                    "Who founded Tesla?",
+                    "What is the latest version of CSS?",
+                    "Which company owns LinkedIn?",
+                    "What does 'ML' stand for?",
+                    "Who founded Amazon?",
+                    "What is the latest version of JavaScript?",
+                    "Which company owns Twitter?",
+                    "What does 'VR' stand for?",
+                    "Who founded Facebook?",
+                    "What is the latest version of Python?",
+                    "Which company owns Discord?",
+                    "What does 'AR' stand for?"
                 ],
                 "hard": [
                     "What is the theoretical maximum speed of USB 3.0?",
                     "Which encryption algorithm is considered quantum-resistant?",
                     "What is the difference between machine learning and deep learning?",
-                    "Which protocol is used for secure web communication?"
+                    "Which protocol is used for secure web communication?",
+                    "What is the theoretical maximum speed of WiFi 6?",
+                    "Which consensus algorithm is used in Ethereum?",
+                    "What is the difference between blockchain and traditional databases?",
+                    "Which protocol is used for real-time communication?",
+                    "What is the theoretical maximum speed of 5G?",
+                    "Which encryption algorithm is used in Bitcoin?",
+                    "What is the difference between REST and GraphQL?",
+                    "Which protocol is used for IoT communication?",
+                    "What is the theoretical maximum speed of fiber optics?",
+                    "Which consensus algorithm is used in Solana?",
+                    "What is the difference between edge computing and cloud computing?",
+                    "Which protocol is used for blockchain communication?",
+                    "What is the theoretical maximum speed of quantum computing?",
+                    "Which encryption algorithm is used in Ethereum?",
+                    "What is the difference between Web3 and Web2?",
+                    "Which protocol is used for quantum communication?"
+                ]
+            },
+            "science": {
+                "easy": [
+                    "What is the chemical symbol for water?",
+                    "Which planet is closest to Earth?",
+                    "What is the largest organ in the human body?",
+                    "Which gas do plants absorb from the air?",
+                    "What is the hardest natural substance?",
+                    "Which planet has the most moons?",
+                    "What is the smallest unit of life?",
+                    "Which element is most abundant in Earth's crust?",
+                    "What is the speed of light?",
+                    "Which planet is known as the Red Planet?",
+                    "What is the chemical symbol for gold?",
+                    "Which gas do humans breathe out?",
+                    "What is the largest mammal?",
+                    "Which planet has rings?",
+                    "What is the chemical symbol for oxygen?",
+                    "Which gas makes up most of the atmosphere?",
+                    "What is the smallest planet?",
+                    "Which element is most abundant in the universe?",
+                    "What is the chemical symbol for carbon?",
+                    "Which planet is the hottest?"
+                ],
+                "medium": [
+                    "What is the atomic number of carbon?",
+                    "Which planet has the strongest magnetic field?",
+                    "What is the largest cell in the human body?",
+                    "Which gas is responsible for the ozone layer?",
+                    "What is the speed of sound in air?",
+                    "Which planet has the most volcanoes?",
+                    "What is the smallest bone in the human body?",
+                    "Which element is most reactive?",
+                    "What is the temperature of absolute zero?",
+                    "Which planet has the longest day?",
+                    "What is the atomic number of oxygen?",
+                    "Which gas is responsible for acid rain?",
+                    "What is the largest muscle in the human body?",
+                    "Which planet has the most extreme weather?",
+                    "What is the atomic number of nitrogen?",
+                    "Which gas is responsible for the greenhouse effect?",
+                    "What is the smallest planet in our solar system?",
+                    "Which element is most abundant in the human body?",
+                    "What is the atomic number of hydrogen?",
+                    "Which gas is responsible for global warming?"
+                ],
+                "hard": [
+                    "What is the Planck constant?",
+                    "Which planet has the most extreme temperature variations?",
+                    "What is the largest organelle in a cell?",
+                    "Which gas is responsible for the aurora borealis?",
+                    "What is the speed of light in a vacuum?",
+                    "Which planet has the most complex atmosphere?",
+                    "What is the smallest particle in the universe?",
+                    "Which element is most abundant in the sun?",
+                    "What is the temperature of the sun's core?",
+                    "Which planet has the most extreme pressure?",
+                    "What is the atomic number of helium?",
+                    "Which gas is responsible for the blue sky?",
+                    "What is the largest structure in the universe?",
+                    "Which planet has the most extreme gravity?",
+                    "What is the atomic number of neon?",
+                    "Which gas is responsible for the red sunset?",
+                    "What is the smallest black hole possible?",
+                    "Which element is most abundant in the Milky Way?",
+                    "What is the atomic number of lithium?",
+                    "Which gas is responsible for the white clouds?"
+                ]
+            },
+            "history": {
+                "easy": [
+                    "In which year did World War II end?",
+                    "Who was the first President of the United States?",
+                    "Which country was ruled by the Roman Empire?",
+                    "In which year did Columbus discover America?",
+                    "Who was the first Emperor of Rome?",
+                    "Which country was ruled by the British Empire?",
+                    "In which year did the French Revolution begin?",
+                    "Who was the first King of England?",
+                    "Which country was ruled by the Ottoman Empire?",
+                    "In which year did the American Civil War end?",
+                    "Who was the first Emperor of China?",
+                    "Which country was ruled by the Spanish Empire?",
+                    "In which year did the Industrial Revolution begin?",
+                    "Who was the first King of France?",
+                    "Which country was ruled by the Portuguese Empire?",
+                    "In which year did the Russian Revolution occur?",
+                    "Who was the first Emperor of Japan?",
+                    "Which country was ruled by the Dutch Empire?",
+                    "In which year did the Berlin Wall fall?",
+                    "Who was the first King of Spain?"
+                ],
+                "medium": [
+                    "Who was the first Emperor of the Holy Roman Empire?",
+                    "In which year did the Black Death begin?",
+                    "Which country was ruled by the Byzantine Empire?",
+                    "Who was the first King of Portugal?",
+                    "In which year did the Hundred Years' War begin?",
+                    "Which country was ruled by the Mongol Empire?",
+                    "Who was the first Emperor of Russia?",
+                    "In which year did the Thirty Years' War begin?",
+                    "Which country was ruled by the Persian Empire?",
+                    "Who was the first King of Sweden?",
+                    "In which year did the Seven Years' War begin?",
+                    "Which country was ruled by the Austrian Empire?",
+                    "Who was the first Emperor of Austria?",
+                    "In which year did the Napoleonic Wars begin?",
+                    "Which country was ruled by the Prussian Empire?",
+                    "Who was the first King of Prussia?",
+                    "In which year did the Crimean War begin?",
+                    "Which country was ruled by the German Empire?",
+                    "Who was the first Emperor of Germany?",
+                    "In which year did the Boer War begin?"
+                ],
+                "hard": [
+                    "Who was the first Emperor of the Carolingian Empire?",
+                    "In which year did the Great Schism occur?",
+                    "Which country was ruled by the Merovingian Dynasty?",
+                    "Who was the first King of the Franks?",
+                    "In which year did the Investiture Controversy begin?",
+                    "Which country was ruled by the Carolingian Dynasty?",
+                    "Who was the first Emperor of the Holy Roman Empire?",
+                    "In which year did the Albigensian Crusade begin?",
+                    "Which country was ruled by the Capetian Dynasty?",
+                    "Who was the first King of the Capetian Dynasty?",
+                    "In which year did the Reconquista begin?",
+                    "Which country was ruled by the Plantagenet Dynasty?",
+                    "Who was the first King of the Plantagenet Dynasty?",
+                    "In which year did the Hundred Years' War begin?",
+                    "Which country was ruled by the Valois Dynasty?",
+                    "Who was the first King of the Valois Dynasty?",
+                    "In which year did the Wars of the Roses begin?",
+                    "Which country was ruled by the Tudor Dynasty?",
+                    "Who was the first King of the Tudor Dynasty?",
+                    "In which year did the English Reformation begin?"
                 ]
             }
         }
@@ -223,7 +479,7 @@ class EnhancedMiniGames(commands.Cog):
         questions = categories[category][difficulty]
         question_text = random.choice(questions)
         
-        # Generate realistic but random options based on category
+        # Generate realistic but random options based on category and question
         if category == "programming":
             if "Python" in question_text:
                 options = ["Python", "Java", "C++", "JavaScript"]
@@ -246,51 +502,44 @@ class EnhancedMiniGames(commands.Cog):
             elif "API" in question_text:
                 options = ["Application Programming Interface", "Automated Program Integration", "Advanced Programming Instructions", "Application Process Interface"]
                 correct = 0
-            elif "Singleton" in question_text or "one instance" in question_text:
-                options = ["Singleton", "Factory", "Observer", "Strategy"]
-                correct = 0
-            elif "CSS" in question_text:
-                options = ["Cascading Style Sheets", "Computer Style Sheets", "Creative Style Sheets", "Colorful Style Sheets"]
-                correct = 0
-            elif "JavaScript" in question_text and "company" in question_text:
-                options = ["Netscape", "Microsoft", "Google", "Mozilla"]
-                correct = 0
-            elif "URL" in question_text:
-                options = ["Uniform Resource Locator", "Universal Resource Locator", "Unique Resource Locator", "United Resource Locator"]
-                correct = 0
-            elif "line breaks" in question_text:
-                options = ["<br>", "<break>", "<lb>", "<newline>"]
-                correct = 0
             elif "JSON" in question_text:
-                options = ["JavaScript Object Notation", "Java Standard Object Notation", "JavaScript Organized Notation", "Java Structured Object Notation"]
+                options = ["JavaScript Object Notation", "Java Standard Object Network", "JavaScript Online Network", "Java System Object Notation"]
                 correct = 0
-            elif "HTTP method" in question_text and "retrieve" in question_text:
+            elif "HTTP" in question_text:
                 options = ["GET", "POST", "PUT", "DELETE"]
                 correct = 0
-            elif "default port" in question_text and "HTTP" in question_text:
+            elif "port" in question_text:
                 options = ["80", "443", "8080", "3000"]
                 correct = 0
-            elif "Guido van Rossum" in question_text:
-                options = ["Python", "Java", "Ruby", "JavaScript"]
+            elif "Guido" in question_text:
+                options = ["Python", "Java", "C++", "JavaScript"]
                 correct = 0
-            elif "quicksort" in question_text and "worst case" in question_text:
-                options = ["O(n²)", "O(n log n)", "O(n)", "O(log n)"]
+            elif "SQL" in question_text:
+                options = ["Structured Query Language", "Standard Query Language", "Simple Query Language", "System Query Language"]
                 correct = 0
-            elif "priority queue" in question_text:
-                options = ["Heap", "Stack", "Queue", "Array"]
+            elif "Chrome" in question_text:
+                options = ["Blink", "Gecko", "WebKit", "Trident"]
                 correct = 0
-            elif "ACID" in question_text:
-                options = ["Atomicity Consistency Isolation Durability", "Advanced Computer Information Database", "Automatic Consistent Information Database", "Advanced Consistent Integrated Data"]
+            elif "Git" in question_text:
+                options = ["Version Control", "Database", "Web Server", "Programming Language"]
                 correct = 0
-            elif "Bitcoin" in question_text and "consensus" in question_text:
-                options = ["Proof of Work", "Proof of Stake", "Delegated Proof of Stake", "Proof of Authority"]
+            elif "Android" in question_text:
+                options = ["Java", "Python", "C++", "JavaScript"]
+                correct = 0
+            elif "IDE" in question_text:
+                options = ["Integrated Development Environment", "Internet Development Engine", "Interactive Development Editor", "Integrated Design Environment"]
+                correct = 0
+            elif "HTTPS" in question_text:
+                options = ["SSL/TLS", "HTTP", "FTP", "SMTP"]
                 correct = 0
             else:
-                options = ["Option A", "Option B", "Option C", "Option D"]
+                # Generic programming options
+                options = ["Python", "Java", "C++", "JavaScript"]
                 correct = random.randint(0, 3)
+        
         elif category == "general":
             if "largest planet" in question_text:
-                options = ["Jupiter", "Saturn", "Earth", "Mars"]
+                options = ["Jupiter", "Saturn", "Neptune", "Uranus"]
                 correct = 0
             elif "continents" in question_text:
                 options = ["7", "6", "8", "5"]
@@ -298,63 +547,68 @@ class EnhancedMiniGames(commands.Cog):
             elif "France" in question_text:
                 options = ["Paris", "London", "Berlin", "Madrid"]
                 correct = 0
-            elif "king of jungle" in question_text:
-                options = ["Lion", "Tiger", "Elephant", "Leopard"]
+            elif "king of the jungle" in question_text:
+                options = ["Lion", "Tiger", "Elephant", "Gorilla"]
                 correct = 0
-            elif "telephone" in question_text:
-                options = ["Alexander Graham Bell", "Thomas Edison", "Nikola Tesla", "Benjamin Franklin"]
+            elif "red and blue" in question_text:
+                options = ["Purple", "Green", "Orange", "Brown"]
                 correct = 0
-            elif "speed of light" in question_text:
-                options = ["299,792,458 m/s", "300,000,000 m/s", "299,000,000 m/s", "301,000,000 m/s"]
-                correct = 0
-            elif "Au" in question_text:
-                options = ["Gold", "Silver", "Aluminum", "Argon"]
-                correct = 0
-            elif "mix red and blue" in question_text:
-                options = ["Purple", "Green", "Orange", "Yellow"]
-                correct = 0
-            elif "sides does a triangle" in question_text:
+            elif "triangle" in question_text:
                 options = ["3", "4", "5", "6"]
                 correct = 0
             elif "largest ocean" in question_text:
                 options = ["Pacific", "Atlantic", "Indian", "Arctic"]
                 correct = 0
-            elif "season comes after summer" in question_text:
-                options = ["Autumn", "Winter", "Spring", "Fall"]
+            elif "summer" in question_text:
+                options = ["Fall", "Winter", "Spring", "Autumn"]
                 correct = 0
-            elif "capital of Australia" in question_text:
-                options = ["Canberra", "Sydney", "Melbourne", "Brisbane"]
+            elif "Japan" in question_text:
+                options = ["Tokyo", "Kyoto", "Osaka", "Yokohama"]
                 correct = 0
             elif "closest to the Sun" in question_text:
                 options = ["Mercury", "Venus", "Earth", "Mars"]
                 correct = 0
-            elif "Mona Lisa" in question_text:
-                options = ["Leonardo da Vinci", "Michelangelo", "Picasso", "Van Gogh"]
+            elif "gold" in question_text:
+                options = ["Au", "Ag", "Fe", "Cu"]
+                correct = 0
+            elif "leap year" in question_text:
+                options = ["366", "365", "364", "367"]
+                correct = 0
+            elif "largest mammal" in question_text:
+                options = ["Blue Whale", "Elephant", "Giraffe", "Hippopotamus"]
+                correct = 0
+            elif "kangaroo" in question_text:
+                options = ["Australia", "New Zealand", "South Africa", "India"]
+                correct = 0
+            elif "Australia" in question_text:
+                options = ["Canberra", "Sydney", "Melbourne", "Brisbane"]
+                correct = 0
+            elif "oxygen" in question_text:
+                options = ["O", "O2", "Ox", "O3"]
                 correct = 0
             elif "smallest country" in question_text:
-                options = ["Vatican City", "Monaco", "Malta", "San Marino"]
+                options = ["Vatican City", "Monaco", "San Marino", "Liechtenstein"]
                 correct = 0
-            elif "chemical formula for water" in question_text:
-                options = ["H2O", "CO2", "O2", "H2SO4"]
+            elif "tallest mountain" in question_text:
+                options = ["Mount Everest", "K2", "Kangchenjunga", "Lhotse"]
                 correct = 0
-            elif "first moon landing" in question_text:
-                options = ["1969", "1968", "1970", "1971"]
+            elif "Brazil" in question_text:
+                options = ["Brasília", "São Paulo", "Rio de Janeiro", "Salvador"]
                 correct = 0
-            elif "hardest natural substance" in question_text:
-                options = ["Diamond", "Quartz", "Steel", "Iron"]
-                correct = 0
-            elif "makes up most of Earth's atmosphere" in question_text:
-                options = ["Nitrogen", "Oxygen", "Carbon Dioxide", "Argon"]
+            elif "Red Planet" in question_text:
+                options = ["Mars", "Venus", "Jupiter", "Saturn"]
                 correct = 0
             else:
+                # Generic general options
                 options = ["Option A", "Option B", "Option C", "Option D"]
                 correct = random.randint(0, 3)
-        else:  # technology
+        
+        elif category == "technology":
             if "WWW" in question_text:
-                options = ["World Wide Web", "World Wide Website", "Worldwide Web", "Web Wide World"]
+                options = ["World Wide Web", "World Web Wide", "Wide World Web", "Web World Wide"]
                 correct = 0
             elif "iPhone" in question_text:
-                options = ["Apple", "Google", "Microsoft", "Samsung"]
+                options = ["Apple", "Samsung", "Google", "Microsoft"]
                 correct = 0
             elif "search engine" in question_text:
                 options = ["Google", "Bing", "Yahoo", "DuckDuckGo"]
@@ -362,25 +616,210 @@ class EnhancedMiniGames(commands.Cog):
             elif "USB" in question_text:
                 options = ["Universal Serial Bus", "United Serial Bus", "Universal System Bus", "United System Bus"]
                 correct = 0
+            elif "YouTube" in question_text:
+                options = ["Google", "Microsoft", "Facebook", "Amazon"]
+                correct = 0
+            elif "CPU" in question_text:
+                options = ["Central Processing Unit", "Computer Processing Unit", "Central Program Unit", "Computer Program Unit"]
+                correct = 0
+            elif "smartphones" in question_text:
+                options = ["Android", "iOS", "Windows", "Linux"]
+                correct = 0
+            elif "RAM" in question_text:
+                options = ["Random Access Memory", "Read Access Memory", "Random Available Memory", "Read Available Memory"]
+                correct = 0
+            elif "Windows" in question_text:
+                options = ["Microsoft", "Apple", "Google", "IBM"]
+                correct = 0
+            elif "WiFi" in question_text:
+                options = ["Wireless Fidelity", "Wireless Internet", "Wireless Network", "Wireless Connection"]
+                correct = 0
+            elif "Instagram" in question_text:
+                options = ["Meta", "Google", "Microsoft", "Amazon"]
+                correct = 0
+            elif "GPU" in question_text:
+                options = ["Graphics Processing Unit", "Game Processing Unit", "Graphics Program Unit", "Game Program Unit"]
+                correct = 0
+            elif "browser" in question_text:
+                options = ["Chrome", "Firefox", "Safari", "Edge"]
+                correct = 0
+            elif "SSD" in question_text:
+                options = ["Solid State Drive", "Solid Storage Drive", "System State Drive", "System Storage Drive"]
+                correct = 0
+            elif "Android" in question_text:
+                options = ["Google", "Samsung", "Microsoft", "Apple"]
+                correct = 0
+            elif "LAN" in question_text:
+                options = ["Local Area Network", "Large Area Network", "Local Access Network", "Large Access Network"]
+                correct = 0
+            elif "WhatsApp" in question_text:
+                options = ["Meta", "Google", "Microsoft", "Amazon"]
+                correct = 0
+            elif "HDD" in question_text:
+                options = ["Hard Disk Drive", "Hard Drive Disk", "High Definition Drive", "High Drive Definition"]
+                correct = 0
+            elif "macOS" in question_text:
+                options = ["Apple", "Microsoft", "Google", "IBM"]
+                correct = 0
+            elif "VPN" in question_text:
+                options = ["Virtual Private Network", "Virtual Public Network", "Very Private Network", "Very Public Network"]
+                correct = 0
             else:
+                # Generic technology options
                 options = ["Option A", "Option B", "Option C", "Option D"]
                 correct = random.randint(0, 3)
         
-        # Shuffle options while keeping track of correct answer
-        correct_answer = options[correct]
-        random.shuffle(options)
-        new_correct_index = options.index(correct_answer)
+        elif category == "science":
+            if "water" in question_text:
+                options = ["H2O", "CO2", "O2", "N2"]
+                correct = 0
+            elif "closest to Earth" in question_text:
+                options = ["Venus", "Mars", "Mercury", "Jupiter"]
+                correct = 0
+            elif "largest organ" in question_text:
+                options = ["Skin", "Liver", "Heart", "Brain"]
+                correct = 0
+            elif "plants absorb" in question_text:
+                options = ["CO2", "O2", "N2", "H2O"]
+                correct = 0
+            elif "hardest natural substance" in question_text:
+                options = ["Diamond", "Steel", "Iron", "Gold"]
+                correct = 0
+            elif "most moons" in question_text:
+                options = ["Saturn", "Jupiter", "Uranus", "Neptune"]
+                correct = 0
+            elif "smallest unit of life" in question_text:
+                options = ["Cell", "Atom", "Molecule", "Organ"]
+                correct = 0
+            elif "most abundant in Earth's crust" in question_text:
+                options = ["Oxygen", "Silicon", "Aluminum", "Iron"]
+                correct = 0
+            elif "speed of light" in question_text:
+                options = ["299,792 km/s", "199,792 km/s", "399,792 km/s", "499,792 km/s"]
+                correct = 0
+            elif "Red Planet" in question_text:
+                options = ["Mars", "Venus", "Jupiter", "Saturn"]
+                correct = 0
+            elif "gold" in question_text:
+                options = ["Au", "Ag", "Fe", "Cu"]
+                correct = 0
+            elif "humans breathe out" in question_text:
+                options = ["CO2", "O2", "N2", "H2O"]
+                correct = 0
+            elif "largest mammal" in question_text:
+                options = ["Blue Whale", "Elephant", "Giraffe", "Hippopotamus"]
+                correct = 0
+            elif "rings" in question_text:
+                options = ["Saturn", "Jupiter", "Uranus", "Neptune"]
+                correct = 0
+            elif "oxygen" in question_text:
+                options = ["O", "O2", "Ox", "O3"]
+                correct = 0
+            elif "most of the atmosphere" in question_text:
+                options = ["Nitrogen", "Oxygen", "Carbon Dioxide", "Argon"]
+                correct = 0
+            elif "smallest planet" in question_text:
+                options = ["Mercury", "Venus", "Earth", "Mars"]
+                correct = 0
+            elif "most abundant in the universe" in question_text:
+                options = ["Hydrogen", "Helium", "Oxygen", "Carbon"]
+                correct = 0
+            elif "carbon" in question_text:
+                options = ["C", "Ca", "Co", "Cr"]
+                correct = 0
+            elif "hottest planet" in question_text:
+                options = ["Venus", "Mercury", "Earth", "Mars"]
+                correct = 0
+            else:
+                # Generic science options
+                options = ["Option A", "Option B", "Option C", "Option D"]
+                correct = random.randint(0, 3)
         
-        # Calculate reward based on difficulty
-        reward_map = {"easy": 10, "medium": 20, "hard": 35}
+        elif category == "history":
+            if "World War II" in question_text:
+                options = ["1945", "1944", "1946", "1943"]
+                correct = 0
+            elif "first President" in question_text:
+                options = ["George Washington", "John Adams", "Thomas Jefferson", "Benjamin Franklin"]
+                correct = 0
+            elif "Roman Empire" in question_text:
+                options = ["Italy", "Greece", "Spain", "France"]
+                correct = 0
+            elif "Columbus" in question_text:
+                options = ["1492", "1493", "1491", "1494"]
+                correct = 0
+            elif "first Emperor of Rome" in question_text:
+                options = ["Augustus", "Julius Caesar", "Nero", "Caligula"]
+                correct = 0
+            elif "British Empire" in question_text:
+                options = ["United Kingdom", "England", "Scotland", "Wales"]
+                correct = 0
+            elif "French Revolution" in question_text:
+                options = ["1789", "1788", "1790", "1787"]
+                correct = 0
+            elif "first King of England" in question_text:
+                options = ["Alfred the Great", "William the Conqueror", "Henry I", "Stephen"]
+                correct = 0
+            elif "Ottoman Empire" in question_text:
+                options = ["Turkey", "Greece", "Bulgaria", "Serbia"]
+                correct = 0
+            elif "American Civil War" in question_text:
+                options = ["1865", "1864", "1866", "1863"]
+                correct = 0
+            elif "first Emperor of China" in question_text:
+                options = ["Qin Shi Huang", "Han Wudi", "Tang Taizong", "Song Taizu"]
+                correct = 0
+            elif "Spanish Empire" in question_text:
+                options = ["Spain", "Portugal", "France", "Italy"]
+                correct = 0
+            elif "Industrial Revolution" in question_text:
+                options = ["1760", "1750", "1770", "1740"]
+                correct = 0
+            elif "first King of France" in question_text:
+                options = ["Clovis I", "Charlemagne", "Hugh Capet", "Philip II"]
+                correct = 0
+            elif "Portuguese Empire" in question_text:
+                options = ["Portugal", "Spain", "France", "Italy"]
+                correct = 0
+            elif "Russian Revolution" in question_text:
+                options = ["1917", "1916", "1918", "1915"]
+                correct = 0
+            elif "first Emperor of Japan" in question_text:
+                options = ["Emperor Jimmu", "Emperor Suizei", "Emperor Annei", "Emperor Itoku"]
+                correct = 0
+            elif "Dutch Empire" in question_text:
+                options = ["Netherlands", "Belgium", "Germany", "Denmark"]
+                correct = 0
+            elif "Berlin Wall" in question_text:
+                options = ["1989", "1988", "1990", "1987"]
+                correct = 0
+            elif "first King of Spain" in question_text:
+                options = ["Ferdinand II", "Isabella I", "Charles V", "Philip II"]
+                correct = 0
+            else:
+                # Generic history options
+                options = ["Option A", "Option B", "Option C", "Option D"]
+                correct = random.randint(0, 3)
+        
+        else:
+            # Fallback options
+            options = ["Option A", "Option B", "Option C", "Option D"]
+            correct = random.randint(0, 3)
+        
+        # Set reward based on difficulty
+        rewards = {
+            "easy": 50,
+            "medium": 100,
+            "hard": 200
+        }
         
         return {
             "question": question_text,
             "options": options,
-            "correct": new_correct_index,
+            "correct": correct,
+            "category": category,
             "difficulty": difficulty,
-            "reward": reward_map[difficulty],
-            "category": category
+            "reward": rewards.get(difficulty, 100)
         }
 
     @app_commands.command(name="trivia", description="🧠 AI-powered trivia with dynamic questions!")
@@ -547,8 +986,8 @@ class EnhancedMiniGames(commands.Cog):
 
     @app_commands.command(name="wordchain", description="🔤 Enhanced word chain - no hints, just skill!")
     async def wordchain(self, interaction: discord.Interaction):
-        # Check for 3-hour time limit to prevent exploitation
-        can_play, time_left = self.check_cooldown(interaction.user.id, "wordchain", 10800)  # 3 hours = 10800 seconds
+        # Check for 2.5-hour time limit to prevent exploitation (2.5 hours = 9000 seconds)
+        can_play, time_left = self.check_cooldown(interaction.user.id, "wordchain", 9000)  # 2.5 hours = 9000 seconds
         if not can_play:
             hours = int(time_left // 3600)
             minutes = int((time_left % 3600) // 60)
@@ -591,12 +1030,12 @@ class EnhancedMiniGames(commands.Cog):
             async def on_submit(self, modal_interaction: discord.Interaction):
                 user_word = self.word_input.value.lower().strip()
                 
-                # Validate word starts with correct letter
-                if not user_word.startswith(self.last_letter):
+                # Validate word starts with correct letter (case-insensitive)
+                if not user_word.startswith(self.last_letter.lower()):
                     embed = discord.Embed(
                         title="❌ Invalid Starting Letter",
                         description=f"Your word must start with **'{self.last_letter.upper()}'**!\n"
-                                   f"You entered: **'{user_word}'**",
+                                   f"You entered: **'{user_word.title()}'**",
                         color=0xff0000
                     )
                     await modal_interaction.response.send_message(embed=embed, ephemeral=True)
@@ -618,7 +1057,7 @@ class EnhancedMiniGames(commands.Cog):
                 if not is_valid_word:
                     embed = discord.Embed(
                         title="❌ Invalid Word",
-                        description=f"**'{user_word}'** doesn't appear to be a valid English word.\n"
+                        description=f"**'{user_word.title()}'** doesn't appear to be a valid English word.\n"
                                    "Try a different word!",
                         color=0xff0000
                     )
@@ -674,9 +1113,11 @@ class EnhancedMiniGames(commands.Cog):
                         inline=False
                     )
                 
-                success_embed.set_footer(text=f"Next word should start with '{user_word[-1].upper()}'")
+                success_embed.set_footer(text="🎯 Word Chain completed! Use /wordchain again to play more!")
                 
-                await modal_interaction.response.send_message(embed=success_embed)
+                # Disable the button after successful submission
+                await modal_interaction.response.edit_message(view=None)
+                await modal_interaction.followup.send(embed=success_embed)
         
         embed = discord.Embed(
             title="🔤 Word Chain Challenge",
@@ -685,7 +1126,8 @@ class EnhancedMiniGames(commands.Cog):
                        f"💡 **Tips:**\n"
                        f"• Longer words = more coins\n"
                        f"• Creative words get bonus points\n"
-                       f"• Minimum 3 letters required",
+                       f"• Minimum 3 letters required\n"
+                       f"• **Game ends after one word!**",
             color=0x9b59b6
         )
         embed.add_field(
@@ -693,7 +1135,7 @@ class EnhancedMiniGames(commands.Cog):
             value="• 3 coins per letter\n• +5 bonus for 5+ letters\n• +10 bonus for 7+ letters\n• +5 creativity bonus for 8+ letters",
             inline=False
         )
-        embed.set_footer(text="Click the button below to enter your word!")
+        embed.set_footer(text="Click the button below to enter your word! Game ends after one word.")
         
         class SmartWordChainView(View):
             def __init__(self, current_word, last_letter, valid_words, user_id, minigames_cog):
@@ -703,11 +1145,16 @@ class EnhancedMiniGames(commands.Cog):
                 self.valid_words = valid_words
                 self.user_id = user_id
                 self.minigames_cog = minigames_cog
+                self.completed = False
                 
             @discord.ui.button(label="Enter Word", emoji="✏️", style=discord.ButtonStyle.primary)
             async def enter_word(self, button_interaction: discord.Interaction, button: Button):
                 if button_interaction.user.id != self.user_id:
                     await button_interaction.response.send_message("This isn't your game!", ephemeral=True)
+                    return
+                
+                if self.completed:
+                    await button_interaction.response.send_message("This game is already completed!", ephemeral=True)
                     return
                 
                 modal = SmartWordChainModal(
