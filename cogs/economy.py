@@ -756,21 +756,33 @@ class Economy(commands.Cog):
                         
                     else:
                         embed = discord.Embed(
-                            title="⚠️ **Work Failed**",
+                            title="❌ **Work Failed**",
                             description=f"**{selected_job['name']}** - The job didn't go as planned this time.",
-                            color=0xff9966,
+                            color=0xff6b6b,
                             timestamp=datetime.now()
                         )
                         
                         embed.add_field(
                             name="💭 What Happened",
-                            value=f"The {selected_job['name'].lower()} was more challenging than expected. Don't worry, this happens!",
+                            value=f"The {selected_job['name'].lower()} was more challenging than expected. Better luck next time!",
                             inline=False
                         )
                         
                         embed.add_field(
-                            name="💪 Your Stats",
+                            name="📊 Your Performance",
                             value=f"**Success Rate:** {success_rate:.1%}\n**Consecutive Works:** {result['consecutive_works']}\n**Total Works:** {result['total_works']}",
+                            inline=True
+                        )
+                        
+                        # Calculate cooldown display
+                        try:
+                            cooldown_hours = int(WORK_COOLDOWN_HOURS)
+                        except (NameError, TypeError):
+                            cooldown_hours = 2.5
+                        
+                        embed.add_field(
+                            name="⏰ Cooldown",
+                            value=f"**{cooldown_hours} hours** until next attempt",
                             inline=True
                         )
                         
@@ -780,14 +792,42 @@ class Economy(commands.Cog):
                             inline=False
                         )
                         
-                        embed.set_footer(text=f"💪 Try again in {WORK_COOLDOWN_HOURS} hours!")
+                        embed.set_footer(text=f"💪 Try again in {cooldown_hours} hours! Don't give up!")
                     
                     embed.set_author(
                         name=f"{select_interaction.user.display_name}'s Work Report", 
                         icon_url=select_interaction.user.display_avatar.url
                     )
                     
-                    await select_interaction.response.edit_message(embed=embed, view=None)
+                    # For failed work, send a public message so everyone can see
+                    if not work_successful:
+                        # Create a simpler public failure message
+                        public_embed = discord.Embed(
+                            title="💼 Work Attempt Failed",
+                            description=f"**{select_interaction.user.display_name}** failed at **{selected_job['name']}** and needs to wait {cooldown_hours} hours before trying again.",
+                            color=0xff6b6b,
+                            timestamp=datetime.now()
+                        )
+                        public_embed.add_field(
+                            name="📊 Performance", 
+                            value=f"Success Rate: {success_rate:.1%}", 
+                            inline=True
+                        )
+                        public_embed.add_field(
+                            name="⏰ Cooldown", 
+                            value=f"{cooldown_hours} hours", 
+                            inline=True
+                        )
+                        public_embed.set_footer(text="💪 Better luck next time!")
+                        
+                        # Send public failure message
+                        await select_interaction.followup.send(embed=public_embed, ephemeral=False)
+                        
+                        # Still send the detailed private message
+                        await select_interaction.response.edit_message(embed=embed, view=None)
+                    else:
+                        # For successful work, keep the existing behavior
+                        await select_interaction.response.edit_message(embed=embed, view=None)
             
             # Create main work embed
             embed = discord.Embed(

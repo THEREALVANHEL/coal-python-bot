@@ -584,18 +584,20 @@ class EnhancedEconomy(commands.Cog):
                         else:
                             embed = discord.Embed(
                                 title="❌ **Work Failed**",
-                                description=f"**{selected_job['name']}** - Unfortunately, the work didn't go as planned.",
+                                description=f"**{select_interaction.user.display_name}** failed at **{selected_job['name']}** - Unfortunately, the work didn't go as planned.",
                                 color=0xff6b6b,
                                 timestamp=datetime.now()
                             )
                             
                             embed.add_field(name="💸 Earnings", value="0 coins", inline=True)
-                            embed.add_field(name="🔄 Streak Reset", value="Work streak reset to 0", inline=True)
+                            embed.add_field(name="⏰ Cooldown", value=f"{work_cooldown/3600:.1f} hours", inline=True)
+                            embed.add_field(name="📊 Success Rate", value=f"{success_rate:.1%}", inline=True)
                             embed.add_field(name="💡 Tip", value="Don't give up! Try again after the cooldown.", inline=False)
                         
-                        embed.set_footer(text=f"Success Rate: {success_rate:.1%} | Next work available in {work_cooldown/3600:.1f} hours")
+                        embed.set_footer(text=f"💪 Better luck next time! Try again in {work_cooldown/3600:.1f} hours")
                         
-                        await select_interaction.response.send_message(embed=embed)
+                        # Make sure failure message is visible to everyone
+                        await select_interaction.response.send_message(embed=embed, ephemeral=False)
                         
                         # Track performance
                         execution_time = time.time() - start_time
