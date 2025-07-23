@@ -141,9 +141,10 @@ class EnhancedEconomy(commands.Cog):
     async def cog_load(self):
         print("[Enhanced Economy] Loaded successfully with core system integration.")
         
-        # Start background tasks
-        self.bot.loop.create_task(self.daily_interest_task())
-        self.bot.loop.create_task(self.cache_cleanup_task())
+        # Start background tasks using asyncio.create_task instead of bot.loop
+        import asyncio
+        asyncio.create_task(self.daily_interest_task())
+        asyncio.create_task(self.cache_cleanup_task())
     
     async def daily_interest_task(self):
         """Background task to apply daily interest to savings accounts"""

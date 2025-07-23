@@ -27,8 +27,9 @@ class BackupSystem(commands.Cog):
         if not os.path.exists(self.backup_dir):
             os.makedirs(self.backup_dir)
         
-        # Start automatic backup loop
-        self.bot.loop.create_task(self.automatic_backup_loop())
+        # Start automatic backup loop using asyncio.create_task
+        import asyncio
+        asyncio.create_task(self.automatic_backup_loop())
 
     async def automatic_backup_loop(self):
         """Automatic backup every hour"""

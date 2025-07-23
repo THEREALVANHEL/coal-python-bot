@@ -154,6 +154,12 @@ def cleanup_expired_items():
                 {},
                 {"$pull": {"temporary_purchases": {"expiry_time": {"$lt": current_time}}}}
             )
+            
+            # Also clean up expired temporary roles
+            db.users_collection.update_many(
+                {},
+                {"$pull": {"temporary_roles": {"expiry_time": {"$lt": current_time}}}}
+            )
             print("🧹 Cleaned up expired items")
         else:
             print("🧹 Cleanup skipped (fallback mode)")
@@ -180,4 +186,21 @@ def get_active_temporary_roles():
             return []
     except Exception as e:
         print(f"⚠️ Error getting temporary roles: {e}")
+        return []
+
+def get_pending_reminders():
+    """Get pending reminders from database"""
+    try:
+        if hasattr(db, 'users_collection') and hasattr(db.users_collection, 'find'):
+            current_time = time.time()
+            reminders = db.users_collection.find({
+                "reminders": {
+                    "$elemMatch": {"remind_time": {"$lte": current_time}}
+                }
+            })
+            return list(reminders)
+        else:
+            return []
+    except Exception as e:
+        print(f"⚠️ Error getting pending reminders: {e}")
         return []

@@ -31,8 +31,9 @@ class StockMarket(commands.Cog):
             self.current_prices[symbol] = info['base_price']
             self.price_history[symbol] = [info['base_price']]
         
-        # Start price update loop
-        self.bot.loop.create_task(self.update_prices())
+        # Start price update loop using asyncio.create_task
+        import asyncio
+        asyncio.create_task(self.update_prices())
 
     async def update_prices(self):
         """Update stock prices every 5 minutes"""
