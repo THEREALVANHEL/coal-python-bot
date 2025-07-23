@@ -4,12 +4,19 @@ from discord import app_commands
 from datetime import datetime, timedelta
 import random
 import os, sys
+import time
 from discord.ui import Button, View
 from discord import Modal, TextInput
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
+
+# Import enhanced core systems
+from core.database import get_db_manager
+from core.security import get_security_manager
+from core.analytics import get_analytics
+from core.config import get_config
 
 GUILD_ID = 1370009417726169250
 
@@ -227,6 +234,10 @@ WORK_COOLDOWN_HOURS = 2.5
 class Economy(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.db_manager = get_db_manager()
+        self.security_manager = get_security_manager()
+        self.analytics = get_analytics()
+        self.config = get_config()
 
     async def cog_load(self):
         print("[Economy] Loaded successfully.")
