@@ -135,7 +135,7 @@ bot = commands.Bot(
     help_command=None,
     case_insensitive=True,
     strip_after_prefix=True,
-    owner_ids={1234567890}  # Replace with actual owner ID
+    owner_ids={123456789}  # Replace with your actual Discord user ID
 )
 
 # Initialize error handler if available
@@ -171,6 +171,15 @@ async def on_ready():
     try:
         synced = await bot.tree.sync()
         logger.info(f"🔄 Synced {len(synced)} slash commands")
+        
+        # Also sync to specific guilds for faster updates
+        for guild in bot.guilds:
+            try:
+                guild_synced = await bot.tree.sync(guild=guild)
+                logger.info(f"🔄 Synced {len(guild_synced)} commands to {guild.name}")
+            except Exception as e:
+                logger.error(f"❌ Failed to sync to {guild.name}: {e}")
+                
     except Exception as e:
         logger.error(f"❌ Failed to sync commands: {e}")
 
@@ -213,6 +222,31 @@ async def on_member_remove(member):
     if ENHANCED_CORE_AVAILABLE and analytics:
         await analytics.log_member_leave(member)
     logger.info(f"👋 {member} left {member.guild.name}")
+
+# Manual sync command for bot owner
+@bot.command(name='sync')
+async def sync_commands(ctx):
+    """Manually sync slash commands (Owner only)"""
+    if ctx.author.id not in bot.owner_ids:
+        await ctx.send("❌ Only the bot owner can use this command!")
+        return
+    
+    try:
+        # Clear and sync globally
+        bot.tree.clear_commands(guild=None)
+        synced = await bot.tree.sync()
+        await ctx.send(f"✅ Synced {len(synced)} commands globally!")
+        
+        # Also sync to current guild for faster updates
+        if ctx.guild:
+            guild_synced = await bot.tree.sync(guild=ctx.guild)
+            await ctx.send(f"✅ Synced {len(guild_synced)} commands to {ctx.guild.name}!")
+        
+        logger.info(f"Manual sync completed by {ctx.author}")
+        
+    except Exception as e:
+        await ctx.send(f"❌ Sync failed: {e}")
+        logger.error(f"Manual sync failed: {e}")
 
 # Enhanced message events
 @bot.event
