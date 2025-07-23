@@ -1,0 +1,27 @@
+FORCE DEPLOYMENT TRIGGER - TIMESTAMP: 2025-01-28 23:45:00
+
+🚀 FORCE RESTART BOT SERVICE
+🔄 SYNC ALL COMMANDS TO DISCORD
+✅ DEPLOY ALL NEW FEATURES
+
+NEW COMMANDS TO SYNC:
+- /atm (Complete banking system)
+- /inventory (Enhanced replacement for /myitems)
+- /adopt (Enhanced with dropdown choices)
+- /stocks (Enhanced with dropdown choices)
+- /shop (Completely reworked)
+- /slots (Enhanced with custom amounts)
+- /trivia (Fixed rewards)
+- /wordchain (Fixed case sensitivity)
+- /talktobleky (Revolutionary upgrade)
+
+TOTAL CHANGES:
+- 23 shop items across 6 categories
+- 8 pet types with dropdown choices
+- 8 stock options with dropdown choices
+- Complete ATM banking system
+- Enhanced inventory system
+- Fixed game mechanics
+
+DEPLOYMENT STATUS: FORCE RESTART REQUIRED
+SYNC STATUS: FORCE SYNC REQUIRED
