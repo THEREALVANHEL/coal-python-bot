@@ -266,7 +266,7 @@ async def on_message(message):
 async def load_cogs():
     cogs_to_load = [
         'cogs.economy',
-        'cogs.enhanced_economy', 
+        # 'cogs.enhanced_economy',  # Disabled to avoid work command conflict
         'cogs.moderation',
         'cogs.enhanced_moderation',
         'cogs.enhanced_minigames',

@@ -170,18 +170,31 @@ def get_database():
     """Get database instance"""
     return db
 
-def get_active_temporary_roles():
+def get_active_temporary_roles(user_id=None):
     """Get active temporary roles from database"""
     try:
         if hasattr(db, 'users_collection') and hasattr(db.users_collection, 'find'):
             # Find users with active temporary roles
             current_time = time.time()
-            users_with_temp_roles = db.users_collection.find({
-                "temporary_roles": {
-                    "$elemMatch": {"expiry_time": {"$gt": current_time}}
-                }
-            })
-            return list(users_with_temp_roles)
+            
+            if user_id:
+                # Get temporary roles for specific user
+                user_data = db.users_collection.find_one({"user_id": user_id})
+                if user_data and "temporary_roles" in user_data:
+                    active_roles = [
+                        role for role in user_data["temporary_roles"]
+                        if role.get("expiry_time", 0) > current_time
+                    ]
+                    return active_roles
+                return []
+            else:
+                # Get all users with active temporary roles
+                users_with_temp_roles = db.users_collection.find({
+                    "temporary_roles": {
+                        "$elemMatch": {"expiry_time": {"$gt": current_time}}
+                    }
+                })
+                return list(users_with_temp_roles)
         else:
             return []
     except Exception as e:
