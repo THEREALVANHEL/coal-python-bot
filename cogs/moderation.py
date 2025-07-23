@@ -1701,9 +1701,9 @@ class Moderation(commands.Cog):
             )
             await interaction.followup.send(embed=error_embed)
 
-    # Enhanced Talk to Bleky - AI Nephew with Command Access & Banking Data
-    @app_commands.command(name="talktobleky", description="💬 Chat with your smart nephew Bleky - he knows all commands and can help with banking!")
-    async def talk_to_bleky(self, interaction: discord.Interaction, message: str = None):
+    # Enhanced Talk to Sensei - AI Mentor with Command Access & Banking Data
+    @app_commands.command(name="talktosensei", description="💬 Chat with your wise sensei - he knows all commands and can help with banking!")
+    async def talk_to_sensei(self, interaction: discord.Interaction, message: str = None):
         await interaction.response.defer()
 
         try:
@@ -1721,8 +1721,8 @@ class Moderation(commands.Cog):
             pets = user_data.get('pets', {})
             
             # Get recent conversation history
-            conversation_key = f"bleky_conversation_{user_id}"
-            conversation_history = db.get_user_data(user_id).get('bleky_conversation', [])
+            conversation_key = f"sensei_conversation_{user_id}"
+            conversation_history = db.get_user_data(user_id).get('sensei_conversation', [])
             
             # Available commands list for Bleky to reference
             commands_list = """
@@ -1743,7 +1743,7 @@ class Moderation(commands.Cog):
             if message:
                 user_message = message
             else:
-                user_message = "Hey Bleky! What's up?"
+                user_message = "Hello Sensei! I seek your wisdom."
             
             # Add conversation history context
             history_context = ""
@@ -1751,15 +1751,15 @@ class Moderation(commands.Cog):
                 recent_history = conversation_history[-6:]  # Last 3 exchanges
                 history_context = "\n\nPREVIOUS CONVERSATION:\n" + "\n".join(recent_history)
             
-            prompt = f"""You are Bleky, a smart, helpful, and fun-loving nephew who's also a Discord bot expert! You're 16-17 years old, love gaming and tech, and you have access to ALL the bot's commands and your uncle/aunt's account data.
+            prompt = f"""You are Sensei, a wise, knowledgeable, and patient mentor who's also a Discord bot master! You have years of experience and wisdom, and you have access to ALL the bot's commands and the student's account data.
 
 YOUR PERSONALITY:
-- Energetic, friendly, and genuinely caring
-- Tech-savvy and knows all Discord bot commands
-- Uses casual language but stays helpful
-- Sometimes playful but always respectful
-- Can explain complex things in simple terms
-- Loves to help with bot features and give advice
+- Wise, patient, and deeply knowledgeable
+- Master of all Discord bot commands and features
+- Uses thoughtful, encouraging language
+- Provides guidance with wisdom and insight
+- Can explain complex concepts with clarity
+- Loves to mentor and help others grow
 
 YOUR SPECIAL ABILITIES:
 - You know ALL bot commands and can explain them
@@ -1794,14 +1794,14 @@ RESPONSE INSTRUCTIONS:
 - Use emojis naturally but not excessively
 - End with a question or suggestion to keep conversation going
 
-Respond as Bleky:"""
+Respond as Sensei:"""
 
             # Call Gemini AI
             gemini_api_key = os.getenv("GEMINI_API_KEY")
             if not gemini_api_key:
                 embed = discord.Embed(
-                    title="❌ **Bleky is Offline**",
-                    description="🤖 Bleky can't talk right now! The AI service isn't configured.",
+                    title="❌ **Sensei is Unavailable**",
+                    description="🤖 Sensei cannot provide guidance right now! The AI service isn't configured.",
                     color=0xff6b6b
                 )
                 await interaction.followup.send(embed=embed, ephemeral=True)
@@ -1818,19 +1818,19 @@ Respond as Bleky:"""
                 
                 # Update conversation history
                 conversation_history.append(f"You: {user_message}")
-                conversation_history.append(f"Bleky: {response_text}")
+                conversation_history.append(f"Sensei: {response_text}")
                 
                 # Keep only last 20 messages (10 exchanges)
                 if len(conversation_history) > 20:
                     conversation_history = conversation_history[-20:]
                 
                 # Save conversation history
-                user_data['bleky_conversation'] = conversation_history
+                user_data['sensei_conversation'] = conversation_history
                 db.update_user_data(user_id, user_data)
                 
                 # Create response embed with user's stats
                 embed = discord.Embed(
-                    title="💬 **Bleky - Your Smart Nephew**",
+                    title="🧘 **Sensei - Your Wise Mentor**",
                     description=response_text,
                     color=0x5865f2,
                     timestamp=datetime.now()
@@ -1854,10 +1854,10 @@ Respond as Bleky:"""
                     name=f"Chatting with {interaction.user.display_name}", 
                     icon_url=interaction.user.display_avatar.url
                 )
-                embed.set_footer(text="💬 Enhanced Bleky • Command Expert • Banking Advisor")
+                embed.set_footer(text="🧘 Enhanced Sensei • Command Master • Wise Advisor")
                 
                 # Create continue conversation view
-                class ContinueBlekyView(discord.ui.View):
+                class ContinueSenseiView(discord.ui.View):
                     def __init__(self):
                         super().__init__(timeout=300)  # 5 minutes
                     
@@ -1868,10 +1868,10 @@ Respond as Bleky:"""
                             return
                         
                         # Create modal for user input
-                        class ChatModal(discord.ui.Modal, title="Continue chatting with Bleky"):
+                        class ChatModal(discord.ui.Modal, title="Continue conversation with Sensei"):
                             message_input = discord.ui.TextInput(
-                                label="What do you want to say to Bleky?",
-                                placeholder="Ask about commands, banking, games, or just chat!",
+                                label="What wisdom do you seek from Sensei?",
+                                placeholder="Ask about commands, banking, games, or seek guidance!",
                                 max_length=500,
                                 style=discord.TextStyle.paragraph
                             )
@@ -1880,7 +1880,7 @@ Respond as Bleky:"""
                                 await modal_interaction.response.defer()
                                 
                                 # Call the same function recursively with the new message
-                                await talk_to_bleky(interaction, self.message_input.value)
+                                await talk_to_sensei(interaction, self.message_input.value)
                         
                         await button_interaction.response.send_modal(ChatModal())
                     
@@ -1891,8 +1891,8 @@ Respond as Bleky:"""
                             return
                         
                         help_embed = discord.Embed(
-                            title="🤖 **Bleky's Command Knowledge**",
-                            description="I know all these commands and can help you use them!",
+                            title="🧘 **Sensei's Command Wisdom**",
+                            description="I have mastered all these commands and can guide you in their use!",
                             color=0x00ff00
                         )
                         
@@ -1914,15 +1914,176 @@ Respond as Bleky:"""
                             inline=True
                         )
                         
-                        help_embed.set_footer(text="💬 Ask me about any command for detailed help!")
+                        help_embed.set_footer(text="🧘 Ask Sensei about any command for detailed guidance!")
                         await button_interaction.response.send_message(embed=help_embed, ephemeral=True)
+                
+                view = ContinueSenseiView()
+                await interaction.followup.send(embed=embed, view=view)
+            else:
+                embed = discord.Embed(
+                    title="❌ **Sensei Cannot Respond**",
+                    description="Sensei is having trouble right now. Please try again!",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ **Connection Error**",
+                description="Something went wrong while trying to reach Sensei. Please try again.",
+                color=0xff6b6b
+            )
+            embed.add_field(name="🔍 Error Details", value=f"```{str(e)[:100]}```", inline=False)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+    # New Ask Bleky Nephew Command - Simple AI Q&A with conversation history
+    @app_commands.command(name="askblecknephew", description="🤖 Ask Bleky (your nephew) any question - he's got AI powers and remembers your chats!")
+    async def ask_bleky_nephew(self, interaction: discord.Interaction, question: str = None):
+        await interaction.response.defer()
+
+        try:
+            user_id = interaction.user.id
+            user_data = db.get_user_data(user_id)
+            
+            # Get conversation history for this command
+            conversation_history = user_data.get('bleky_nephew_conversation', [])
+            
+            # Create the question
+            if question:
+                user_question = question
+            else:
+                user_question = "Hey Bleky, what's up?"
+            
+            # Add conversation history context
+            history_context = ""
+            if conversation_history:
+                recent_history = conversation_history[-10:]  # Last 5 exchanges
+                history_context = "\n\nPREVIOUS CONVERSATION:\n" + "\n".join(recent_history)
+            
+            # Create AI prompt for Bleky Nephew
+            prompt = f"""You are Bleky, a smart and helpful 16-year-old nephew who loves technology and helping people! You're energetic, friendly, and knowledgeable about many topics.
+
+YOUR PERSONALITY:
+- Young, enthusiastic, and tech-savvy
+- Friendly and approachable
+- Loves to help and answer questions
+- Uses modern slang occasionally but stays helpful
+- Curious and always learning
+- Remembers previous conversations
+
+USER'S QUESTION: "{user_question}"
+
+{history_context}
+
+RESPONSE INSTRUCTIONS:
+- Answer the question helpfully and accurately
+- Be friendly and conversational
+- Keep responses under 1500 characters
+- Use emojis naturally but not excessively
+- If you don't know something, admit it honestly
+- Ask follow-up questions to keep the conversation going
+- Remember you're their nephew, so be warm and caring
+
+Respond as Bleky:"""
+
+            # Call Gemini AI
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            if not gemini_api_key:
+                embed = discord.Embed(
+                    title="❌ **Bleky is Offline**",
+                    description="🤖 Your nephew Bleky can't answer right now! The AI service isn't configured.",
+                    color=0xff6b6b
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+                
+            import google.generativeai as genai
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            response = model.generate_content(prompt)
+            
+            if response.text:
+                response_text = response.text.strip()
+                
+                # Update conversation history
+                conversation_history.append(f"You: {user_question}")
+                conversation_history.append(f"Bleky: {response_text}")
+                
+                # Keep only last 20 messages (10 exchanges)
+                if len(conversation_history) > 20:
+                    conversation_history = conversation_history[-20:]
+                
+                # Save conversation history
+                user_data['bleky_nephew_conversation'] = conversation_history
+                db.update_user_data(user_id, user_data)
+                
+                # Create response embed
+                embed = discord.Embed(
+                    title="🤖 **Bleky - Your Smart Nephew**",
+                    description=response_text,
+                    color=0x00d4ff,
+                    timestamp=datetime.now()
+                )
+                
+                embed.set_author(
+                    name=f"Answering {interaction.user.display_name}'s question", 
+                    icon_url=interaction.user.display_avatar.url
+                )
+                embed.set_footer(text="🤖 Ask Bleky Nephew • AI Powered • Conversation Memory")
+                
+                # Create continue conversation view
+                class ContinueBlekyView(discord.ui.View):
+                    def __init__(self):
+                        super().__init__(timeout=300)  # 5 minutes
+                    
+                    @discord.ui.button(label="Continue Chat", emoji="💬", style=discord.ButtonStyle.primary)
+                    async def continue_chat(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                        if button_interaction.user.id != interaction.user.id:
+                            await button_interaction.response.send_message("This isn't your conversation!", ephemeral=True)
+                            return
+                        
+                        # Create modal for user input
+                        class ChatModal(discord.ui.Modal, title="Continue chatting with Bleky"):
+                            message_input = discord.ui.TextInput(
+                                label="What do you want to ask Bleky?",
+                                placeholder="Ask anything! I remember our conversation.",
+                                max_length=500,
+                                style=discord.TextStyle.paragraph
+                            )
+                            
+                            async def on_submit(self, modal_interaction: discord.Interaction):
+                                await modal_interaction.response.defer()
+                                
+                                # Call the same function recursively with the new message
+                                await ask_bleky_nephew(interaction, self.message_input.value)
+                        
+                        await button_interaction.response.send_modal(ChatModal())
+                    
+                    @discord.ui.button(label="Clear History", emoji="🗑️", style=discord.ButtonStyle.secondary)
+                    async def clear_history(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                        if button_interaction.user.id != interaction.user.id:
+                            await button_interaction.response.send_message("This isn't your conversation!", ephemeral=True)
+                            return
+                        
+                        # Clear conversation history
+                        user_data = db.get_user_data(user_id)
+                        user_data['bleky_nephew_conversation'] = []
+                        db.update_user_data(user_id, user_data)
+                        
+                        clear_embed = discord.Embed(
+                            title="🗑️ **Conversation Cleared**",
+                            description="Bleky's memory of your conversation has been cleared. Start fresh!",
+                            color=0x00ff00
+                        )
+                        await button_interaction.response.send_message(embed=clear_embed, ephemeral=True)
                 
                 view = ContinueBlekyView()
                 await interaction.followup.send(embed=embed, view=view)
             else:
                 embed = discord.Embed(
-                    title="❌ **Bleky Can't Respond**",
-                    description="Bleky is having trouble right now. Please try again!",
+                    title="❌ **Bleky Can't Answer**",
+                    description="Your nephew Bleky is having trouble right now. Please try again!",
                     color=0xff6b6b
                 )
                 await interaction.followup.send(embed=embed, ephemeral=True)

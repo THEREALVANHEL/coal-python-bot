@@ -2211,7 +2211,7 @@ class Economy(commands.Cog):
                 value="• Deposit coins to bank\n• Withdraw from bank\n• Transfer to other users\n• Open savings account\n• Apply for loans\n• View transaction history",
                 inline=False
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed, ephemeral=False)
             return
         
         # Get user's financial data
@@ -2255,16 +2255,30 @@ class Economy(commands.Cog):
         
         embed.set_footer(text="🏦 Coal Bank • Secure Banking Since 2024")
         
-        # Create ATM view with buttons
+        # Create ATM view with buttons that expire after use
         class ATMView(View):
             def __init__(self):
                 super().__init__(timeout=300)  # 5 minutes
+                self.used = False
+            
+            async def disable_view(self, interaction):
+                """Disable the view after first use"""
+                if not self.used:
+                    self.used = True
+                    for item in self.children:
+                        item.disabled = True
+                    try:
+                        await interaction.edit_original_response(view=self)
+                    except:
+                        pass
             
             @discord.ui.button(label="Deposit", emoji="📥", style=discord.ButtonStyle.green)
             async def deposit_button(self, button_interaction: discord.Interaction, button: Button):
                 if button_interaction.user.id != user_id:
                     await button_interaction.response.send_message("This isn't your ATM session!", ephemeral=True)
                     return
+                
+                await self.disable_view(button_interaction)
                 
                 class DepositModal(Modal, title="Deposit Coins to Bank"):
                     amount_input = TextInput(
@@ -2318,6 +2332,8 @@ class Economy(commands.Cog):
                     await button_interaction.response.send_message("This isn't your ATM session!", ephemeral=True)
                     return
                 
+                await self.disable_view(button_interaction)
+                
                 class WithdrawModal(Modal, title="Withdraw Coins from Bank"):
                     amount_input = TextInput(
                         label="Amount to withdraw",
@@ -2369,6 +2385,8 @@ class Economy(commands.Cog):
                 if button_interaction.user.id != user_id:
                     await button_interaction.response.send_message("This isn't your ATM session!", ephemeral=True)
                     return
+                
+                await self.disable_view(button_interaction)
                 
                 class TransferModal(Modal, title="Transfer Coins to Another User"):
                     user_input = TextInput(
@@ -2469,6 +2487,8 @@ class Economy(commands.Cog):
                     await button_interaction.response.send_message("This isn't your ATM session!", ephemeral=True)
                     return
                 
+                await self.disable_view(button_interaction)
+                
                 current_data = db.get_user_data(user_id)
                 savings = current_data.get('savings_balance', 0)
                 bank = current_data.get('bank_balance', 0)
@@ -2558,7 +2578,7 @@ class Economy(commands.Cog):
                 await button_interaction.response.send_message(embed=savings_embed, view=SavingsView(), ephemeral=True)
         
         view = ATMView()
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=False)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Economy(bot))
