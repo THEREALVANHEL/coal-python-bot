@@ -34,11 +34,19 @@ class Events(commands.Cog):
                     if member.bot:
                         continue
                     
-                    active_roles = db.get_active_temporary_roles(member.id)
-                    active_role_ids = {role_data["role_id"] for role_data in active_roles}
-                    
-                    # Get all user's roles that might be temporary
-                    user_data = db.get_user_data(member.id)
+                    try:
+                        active_roles = db.get_active_temporary_roles(member.id)
+                        active_role_ids = {role_data["role_id"] for role_data in active_roles}
+                        
+                        # Get all user's roles that might be temporary
+                        user_data = db.get_user_data(member.id)
+                    except AttributeError as e:
+                        # Database not fully initialized yet, skip this cleanup
+                        print(f"⚠️ Database not ready for cleanup: {e}")
+                        continue
+                    except Exception as e:
+                        print(f"⚠️ Error getting user data for {member.id}: {e}")
+                        continue
                     if "temporary_roles" in user_data:
                         for role_data in user_data["temporary_roles"]:
                             role_id = role_data["role_id"]

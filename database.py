@@ -140,6 +140,10 @@ except ImportError as e:
             return False
         def add_temporary_purchase(self, user_id, item_type, duration):
             return False
+        def get_active_temporary_roles(self, user_id=None):
+            return []
+        def get_pending_reminders(self):
+            return []
     
     db = MinimalDB()
 
