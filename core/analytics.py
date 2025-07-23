@@ -560,6 +560,59 @@ class BotAnalytics:
             score -= 0.3
         
         return max(score, 0.0)
+    
+    async def log_bot_startup(self):
+        """Log bot startup event"""
+        try:
+            startup_data = {
+                "event": "bot_startup",
+                "timestamp": datetime.now(),
+                "version": "4.0",
+                "enhanced_core": True
+            }
+            await self.track_event("bot_startup", startup_data)
+            print("📊 Bot startup logged to analytics")
+        except Exception as e:
+            print(f"⚠️ Failed to log bot startup: {e}")
+    
+    async def log_bot_shutdown(self):
+        """Log bot shutdown event"""
+        try:
+            shutdown_data = {
+                "event": "bot_shutdown",
+                "timestamp": datetime.now(),
+                "uptime": time.time() - self.start_time if hasattr(self, 'start_time') else 0
+            }
+            await self.track_event("bot_shutdown", shutdown_data)
+            print("📊 Bot shutdown logged to analytics")
+        except Exception as e:
+            print(f"⚠️ Failed to log bot shutdown: {e}")
+    
+    async def log_member_join(self, member):
+        """Log member join event"""
+        try:
+            join_data = {
+                "event": "member_join",
+                "user_id": member.id,
+                "guild_id": member.guild.id,
+                "timestamp": datetime.now()
+            }
+            await self.track_event("member_join", join_data)
+        except Exception as e:
+            print(f"⚠️ Failed to log member join: {e}")
+    
+    async def log_member_leave(self, member):
+        """Log member leave event"""
+        try:
+            leave_data = {
+                "event": "member_leave",
+                "user_id": member.id,
+                "guild_id": member.guild.id,
+                "timestamp": datetime.now()
+            }
+            await self.track_event("member_leave", leave_data)
+        except Exception as e:
+            print(f"⚠️ Failed to log member leave: {e}")
 
 # Global analytics instance
 analytics = BotAnalytics()

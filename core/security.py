@@ -360,6 +360,36 @@ class SecurityManager:
                 requests.popleft()
             if not requests:
                 del self.rate_limits[key]
+    
+    async def check_message_security(self, message):
+        """Check message for security threats"""
+        try:
+            # Basic security checks
+            if not message or not message.content:
+                return False
+            
+            # Check for spam (very basic)
+            if len(message.content) > 2000:
+                return True  # Message is too long, flag it
+            
+            # Check for excessive mentions
+            if len(message.mentions) > 10:
+                return True  # Too many mentions, flag it
+            
+            # Check for suspicious patterns (basic)
+            suspicious_patterns = ['@everyone', '@here']
+            content_lower = message.content.lower()
+            
+            if any(pattern in content_lower for pattern in suspicious_patterns):
+                # Only flag if not from admin/mod
+                if not message.author.guild_permissions.administrator:
+                    return True
+            
+            return False  # Message is clean
+            
+        except Exception as e:
+            print(f"⚠️ Security check error: {e}")
+            return False  # Don't flag on error
 
 # Global security manager instance
 security_manager = SecurityManager()
