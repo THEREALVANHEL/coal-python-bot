@@ -184,3 +184,28 @@ def moderator_only(func):
 def helper_only(func):
     """Decorator for helper+ commands"""
     return has_permission("helper")(func)
+
+def has_special_permissions(user: discord.Member, guild: discord.Guild) -> bool:
+    """
+    Check if user has special permissions (admin or higher)
+    Legacy function for compatibility with existing cogs
+    """
+    return check_permissions(user, guild, "admin")
+
+def has_manage_permissions(user: discord.Member) -> bool:
+    """Check if user has manage permissions"""
+    if not user or not user.guild:
+        return False
+    return user.guild_permissions.manage_guild or is_admin(user, user.guild)
+
+def has_kick_permissions(user: discord.Member) -> bool:
+    """Check if user has kick permissions"""
+    if not user or not user.guild:
+        return False
+    return user.guild_permissions.kick_members or is_moderator(user, user.guild)
+
+def has_ban_permissions(user: discord.Member) -> bool:
+    """Check if user has ban permissions"""
+    if not user or not user.guild:
+        return False
+    return user.guild_permissions.ban_members or is_moderator(user, user.guild)

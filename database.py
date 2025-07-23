@@ -163,3 +163,21 @@ def cleanup_expired_items():
 def get_database():
     """Get database instance"""
     return db
+
+def get_active_temporary_roles():
+    """Get active temporary roles from database"""
+    try:
+        if hasattr(db, 'users_collection') and hasattr(db.users_collection, 'find'):
+            # Find users with active temporary roles
+            current_time = time.time()
+            users_with_temp_roles = db.users_collection.find({
+                "temporary_roles": {
+                    "$elemMatch": {"expiry_time": {"$gt": current_time}}
+                }
+            })
+            return list(users_with_temp_roles)
+        else:
+            return []
+    except Exception as e:
+        print(f"⚠️ Error getting temporary roles: {e}")
+        return []
