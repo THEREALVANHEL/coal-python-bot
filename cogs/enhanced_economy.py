@@ -6,19 +6,28 @@ import random
 import os, sys
 import time
 import asyncio
-from discord.ui import Button, View
-from discord import Modal, TextInput
+from discord.ui import Button, View, Modal, TextInput
 from typing import Dict, List, Any, Optional
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
-# Import enhanced core systems
-from core.database import get_db_manager
-from core.security import get_security_manager
-from core.analytics import get_analytics
-from core.config import get_config
+# Import enhanced core systems with fallbacks
+try:
+    from core.database import get_db_manager
+    from core.security import get_security_manager
+    from core.analytics import get_analytics
+    from core.config import get_config
+    CORE_SYSTEMS_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Core systems not available: {e}")
+    CORE_SYSTEMS_AVAILABLE = False
+    # Provide fallback functions
+    def get_db_manager(): return None
+    def get_security_manager(): return None
+    def get_analytics(): return None
+    def get_config(): return None
 
 GUILD_ID = 1370009417726169250
 
@@ -112,10 +121,18 @@ class EnhancedEconomy(commands.Cog):
     
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.db_manager = get_db_manager()
-        self.security_manager = get_security_manager()
-        self.analytics = get_analytics()
-        self.config = get_config()
+        
+        # Initialize core systems with fallbacks
+        if CORE_SYSTEMS_AVAILABLE:
+            self.db_manager = get_db_manager()
+            self.security_manager = get_security_manager()
+            self.analytics = get_analytics()
+            self.config = get_config()
+        else:
+            self.db_manager = None
+            self.security_manager = None
+            self.analytics = None
+            self.config = None
         
         # Cache for frequently accessed data
         self.user_cache = {}

@@ -11,12 +11,26 @@ from datetime import datetime
 import sys
 import traceback
 
-# Import new core systems
-from core.config import initialize_config, get_config
-from core.database import initialize_database, get_db_manager
-from core.security import get_security_manager
-from core.analytics import get_analytics
-from core.error_handler import initialize_error_handler, get_error_handler
+# Import new core systems with error handling
+try:
+    from core.config import initialize_config, get_config
+    from core.database import initialize_database, get_db_manager
+    from core.security import get_security_manager
+    from core.analytics import get_analytics
+    from core.error_handler import initialize_error_handler, get_error_handler
+    ENHANCED_CORE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Enhanced core systems not available, falling back to basic mode: {e}")
+    ENHANCED_CORE_AVAILABLE = False
+    # Provide basic fallbacks
+    def initialize_config(): return None
+    def get_config(): return None
+    def initialize_database(uri): return None
+    def get_db_manager(): return None
+    def get_security_manager(): return None
+    def get_analytics(): return None
+    def initialize_error_handler(bot): return None
+    def get_error_handler(): return None
 
 # Setup enhanced logging
 logging.basicConfig(
@@ -29,13 +43,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize configuration first
-config = initialize_config()
-logger.info("✅ Configuration initialized")
+if ENHANCED_CORE_AVAILABLE:
+    config = initialize_config()
+    logger.info("✅ Enhanced configuration initialized")
+else:
+    config = None
+    logger.info("⚠️ Running in basic mode without enhanced configuration")
 
 # Load environment variables
 load_dotenv()
-DISCORD_TOKEN = config.discord_token
-MONGODB_URI = config.mongodb_uri
+DISCORD_TOKEN = config.discord_token if config else os.getenv("DISCORD_TOKEN")
+MONGODB_URI = config.mongodb_uri if config else os.getenv("MONGODB_URI")
 
 if not DISCORD_TOKEN:
     logger.error("❌ NO DISCORD_TOKEN FOUND")
@@ -44,22 +62,31 @@ if not DISCORD_TOKEN:
 logger.info("🚀 Starting Coal Python Bot with Enhanced Core Systems")
 
 # Initialize core systems
-try:
-    # Initialize database with enhanced features
-    db_manager = initialize_database(MONGODB_URI)
-    logger.info("✅ Enhanced database system initialized")
-    
-    # Initialize security manager
-    security_manager = get_security_manager()
-    logger.info("✅ Security system initialized")
-    
-    # Initialize analytics
-    analytics = get_analytics()
-    logger.info("✅ Analytics system initialized")
-    
-except Exception as e:
-    logger.error(f"❌ Failed to initialize core systems: {e}")
-    sys.exit(1)
+if ENHANCED_CORE_AVAILABLE:
+    try:
+        # Initialize database with enhanced features
+        db_manager = initialize_database(MONGODB_URI)
+        logger.info("✅ Enhanced database system initialized")
+        
+        # Initialize security manager
+        security_manager = get_security_manager()
+        logger.info("✅ Security system initialized")
+        
+        # Initialize analytics
+        analytics = get_analytics()
+        logger.info("✅ Analytics system initialized")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize core systems: {e}")
+        logger.info("⚠️ Continuing in basic mode...")
+        db_manager = None
+        security_manager = None
+        analytics = None
+else:
+    logger.info("⚠️ Enhanced core systems not available, running in basic mode")
+    db_manager = None
+    security_manager = None
+    analytics = None
 
 # Keep-alive server for Render deployment
 app = Flask(__name__)
@@ -80,7 +107,7 @@ def home():
         "timestamp": datetime.now().isoformat(),
         "version": "4.0.0 - Enhanced Core Systems",
         "service": "Discord Bot",
-        "port": config.port,
+        "port": config.port if config else int(os.environ.get('PORT', 10000)),
         "features": {
             "enhanced_database": True,
             "security_system": True,
@@ -199,10 +226,11 @@ def ping():
 
 def run_flask_server():
     """Run Flask server"""
-    port = config.port
+    port = config.port if config else int(os.environ.get('PORT', 10000))
+    host = config.host if config else '0.0.0.0'
     logger.info(f"🌐 Starting enhanced web server on port {port}")
     try:
-        app.run(host=config.host, port=port, debug=False, use_reloader=False, threaded=True)
+        app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
     except Exception as e:
         logger.error(f"❌ Failed to start Flask server: {e}")
         raise
@@ -232,15 +260,23 @@ bot = commands.Bot(
 )
 
 # Initialize error handler
-error_handler = initialize_error_handler(bot)
-logger.info("✅ Error handling system initialized")
+if ENHANCED_CORE_AVAILABLE:
+    error_handler = initialize_error_handler(bot)
+    logger.info("✅ Enhanced error handling system initialized")
+else:
+    error_handler = None
+    logger.info("⚠️ Using basic error handling")
 
 # Enhanced global error handler
 @bot.event
 async def on_error(event, *args, **kwargs):
     """Handle bot errors gracefully with enhanced logging"""
     try:
-        await error_handler.handle_global_error(event, *args, **kwargs)
+        if error_handler:
+            await error_handler.handle_global_error(event, *args, **kwargs)
+        else:
+            logger.error(f"❌ Bot error in {event}: {sys.exc_info()[1]}")
+            traceback.print_exc()
     except Exception as e:
         logger.error(f"❌ Critical error in error handler: {e}")
         traceback.print_exc()
@@ -249,16 +285,28 @@ async def on_error(event, *args, **kwargs):
 async def on_command_error(ctx, error):
     """Enhanced command error handling"""
     try:
-        # Track performance metrics
-        await analytics.track_performance("command_error", 0, False)
+        # Track performance metrics if analytics available
+        if analytics:
+            await analytics.track_performance("command_error", 0, False)
         
         # Let the error handler deal with it
-        handled = await error_handler.handle_command_error(ctx, error)
-        
-        if not handled:
-            # Fallback handling for unhandled errors
-            logger.error(f"❌ Unhandled command error: {error}")
-            traceback.print_exc()
+        if error_handler:
+            handled = await error_handler.handle_command_error(ctx, error)
+            if not handled:
+                logger.error(f"❌ Unhandled command error: {error}")
+                traceback.print_exc()
+        else:
+            # Basic error handling
+            if isinstance(error, commands.CommandNotFound):
+                return
+            elif isinstance(error, commands.MissingPermissions):
+                try:
+                    await ctx.send("❌ You don't have permission to use this command.")
+                except:
+                    pass
+            else:
+                logger.error(f"❌ Command error: {error}")
+                traceback.print_exc()
             
     except Exception as e:
         logger.error(f"❌ Error in command error handler: {e}")
@@ -268,14 +316,19 @@ async def on_command_error(ctx, error):
 async def on_application_command_error(interaction, error):
     """Enhanced slash command error handling"""
     try:
-        # Track performance metrics
-        await analytics.track_performance("interaction_error", 0, False)
+        # Track performance metrics if analytics available
+        if analytics:
+            await analytics.track_performance("interaction_error", 0, False)
         
         # Let the error handler deal with it
-        handled = await error_handler.handle_interaction_error(interaction, error)
-        
-        if not handled:
-            logger.error(f"❌ Unhandled interaction error: {error}")
+        if error_handler:
+            handled = await error_handler.handle_interaction_error(interaction, error)
+            if not handled:
+                logger.error(f"❌ Unhandled interaction error: {error}")
+                traceback.print_exc()
+        else:
+            # Basic error handling
+            logger.error(f"❌ Interaction error: {error}")
             traceback.print_exc()
             
     except Exception as e:
@@ -299,8 +352,9 @@ async def on_ready():
     # Start background tasks
     asyncio.create_task(background_maintenance())
     
-    # Track bot startup
-    await analytics.track_performance("bot_startup", time.time() - bot_start_time, True)
+    # Track bot startup if analytics available
+    if analytics:
+        await analytics.track_performance("bot_startup", time.time() - bot_start_time, True)
     
     logger.info("🎉 Enhanced bot initialization complete!")
 
@@ -336,12 +390,14 @@ async def load_cogs():
             load_time = time.time() - start_time
             
             logger.info(f"✅ Loaded {cog} ({load_time:.2f}s)")
-            await analytics.track_performance(f"cog_load_{cog}", load_time, True)
+            if analytics:
+                await analytics.track_performance(f"cog_load_{cog}", load_time, True)
             successful += 1
             
         except Exception as e:
             logger.error(f"❌ Failed to load {cog}: {e}")
-            await analytics.track_error("CogLoadError", cog, 0, str(e))
+            if analytics:
+                await analytics.track_error("CogLoadError", cog, 0, str(e))
             failed += 1
     
     logger.info(f"🎮 Cog loading complete: {successful} successful, {failed} failed")
@@ -357,11 +413,13 @@ async def sync_commands():
         sync_time = time.time() - start_time
         
         logger.info(f"✅ Synced {len(synced)} commands ({sync_time:.2f}s)")
-        await analytics.track_performance("command_sync", sync_time, True)
+        if analytics:
+            await analytics.track_performance("command_sync", sync_time, True)
         
     except Exception as e:
         logger.error(f"❌ Failed to sync commands: {e}")
-        await analytics.track_error("CommandSyncError", "sync", 0, str(e))
+        if analytics:
+            await analytics.track_error("CommandSyncError", "sync", 0, str(e))
 
 async def background_maintenance():
     """Enhanced background maintenance tasks"""
@@ -416,9 +474,14 @@ async def main():
         
         # Log configuration summary
         logger.info("🛠️  Configuration Summary:")
-        logger.info(f"   Environment: {config.environment}")
-        logger.info(f"   Debug Mode: {config.debug_mode}")
-        logger.info(f"   Features Enabled: Economy={config.features.enable_economy}, AI={config.features.enable_ai_features}, Analytics={config.analytics.enable_analytics}")
+        if config:
+            logger.info(f"   Environment: {config.environment}")
+            logger.info(f"   Debug Mode: {config.debug_mode}")
+            logger.info(f"   Features Enabled: Economy={config.features.enable_economy}, AI={config.features.enable_ai_features}, Analytics={config.analytics.enable_analytics}")
+        else:
+            logger.info("   Environment: production (basic mode)")
+            logger.info("   Debug Mode: False")
+            logger.info("   Features Enabled: Basic mode - all features enabled")
         
         # Start the bot
         logger.info("🚀 Starting Discord bot with enhanced systems...")
