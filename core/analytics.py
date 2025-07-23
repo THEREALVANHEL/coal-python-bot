@@ -561,6 +561,20 @@ class BotAnalytics:
         
         return max(score, 0.0)
     
+    async def track_event(self, event_type: str, event_data: dict):
+        """Track an event in the analytics system"""
+        try:
+            # Basic event tracking - can be extended to save to database
+            event_record = {
+                "type": event_type,
+                "data": event_data,
+                "timestamp": datetime.now()
+            }
+            # For now, just log the event
+            print(f"📊 Event tracked: {event_type}")
+        except Exception as e:
+            print(f"⚠️ Failed to track event {event_type}: {e}")
+    
     async def log_bot_startup(self):
         """Log bot startup event"""
         try:

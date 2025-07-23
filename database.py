@@ -142,3 +142,24 @@ except ImportError as e:
             return False
     
     db = MinimalDB()
+
+# Additional compatibility functions
+def cleanup_expired_items():
+    """Clean up expired items from database"""
+    try:
+        if hasattr(db, 'users_collection') and hasattr(db.users_collection, 'update_many'):
+            # Remove expired temporary purchases
+            current_time = time.time()
+            db.users_collection.update_many(
+                {},
+                {"$pull": {"temporary_purchases": {"expiry_time": {"$lt": current_time}}}}
+            )
+            print("🧹 Cleaned up expired items")
+        else:
+            print("🧹 Cleanup skipped (fallback mode)")
+    except Exception as e:
+        print(f"⚠️ Cleanup error: {e}")
+
+def get_database():
+    """Get database instance"""
+    return db
