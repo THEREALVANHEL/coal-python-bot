@@ -1082,61 +1082,65 @@ class Economy(commands.Cog):
     @app_commands.command(name="buy", description="🛒 Purchase items from the enhanced shop")
     @app_commands.describe(item="Item to purchase from the shop")
     @app_commands.choices(item=[
+        # Slots & Gambling
+        app_commands.Choice(name="🎰 Slot Spins (5x) - 50 coins", value="slot_spins_5"),
+        app_commands.Choice(name="🎰 Slot Spins (10x) - 90 coins", value="slot_spins_10"),
+        app_commands.Choice(name="🎰 Slot Spins (25x) - 200 coins", value="slot_spins_25"),
+        app_commands.Choice(name="🎰 Lucky Slot Pass (24h) - 300 coins", value="lucky_slots"),
+        # Banking & Financial
+        app_commands.Choice(name="🏦 ATM Card - 500 coins", value="atm_card"),
+        app_commands.Choice(name="💳 Premium Account (30 days) - 1000 coins", value="premium_account"),
+        app_commands.Choice(name="📊 Stock Analysis (7 days) - 300 coins", value="stock_analysis"),
+        app_commands.Choice(name="💰 Interest Booster (14 days) - 400 coins", value="interest_boost"),
         # Pet Items
-        app_commands.Choice(name="🍖 Premium Food (100 coins)", value="premium_food"),
-        app_commands.Choice(name="🍖 Basic Food (25 coins)", value="basic_food"),
-        app_commands.Choice(name="🍪 Pet Treat (50 coins)", value="treat"),
-        app_commands.Choice(name="💊 Medicine (150 coins)", value="medicine"),
-        app_commands.Choice(name="🎾 Pet Toy (75 coins)", value="toy"),
-        app_commands.Choice(name="💊 Vitamin (200 coins)", value="vitamin"),
-        app_commands.Choice(name="🍖 Super Food (300 coins)", value="super_food"),
+        app_commands.Choice(name="🍖 Premium Food - 100 coins", value="premium_food"),
+        app_commands.Choice(name="🍖 Basic Food - 25 coins", value="basic_food"),
+        app_commands.Choice(name="🍪 Pet Treat - 50 coins", value="treat"),
+        app_commands.Choice(name="💊 Medicine - 150 coins", value="medicine"),
+        app_commands.Choice(name="🎾 Pet Toy - 75 coins", value="toy"),
         # Power-Ups
-        app_commands.Choice(name="⚡ XP Boost (300 coins - 2 hours)", value="xp_boost"),
-        app_commands.Choice(name="💰 Coin Boost (400 coins - 4 hours)", value="coin_boost"),
-        app_commands.Choice(name="🎯 Work Success (600 coins - 12 hours)", value="work_success"),
-        app_commands.Choice(name="🎲 Luck Boost (500 coins - 24 hours)", value="luck_boost"),
-        app_commands.Choice(name="🔥 Mega Boost (1000 coins - 1 hour)", value="mega_boost"),
+        app_commands.Choice(name="⚡ XP Boost (2 hours) - 300 coins", value="xp_boost"),
+        app_commands.Choice(name="💰 Coin Boost (4 hours) - 400 coins", value="coin_boost"),
+        app_commands.Choice(name="🎯 Work Success (12 hours) - 600 coins", value="work_success"),
+        app_commands.Choice(name="🎲 Luck Boost (24 hours) - 500 coins", value="luck_boost"),
         # Access & Customization
-        app_commands.Choice(name="📝 Custom Nickname (200 coins - 7 days)", value="nickname_freedom"),
-        app_commands.Choice(name="🎨 Custom Color (350 coins - 5 days)", value="custom_color"),
-        app_commands.Choice(name="🌟 VIP Status (800 coins - 3 days)", value="vip_status"),
-        # Fun & Games
-        app_commands.Choice(name="📊 Double XP Daily (250 coins - 3 days)", value="double_daily"),
-        app_commands.Choice(name="⏱️ Work Cooldown Reset (150 coins - instant)", value="cooldown_reset"),
-        app_commands.Choice(name="🎰 Casino Pass (400 coins - 24 hours)", value="casino_pass"),
+        app_commands.Choice(name="📝 Custom Nickname (7 days) - 200 coins", value="nickname_freedom"),
+        app_commands.Choice(name="🎨 Custom Color (5 days) - 350 coins", value="custom_color"),
+        app_commands.Choice(name="🌟 VIP Status (3 days) - 800 coins", value="vip_status"),
         # Premium Items
-        app_commands.Choice(name="💎 Diamond Pack (1500 coins - 7 days)", value="diamond_pack"),
-        app_commands.Choice(name="👑 Royal Pass (2000 coins - 14 days)", value="royal_pass"),
-        app_commands.Choice(name="🚀 Legendary Boost (3000 coins - 6 hours)", value="legendary_boost")
+        app_commands.Choice(name="💎 Diamond Pack (7 days) - 1500 coins", value="diamond_pack"),
+        app_commands.Choice(name="👑 Royal Pass (14 days) - 2000 coins", value="royal_pass")
     ])
     async def buy(self, interaction: discord.Interaction, item: str):
         shop_items = {
+            # Slots & Gambling
+            "slot_spins_5": {"price": 50, "name": "🎰 Slot Spins (5x)", "duration": 0, "description": "instant", "category": "Gambling"},
+            "slot_spins_10": {"price": 90, "name": "🎰 Slot Spins (10x)", "duration": 0, "description": "instant", "category": "Gambling"},
+            "slot_spins_25": {"price": 200, "name": "🎰 Slot Spins (25x)", "duration": 0, "description": "instant", "category": "Gambling"},
+            "lucky_slots": {"price": 300, "name": "🎰 Lucky Slot Pass", "duration": 86400, "description": "24 hours", "category": "Gambling"},
+            # Banking & Financial
+            "atm_card": {"price": 500, "name": "🏦 ATM Card", "duration": 0, "description": "permanent", "category": "Banking"},
+            "premium_account": {"price": 1000, "name": "💳 Premium Account", "duration": 2592000, "description": "30 days", "category": "Banking"},
+            "stock_analysis": {"price": 300, "name": "📊 Stock Analysis", "duration": 604800, "description": "7 days", "category": "Banking"},
+            "interest_boost": {"price": 400, "name": "💰 Interest Booster", "duration": 1209600, "description": "14 days", "category": "Banking"},
             # Pet Items
             "premium_food": {"price": 100, "name": "🍖 Premium Food", "duration": 0, "description": "permanent", "category": "Pet Supply"},
             "basic_food": {"price": 25, "name": "🍖 Basic Food", "duration": 0, "description": "permanent", "category": "Pet Supply"},
             "treat": {"price": 50, "name": "🍪 Pet Treat", "duration": 0, "description": "permanent", "category": "Pet Supply"},
             "medicine": {"price": 150, "name": "💊 Medicine", "duration": 0, "description": "permanent", "category": "Pet Supply"},
             "toy": {"price": 75, "name": "🎾 Pet Toy", "duration": 0, "description": "permanent", "category": "Pet Supply"},
-            "vitamin": {"price": 200, "name": "💊 Vitamin", "duration": 0, "description": "permanent", "category": "Pet Supply"},
-            "super_food": {"price": 300, "name": "🍖 Super Food", "duration": 0, "description": "permanent", "category": "Pet Supply"},
             # Power-Ups
             "xp_boost": {"price": 300, "name": "⚡ XP Boost", "duration": 7200, "description": "2 hours", "category": "Boost"},
             "coin_boost": {"price": 400, "name": "💰 Coin Boost", "duration": 14400, "description": "4 hours", "category": "Boost"},
             "work_success": {"price": 600, "name": "🎯 Work Success", "duration": 43200, "description": "12 hours", "category": "Boost"},
             "luck_boost": {"price": 500, "name": "🎲 Luck Boost", "duration": 86400, "description": "24 hours", "category": "Boost"},
-            "mega_boost": {"price": 1000, "name": "🔥 Mega Boost", "duration": 3600, "description": "1 hour", "category": "Boost"},
             # Access & Customization
             "nickname_freedom": {"price": 200, "name": "📝 Custom Nickname", "duration": 604800, "description": "7 days", "category": "Access"},
             "custom_color": {"price": 350, "name": "🎨 Custom Color", "duration": 432000, "description": "5 days", "category": "Access"},
             "vip_status": {"price": 800, "name": "🌟 VIP Status", "duration": 259200, "description": "3 days", "category": "Access"},
-            # Fun & Games
-            "double_daily": {"price": 250, "name": "📊 Double XP Daily", "duration": 259200, "description": "3 days", "category": "Feature"},
-            "cooldown_reset": {"price": 150, "name": "⏱️ Work Cooldown Reset", "duration": 0, "description": "instant", "category": "Feature"},
-            "casino_pass": {"price": 400, "name": "🎰 Casino Pass", "duration": 86400, "description": "24 hours", "category": "Feature"},
             # Premium Items
             "diamond_pack": {"price": 1500, "name": "💎 Diamond Pack", "duration": 604800, "description": "7 days", "category": "Premium"},
-            "royal_pass": {"price": 2000, "name": "👑 Royal Pass", "duration": 1209600, "description": "14 days", "category": "Premium"},
-            "legendary_boost": {"price": 3000, "name": "🚀 Legendary Boost", "duration": 21600, "description": "6 hours", "category": "Premium"}
+            "royal_pass": {"price": 2000, "name": "👑 Royal Pass", "duration": 1209600, "description": "14 days", "category": "Premium"}
         }
         if item not in shop_items:
             await interaction.response.send_message("❌ Invalid item!", ephemeral=True)
@@ -1232,8 +1236,40 @@ class Economy(commands.Cog):
                 inline=True
             )
             
+            # Handle special items first
+            if item == "atm_card":
+                # Give permanent ATM access
+                user_data = db.get_user_data(interaction.user.id)
+                user_data['atm_card'] = True
+                db.update_user_data(interaction.user.id, user_data)
+                embed.add_field(name="🏦 **ATM Card Issued**", value="You now have permanent access to ATM banking services!\nUse `/atm` to access all banking features.", inline=False)
+                
+            elif item in ["slot_spins_5", "slot_spins_10", "slot_spins_25"]:
+                # Handle slot spins - give them as usable items
+                spins_count = {"slot_spins_5": 5, "slot_spins_10": 10, "slot_spins_25": 25}
+                user_data = db.get_user_data(interaction.user.id)
+                user_data['slot_spins'] = user_data.get('slot_spins', 0) + spins_count[item]
+                db.update_user_data(interaction.user.id, user_data)
+                embed.add_field(name="🎰 **Slot Spins Added**", value=f"Added {spins_count[item]} slot spins to your account!\nTotal spins: {user_data['slot_spins']}\nUse `/slots` to play!", inline=False)
+                
+            elif item == "premium_account":
+                db.add_temporary_purchase(interaction.user.id, "premium_account", item_data['duration'])
+                embed.add_field(name="💳 **Premium Account Activated**", value="Higher banking limits, reduced fees, and exclusive features for 30 days!", inline=False)
+                
+            elif item == "stock_analysis":
+                db.add_temporary_purchase(interaction.user.id, "stock_analysis", item_data['duration'])
+                embed.add_field(name="📊 **Stock Analysis Enabled**", value="Advanced market insights and predictions for 7 days!", inline=False)
+                
+            elif item == "interest_boost":
+                db.add_temporary_purchase(interaction.user.id, "interest_boost", item_data['duration'])
+                embed.add_field(name="💰 **Interest Booster Active**", value="2x interest on all savings for 14 days!", inline=False)
+                
+            elif item == "lucky_slots":
+                db.add_temporary_purchase(interaction.user.id, "lucky_slots", item_data['duration'])
+                embed.add_field(name="🎰 **Lucky Slots Active**", value="Increased jackpot chances and better odds for 24 hours!", inline=False)
+                
             # Handle specific items with enhanced features
-            if item == "xp_boost":
+            elif item == "xp_boost":
                 db.add_temporary_purchase(interaction.user.id, "xp_boost", item_data['duration'])
                 embed.add_field(name="⚡ **XP Boost Activated**", value="You now earn **2x XP** from all activities!", inline=False)
                 
@@ -1294,7 +1330,7 @@ class Economy(commands.Cog):
             # Add usage tips
             embed.add_field(
                 name="💡 **Pro Tips**",
-                value="• Use `/myitems` to check all active purchases\n• Stack compatible boosts for maximum effect\n• Premium items provide exclusive server benefits!",
+                value="• Use `/inventory` to check all active purchases\n• Stack compatible boosts for maximum effect\n• Use `/atm` for banking services\n• Premium items provide exclusive server benefits!",
                 inline=False
             )
             

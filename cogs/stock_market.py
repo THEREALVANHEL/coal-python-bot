@@ -69,9 +69,22 @@ class StockMarket(commands.Cog):
         user_data['portfolio'] = portfolio
         db.update_user_data(user_id, user_data)
 
-    @app_commands.command(name="stocks", description="📈 View stock market prices")
-    async def stocks(self, interaction: discord.Interaction, symbol: str = None):
-        if symbol and symbol.upper() not in self.stocks:
+    @app_commands.command(name="stocks", description="📈 View stock market prices and manage your portfolio")
+    @app_commands.describe(symbol="Choose a stock symbol to view details")
+    @app_commands.choices(symbol=[
+        app_commands.Choice(name="📱 TECH - TechCorp (Technology)", value="TECH"),
+        app_commands.Choice(name="🍔 FOOD - FoodCorp (Consumer Goods)", value="FOOD"),
+        app_commands.Choice(name="⚡ ENERGY - EnergyCorp (Energy)", value="ENERGY"),
+        app_commands.Choice(name="🏥 HEALTH - HealthCorp (Healthcare)", value="HEALTH"),
+        app_commands.Choice(name="🚗 AUTO - AutoCorp (Automotive)", value="AUTO"),
+        app_commands.Choice(name="🏦 BANK - BankCorp (Finance)", value="BANK"),
+        app_commands.Choice(name="⛏️ MINING - MiningCorp (Mining)", value="MINING"),
+        app_commands.Choice(name="🎮 GAMING - GamingCorp (Entertainment)", value="GAMING")
+    ])
+    async def stocks(self, interaction: discord.Interaction, symbol: app_commands.Choice[str] = None):
+        # Handle choice selection
+        symbol_value = symbol.value if hasattr(symbol, 'value') else symbol
+        if symbol_value and symbol_value.upper() not in self.stocks:
             embed = discord.Embed(
                 title="❌ Invalid Stock Symbol",
                 description=f"Available stocks: {', '.join(self.stocks.keys())}",
@@ -80,15 +93,15 @@ class StockMarket(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        if symbol:
+        if symbol_value:
             # Show specific stock
-            symbol = symbol.upper()
-            stock_info = self.stocks[symbol]
-            current_price = self.current_prices[symbol]
+            symbol_value = symbol_value.upper()
+            stock_info = self.stocks[symbol_value]
+            current_price = self.current_prices[symbol_value]
             
             # Calculate price change
-            if len(self.price_history[symbol]) > 1:
-                prev_price = self.price_history[symbol][-2]
+            if len(self.price_history[symbol_value]) > 1:
+                prev_price = self.price_history[symbol_value][-2]
                 change = current_price - prev_price
                 change_percent = (change / prev_price) * 100
                 change_emoji = "📈" if change >= 0 else "📉"
@@ -98,7 +111,7 @@ class StockMarket(commands.Cog):
                 change_emoji = "➡️"
 
             embed = discord.Embed(
-                title=f"{change_emoji} {stock_info['name']} ({symbol})",
+                title=f"{change_emoji} {stock_info['name']} ({symbol_value})",
                 description=f"**Current Price:** {current_price:.2f} coins",
                 color=0x00ff00 if change >= 0 else 0xff0000
             )
@@ -112,7 +125,7 @@ class StockMarket(commands.Cog):
             )
             
             # Show price history (last 10 points)
-            history = self.price_history[symbol][-10:]
+            history = self.price_history[symbol_value][-10:]
             history_text = "\n".join([f"{i+1}. {price:.2f}" for i, price in enumerate(history)])
             embed.add_field(
                 name="📈 Recent History",

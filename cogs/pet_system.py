@@ -127,8 +127,19 @@ class PetSystem(commands.Cog):
         empty = 10 - filled
         return "█" * filled + "░" * empty
 
-    @app_commands.command(name="adopt", description="🏠 Adopt a new pet!")
-    async def adopt(self, interaction: discord.Interaction, pet_type: str = None):
+    @app_commands.command(name="adopt", description="🏠 Adopt a new pet from our comprehensive pet list!")
+    @app_commands.describe(pet_type="Choose from: dragon, phoenix, unicorn, griffin, wolf, cat, dog, rabbit")
+    @app_commands.choices(pet_type=[
+        app_commands.Choice(name="🐉 Dragon (Legendary) - 10,000 coins", value="dragon"),
+        app_commands.Choice(name="🔥 Phoenix (Legendary) - 8,000 coins", value="phoenix"),
+        app_commands.Choice(name="🦄 Unicorn (Epic) - 5,000 coins", value="unicorn"),
+        app_commands.Choice(name="🦅 Griffin (Epic) - 4,000 coins", value="griffin"),
+        app_commands.Choice(name="🐺 Wolf (Rare) - 2,000 coins", value="wolf"),
+        app_commands.Choice(name="🐱 Cat (Common) - 500 coins", value="cat"),
+        app_commands.Choice(name="🐶 Dog (Common) - 800 coins", value="dog"),
+        app_commands.Choice(name="🐰 Rabbit (Common) - 300 coins", value="rabbit")
+    ])
+    async def adopt(self, interaction: discord.Interaction, pet_type: app_commands.Choice[str] = None):
         pet_data = self.get_pet_data(interaction.user.id)
         
         if pet_data:
@@ -141,28 +152,54 @@ class PetSystem(commands.Cog):
             return
 
         if not pet_type:
-            # Show available pets
+            # Show comprehensive pet catalog
             embed = discord.Embed(
-                title="🏠 Available Pets",
-                description="Choose a pet to adopt:",
+                title="🏠 **Pet Adoption Center**",
+                description="🐾 **Welcome to our pet adoption center!** Choose from our amazing selection of companions:",
                 color=0x4ecdc4
             )
             
-            for pet_id, pet_info in self.pet_types.items():
-                rarity_emoji = {"common": "⚪", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
-                embed.add_field(
-                    name=f"{rarity_emoji[pet_info['rarity']]} {pet_info['name']}",
-                    value=f"**Cost:** {pet_info['cost']} coins\n"
-                          f"**Rarity:** {pet_info['rarity'].title()}\n"
-                          f"**Stats:** HP: {pet_info['base_hp']} | ATK: {pet_info['base_attack']} | DEF: {pet_info['base_defense']}",
-                    inline=True
-                )
+            # Group pets by rarity
+            rarity_groups = {
+                "legendary": {"emoji": "🟡", "pets": []},
+                "epic": {"emoji": "🟣", "pets": []},
+                "rare": {"emoji": "🔵", "pets": []},
+                "common": {"emoji": "⚪", "pets": []}
+            }
             
-            embed.set_footer(text="Use /adopt <pet_type> to adopt a specific pet")
+            for pet_id, pet_info in self.pet_types.items():
+                pet_emoji = {"dragon": "🐉", "phoenix": "🔥", "unicorn": "🦄", "griffin": "🦅", 
+                           "wolf": "🐺", "cat": "🐱", "dog": "🐶", "rabbit": "🐰"}
+                
+                pet_display = f"{pet_emoji.get(pet_id, '🐾')} **{pet_info['name']}**\n" \
+                             f"💰 Cost: {pet_info['cost']:,} coins\n" \
+                             f"⚔️ Stats: HP:{pet_info['base_hp']} ATK:{pet_info['base_attack']} DEF:{pet_info['base_defense']}"
+                
+                rarity_groups[pet_info['rarity']]["pets"].append(pet_display)
+            
+            # Add fields by rarity
+            for rarity, data in rarity_groups.items():
+                if data["pets"]:
+                    embed.add_field(
+                        name=f"{data['emoji']} **{rarity.title()} Pets**",
+                        value="\n\n".join(data["pets"]),
+                        inline=True
+                    )
+            
+            embed.add_field(
+                name="💡 **How to Adopt**",
+                value="Use the dropdown menu in `/adopt` command to select your perfect companion!\n\n"
+                      "🎯 **Tips:**\n• Start with common pets if you're new\n• Legendary pets are powerful but expensive\n• Each pet has unique stats and abilities",
+                inline=False
+            )
+            
+            embed.set_footer(text="🏠 Pet Adoption Center • Choose wisely, your pet will be your lifelong companion!")
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        if pet_type not in self.pet_types:
+        # Handle choice selection
+        pet_type_value = pet_type.value if hasattr(pet_type, 'value') else pet_type
+        if pet_type_value not in self.pet_types:
             embed = discord.Embed(
                 title="❌ Invalid Pet Type",
                 description=f"Available pets: {', '.join(self.pet_types.keys())}",
@@ -171,7 +208,7 @@ class PetSystem(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        pet_info = self.pet_types[pet_type]
+        pet_info = self.pet_types[pet_type_value]
         user_data = db.get_user_data(interaction.user.id)
         balance = user_data.get('coins', 0)
         
@@ -185,7 +222,7 @@ class PetSystem(commands.Cog):
             return
 
         # Create pet and deduct coins
-        pet = self.create_pet(pet_type, interaction.user.id)
+        pet = self.create_pet(pet_type_value, interaction.user.id)
         self.save_pet_data(interaction.user.id, pet)
         db.remove_coins(interaction.user.id, pet_info['cost'])
         
