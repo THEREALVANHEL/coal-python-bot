@@ -1701,60 +1701,107 @@ class Moderation(commands.Cog):
             )
             await interaction.followup.send(embed=error_embed)
 
-    # Talk to Bleky - AI Nephew Conversation System
-    @app_commands.command(name="talktobleky", description="💬 Start a conversation with your nephew Bleky - he's fun and loves to chat!")
-    async def talk_to_bleky(self, interaction: discord.Interaction):
+    # Enhanced Talk to Bleky - AI Nephew with Command Access & Banking Data
+    @app_commands.command(name="talktobleky", description="💬 Chat with your smart nephew Bleky - he knows all commands and can help with banking!")
+    async def talk_to_bleky(self, interaction: discord.Interaction, message: str = None):
         await interaction.response.defer()
 
         try:
-            # Get recent channel messages for context
-            channel_history = []
-            try:
-                async for message in interaction.channel.history(limit=5):
-                    if not message.author.bot and len(message.content) > 0:
-                        channel_history.append(f"{message.author.display_name}: {message.content[:100]}")
-            except:
-                pass
+            user_id = interaction.user.id
+            user_data = db.get_user_data(user_id)
+            
+            # Get user's banking and stats data for context
+            balance = user_data.get('coins', 0)
+            bank_balance = user_data.get('bank_balance', 0)
+            savings = user_data.get('savings_balance', 0)
+            level = user_data.get('level', 1)
+            xp = user_data.get('xp', 0)
+            job_role = user_data.get('current_job', 'None')
+            portfolio = user_data.get('portfolio', {})
+            pets = user_data.get('pets', {})
+            
+            # Get recent conversation history
+            conversation_key = f"bleky_conversation_{user_id}"
+            conversation_history = db.get_user_data(user_id).get('bleky_conversation', [])
+            
+            # Available commands list for Bleky to reference
+            commands_list = """
+            AVAILABLE COMMANDS:
+            💰 Economy: /balance, /shop, /inventory, /buy, /work, /daily, /coinflip, /slots
+            🏦 Banking: /atm, /deposit, /withdraw, /transfer, /savings, /loan
+            📈 Stocks: /stocks, /buy-stock, /sell-stock, /portfolio
+            🐾 Pets: /pet, /feed-pet, /play-pet, /pet-status
+            🎮 Games: /trivia, /wordchain, /rps, /spinwheel, /flip
+            📊 Profile: /profile, /leaderboard, /updateroles
+            🎫 Tickets: /ticket-panel (staff)
+            🛡️ Moderation: /warn, /warnlist, /removewarnlist, /modclear (staff)
+            🎉 Community: /suggest, /remind, /announce, /giveaway (staff)
+            ⚙️ Admin: /addxp, /removexp, /addcoins, /removecoins, /quicksetup (admin)
+            """
+            
+            # Create enhanced prompt with command knowledge and banking access
+            if message:
+                user_message = message
+            else:
+                user_message = "Hey Bleky! What's up?"
+            
+            # Add conversation history context
+            history_context = ""
+            if conversation_history:
+                recent_history = conversation_history[-6:]  # Last 3 exchanges
+                history_context = "\n\nPREVIOUS CONVERSATION:\n" + "\n".join(recent_history)
+            
+            prompt = f"""You are Bleky, a smart, helpful, and fun-loving nephew who's also a Discord bot expert! You're 16-17 years old, love gaming and tech, and you have access to ALL the bot's commands and your uncle/aunt's account data.
 
-            # Create initial context
-            context_text = ""
-            if channel_history:
-                context_text = f"\n\nChannel context: {' | '.join(reversed(channel_history[-3:]))}"
+YOUR PERSONALITY:
+- Energetic, friendly, and genuinely caring
+- Tech-savvy and knows all Discord bot commands
+- Uses casual language but stays helpful
+- Sometimes playful but always respectful
+- Can explain complex things in simple terms
+- Loves to help with bot features and give advice
 
-            # Build initial conversation starter prompt
-            prompt = f"""You are Bleky, a fun-loving, energetic, and slightly mischievous nephew. Your uncle/aunt {interaction.user.display_name} just started a conversation with you. You're a real human teenager (around 16-17 years old) who loves gaming, memes, and hanging out. You have a close relationship with your family.
+YOUR SPECIAL ABILITIES:
+- You know ALL bot commands and can explain them
+- You can see user's banking, stats, and game data
+- You can give personalized advice based on their progress
+- You remember previous conversations
+- You can help with bot setup and troubleshooting
 
-PERSONALITY TRAITS:
-- Enthusiastic and energetic
-- Uses modern slang naturally (but not excessively)
-- Playful and sometimes a bit cheeky
-- Loves gaming, music, and technology
-- Genuine care for family
-- Sometimes asks for advice or help
-- Can be dramatic about small things (typical teenager)
-- Has inside jokes and references with family
+USER'S CURRENT STATUS:
+- Name: {interaction.user.display_name}
+- Wallet: {balance:,} coins
+- Bank: {bank_balance:,} coins  
+- Savings: {savings:,} coins
+- Level: {level} (XP: {xp:,})
+- Job: {job_role}
+- Stocks: {len(portfolio)} different stocks
+- Pets: {len(pets)} pets
 
-SITUATION:
-Your uncle/aunt {interaction.user.display_name} just said "Hey Bleky!" or started talking to you. This is the beginning of your conversation.
+{commands_list}
 
-INSTRUCTIONS:
-- Greet them warmly like a nephew would
-- Be excited to talk to them
-- Maybe mention something you've been up to recently
-- Ask them how they're doing or what's up
-- Keep it natural and human-like
-- Use casual, family-appropriate language
-- Keep response under 1500 characters
-- Be genuinely engaging and show you care about them{context_text}
+USER MESSAGE: "{user_message}"
 
-Start the conversation as Bleky:"""
+{history_context}
+
+RESPONSE INSTRUCTIONS:
+- Be genuinely helpful and human-like
+- Reference their stats when relevant (like suggesting they save money if they have lots of coins)
+- Recommend specific commands that would help them
+- If they ask about commands, explain them clearly with examples
+- Keep responses under 1800 characters
+- Be encouraging about their progress
+- Use emojis naturally but not excessively
+- End with a question or suggestion to keep conversation going
+
+Respond as Bleky:"""
 
             # Call Gemini AI
             gemini_api_key = os.getenv("GEMINI_API_KEY")
             if not gemini_api_key:
                 embed = discord.Embed(
-                    title="❌ **Bleky is Busy**",
-                    description="🤖 Bleky can't talk right now! Try again later.",
+                    title="❌ **Bleky is Offline**",
+                    description="🤖 Bleky can't talk right now! The AI service isn't configured.",
                     color=0xff6b6b
                 )
                 await interaction.followup.send(embed=embed, ephemeral=True)
@@ -1767,52 +1814,115 @@ Start the conversation as Bleky:"""
             response = model.generate_content(prompt)
             
             if response.text:
-                # Initialize conversation history
-                conversation_history = [
-                    f"Uncle/Aunt {interaction.user.display_name}: Hey Bleky! *starts conversation*",
-                    f"Bleky: {response.text}"
-                ]
+                response_text = response.text.strip()
                 
-                # Create initial conversation embed
+                # Update conversation history
+                conversation_history.append(f"You: {user_message}")
+                conversation_history.append(f"Bleky: {response_text}")
+                
+                # Keep only last 20 messages (10 exchanges)
+                if len(conversation_history) > 20:
+                    conversation_history = conversation_history[-20:]
+                
+                # Save conversation history
+                user_data['bleky_conversation'] = conversation_history
+                db.update_user_data(user_id, user_data)
+                
+                # Create response embed with user's stats
                 embed = discord.Embed(
-                    title="💬 **Bleky is Excited to Talk!**",
-                    description=response.text,
+                    title="💬 **Bleky - Your Smart Nephew**",
+                    description=response_text,
                     color=0x5865f2,
                     timestamp=datetime.now()
                 )
                 
+                # Add user stats sidebar
                 embed.add_field(
-                    name="👋 **Welcome to the Chat!**",
-                    value=f"Your nephew Bleky is ready to talk! He's a fun 16-year-old who loves gaming, music, and hanging out with family.",
-                    inline=False
+                    name="📊 **Your Stats**",
+                    value=f"💰 Wallet: {balance:,}\n🏦 Bank: {bank_balance:,}\n📈 Level: {level}\n👔 Job: {job_role}",
+                    inline=True
                 )
                 
+                # Add quick help
                 embed.add_field(
-                    name="💬 **How to Continue**",
-                    value="Click the **'Continue Talking'** button below to reply to Bleky! He'll remember your conversation and respond naturally.",
-                    inline=False
-                )
-                
-                embed.add_field(
-                    name="🎯 **Chat Features**",
-                    value="• Bleky remembers your conversation\n• He responds like a real nephew\n• Ask him about games, school, life!\n• He might ask for advice or share stories",
-                    inline=False
+                    name="🔧 **Quick Help**",
+                    value="Ask me about:\n• Bot commands\n• Banking advice\n• Game strategies\n• Account management",
+                    inline=True
                 )
                 
                 embed.set_author(
-                    name=f"Started by Uncle/Aunt {interaction.user.display_name}", 
+                    name=f"Chatting with {interaction.user.display_name}", 
                     icon_url=interaction.user.display_avatar.url
                 )
-                embed.set_footer(text="💬 Talk to Bleky • Your favorite nephew!")
-                embed.set_thumbnail(url="https://cdn.discordapp.com/emojis/1234567890123456789.png")  # Optional: Add a fun emoji/image
+                embed.set_footer(text="💬 Enhanced Bleky • Command Expert • Banking Advisor")
                 
-                # Create view with conversation buttons
-                view = TalkToBlekyView(conversation_history)
+                # Create continue conversation view
+                class ContinueBlekyView(discord.ui.View):
+                    def __init__(self):
+                        super().__init__(timeout=300)  # 5 minutes
+                    
+                    @discord.ui.button(label="Continue Chat", emoji="💬", style=discord.ButtonStyle.primary)
+                    async def continue_chat(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                        if button_interaction.user.id != interaction.user.id:
+                            await button_interaction.response.send_message("This isn't your conversation!", ephemeral=True)
+                            return
+                        
+                        # Create modal for user input
+                        class ChatModal(discord.ui.Modal, title="Continue chatting with Bleky"):
+                            message_input = discord.ui.TextInput(
+                                label="What do you want to say to Bleky?",
+                                placeholder="Ask about commands, banking, games, or just chat!",
+                                max_length=500,
+                                style=discord.TextStyle.paragraph
+                            )
+                            
+                            async def on_submit(self, modal_interaction: discord.Interaction):
+                                await modal_interaction.response.defer()
+                                
+                                # Call the same function recursively with the new message
+                                await talk_to_bleky(interaction, self.message_input.value)
+                        
+                        await button_interaction.response.send_modal(ChatModal())
+                    
+                    @discord.ui.button(label="Command Help", emoji="❓", style=discord.ButtonStyle.secondary)
+                    async def command_help(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                        if button_interaction.user.id != interaction.user.id:
+                            await button_interaction.response.send_message("This isn't your conversation!", ephemeral=True)
+                            return
+                        
+                        help_embed = discord.Embed(
+                            title="🤖 **Bleky's Command Knowledge**",
+                            description="I know all these commands and can help you use them!",
+                            color=0x00ff00
+                        )
+                        
+                        help_embed.add_field(
+                            name="💰 **Economy & Banking**",
+                            value="`/balance` `/shop` `/inventory` `/atm`\n`/deposit` `/withdraw` `/savings`",
+                            inline=True
+                        )
+                        
+                        help_embed.add_field(
+                            name="🎮 **Games & Fun**",
+                            value="`/trivia` `/wordchain` `/slots`\n`/coinflip` `/rps` `/spinwheel`",
+                            inline=True
+                        )
+                        
+                        help_embed.add_field(
+                            name="📈 **Stocks & Pets**",
+                            value="`/stocks` `/portfolio` `/pet`\n`/feed-pet` `/play-pet`",
+                            inline=True
+                        )
+                        
+                        help_embed.set_footer(text="💬 Ask me about any command for detailed help!")
+                        await button_interaction.response.send_message(embed=help_embed, ephemeral=True)
+                
+                view = ContinueBlekyView()
                 await interaction.followup.send(embed=embed, view=view)
             else:
                 embed = discord.Embed(
-                    title="❌ **Bleky Can't Talk Right Now**",
-                    description="Bleky is having trouble responding. Please try again!",
+                    title="❌ **Bleky Can't Respond**",
+                    description="Bleky is having trouble right now. Please try again!",
                     color=0xff6b6b
                 )
                 await interaction.followup.send(embed=embed, ephemeral=True)

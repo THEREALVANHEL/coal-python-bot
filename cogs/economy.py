@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import random
 import os, sys
 from discord.ui import Button, View
+from discord import Modal, TextInput
 
 # Local import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -859,46 +860,49 @@ class Economy(commands.Cog):
         else:
             return int(1000 * (level ** 2.8))
 
-    @app_commands.command(name="shop", description="🛒 View the enhanced shop with pet items and premium goods")
+    @app_commands.command(name="shop", description="🛒 Enhanced shop with banking, slots, and premium items")
     async def shop(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="🛒 **Enhanced Shop**",
-            description="✨ **Premium items, pet supplies, and exclusive goods!**\nUse `/buy <item>` to purchase items.",
+            title="🛒 **Enhanced Premium Shop**",
+            description="✨ **Your one-stop shop for everything!**\nUse `/buy <item>` to purchase items.",
             color=0x9932cc
         )
         
-        # Enhanced shop items with pet items and better goods
+        # Enhanced shop items with new categories
         shop_items = [
+            # Slots & Gambling
+            {"name": "🎰 Slot Spins (5x)", "price": 50, "description": "5 slot machine spins with custom amounts", "duration": "instant", "category": "🎰 Gambling", "id": "slot_spins_5"},
+            {"name": "🎰 Slot Spins (10x)", "price": 90, "description": "10 slot machine spins with custom amounts", "duration": "instant", "category": "🎰 Gambling", "id": "slot_spins_10"},
+            {"name": "🎰 Slot Spins (25x)", "price": 200, "description": "25 slot machine spins with custom amounts", "duration": "instant", "category": "🎰 Gambling", "id": "slot_spins_25"},
+            {"name": "🎰 Lucky Slot Pass", "price": 300, "description": "Increased jackpot chances for 24 hours", "duration": "24 hours", "category": "🎰 Gambling", "id": "lucky_slots"},
+            
             # Pet Items
             {"name": "🍖 Premium Food", "price": 100, "description": "High-quality pet food (+50 hunger, +20 happiness, +30 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "premium_food"},
             {"name": "🍖 Basic Food", "price": 25, "description": "Standard pet food (+20 hunger, +5 happiness, +10 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "basic_food"},
             {"name": "🍪 Pet Treat", "price": 50, "description": "Delicious treat (+10 hunger, +30 happiness, +5 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "treat"},
             {"name": "💊 Medicine", "price": 150, "description": "Pet medicine (+80 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "medicine"},
             {"name": "🎾 Pet Toy", "price": 75, "description": "Interactive toy (+40 happiness)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "toy"},
-            {"name": "💊 Vitamin", "price": 200, "description": "Pet vitamins (+50 health, +10 happiness)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "vitamin"},
-            {"name": "🍖 Super Food", "price": 300, "description": "Ultimate pet food (+100 hunger, +50 happiness, +100 health)", "duration": "permanent", "category": "🐾 Pet Supplies", "id": "super_food"},
+            
+            # Banking & Financial
+            {"name": "🏦 ATM Card", "price": 500, "description": "Access to ATM services and banking features", "duration": "permanent", "category": "🏦 Banking", "id": "atm_card"},
+            {"name": "💳 Premium Account", "price": 1000, "description": "Premium banking with higher limits and bonuses", "duration": "30 days", "category": "🏦 Banking", "id": "premium_account"},
+            {"name": "📊 Stock Analysis", "price": 300, "description": "Advanced stock market insights for 7 days", "duration": "7 days", "category": "🏦 Banking", "id": "stock_analysis"},
+            {"name": "💰 Interest Booster", "price": 400, "description": "2x interest on savings for 14 days", "duration": "14 days", "category": "🏦 Banking", "id": "interest_boost"},
             
             # Power-Ups
             {"name": "⚡ XP Boost", "price": 300, "description": "Double XP gain for 2 hours", "duration": "2 hours", "category": "🚀 Power-Ups", "id": "xp_boost"},
             {"name": "💰 Coin Boost", "price": 400, "description": "1.5x coin earnings for 4 hours", "duration": "4 hours", "category": "🚀 Power-Ups", "id": "coin_boost"},
             {"name": "🎯 Work Success", "price": 600, "description": "Guaranteed work success for 12 hours", "duration": "12 hours", "category": "🚀 Power-Ups", "id": "work_success"},
             {"name": "🎲 Luck Boost", "price": 500, "description": "Better RNG in games for 24 hours", "duration": "24 hours", "category": "🚀 Power-Ups", "id": "luck_boost"},
-            {"name": "🔥 Mega Boost", "price": 1000, "description": "2x XP + 2x coins for 1 hour", "duration": "1 hour", "category": "🚀 Power-Ups", "id": "mega_boost"},
             
             # Access & Customization
             {"name": "📝 Custom Nickname", "price": 200, "description": "Change nickname anytime (7 days)", "duration": "7 days", "category": "🔑 Access", "id": "nickname_freedom"},
             {"name": "🎨 Custom Color", "price": 350, "description": "Personalized role color (5 days)", "duration": "5 days", "category": "🔑 Access", "id": "custom_color"},
             {"name": "🌟 VIP Status", "price": 800, "description": "Exclusive VIP role and perks (3 days)", "duration": "3 days", "category": "🔑 Access", "id": "vip_status"},
             
-            # Fun & Games
-            {"name": "📊 Double XP Daily", "price": 250, "description": "Claim double XP from daily for 3 days", "duration": "3 days", "category": "🎮 Fun & Games", "id": "double_daily"},
-            {"name": "⏱️ Work Cooldown Reset", "price": 150, "description": "Instantly reset your work cooldown", "duration": "instant", "category": "🎮 Fun & Games", "id": "cooldown_reset"},
-            {"name": "🎰 Casino Pass", "price": 400, "description": "Free casino games for 24 hours", "duration": "24 hours", "category": "🎮 Fun & Games", "id": "casino_pass"},
-            
             # Premium Items
             {"name": "💎 Diamond Pack", "price": 1500, "description": "Exclusive diamond role and 500 bonus coins", "duration": "7 days", "category": "💎 Premium", "id": "diamond_pack"},
             {"name": "👑 Royal Pass", "price": 2000, "description": "Royal role, 1000 bonus coins, and exclusive commands", "duration": "14 days", "category": "💎 Premium", "id": "royal_pass"},
-            {"name": "🚀 Legendary Boost", "price": 3000, "description": "3x XP + 3x coins + guaranteed success for 6 hours", "duration": "6 hours", "category": "💎 Premium", "id": "legendary_boost"}
         ]
         
         # Group items by category
@@ -921,13 +925,159 @@ class Economy(commands.Cog):
         
         embed.add_field(
             name="💡 **Pro Shopping Tips**",
-            value="• Stack compatible boosts for maximum effect\n• Check `/myitems` to see active purchases\n• All items are temporary but provide great value!",
+            value="• Stack compatible boosts for maximum effect\n• Check `/inventory` to see active purchases\n• Visit `/atm` for banking services\n• Use `/slots <amount>` for custom slot betting!",
             inline=False
         )
         
-        embed.set_footer(text="✨ Premium Temporary Shop • All purchases enhance your experience!")
+        embed.set_footer(text="✨ Enhanced Shop • Banking • Slots • Premium Items!")
         embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
         await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="inventory", description="📋 View your active items, purchases, and banking status")
+    async def inventory(self, interaction: discord.Interaction):
+        try:
+            user_id = interaction.user.id
+            user_data = db.get_user_data(user_id)
+            active_purchases = db.get_active_temporary_purchases(user_id)
+            active_roles = db.get_active_temporary_roles(user_id)
+            
+            embed = discord.Embed(
+                title="📋 **Your Inventory & Status**",
+                description="Here's your complete inventory, active items, and banking information:",
+                color=0x9932cc,
+                timestamp=datetime.now()
+            )
+            
+            # Banking Status
+            balance = user_data.get('coins', 0)
+            bank_balance = user_data.get('bank_balance', 0)
+            savings_balance = user_data.get('savings_balance', 0)
+            has_atm = user_data.get('atm_card', False)
+            
+            embed.add_field(
+                name="🏦 **Banking Status**",
+                value=f"💰 **Wallet:** {balance:,} coins\n"
+                      f"🏦 **Bank:** {bank_balance:,} coins\n"
+                      f"💎 **Savings:** {savings_balance:,} coins\n"
+                      f"💳 **ATM Access:** {'✅ Yes' if has_atm else '❌ No'}",
+                inline=True
+            )
+            
+            # Pet Status (if user has pets)
+            pets = user_data.get('pets', {})
+            if pets:
+                active_pet = None
+                for pet_id, pet_data in pets.items():
+                    if pet_data.get('active', False):
+                        active_pet = pet_data
+                        break
+                
+                if active_pet:
+                    embed.add_field(
+                        name="🐾 **Active Pet**",
+                        value=f"**{active_pet['name']}** ({active_pet['species']})\n"
+                              f"❤️ Health: {active_pet.get('health', 100)}/100\n"
+                              f"😊 Happiness: {active_pet.get('happiness', 100)}/100\n"
+                              f"🍖 Hunger: {active_pet.get('hunger', 100)}/100",
+                        inline=True
+                    )
+            
+            # Stock Portfolio
+            portfolio = user_data.get('portfolio', {})
+            if portfolio:
+                total_value = sum(stock_data.get('shares', 0) * stock_data.get('avg_price', 0) for stock_data in portfolio.values())
+                embed.add_field(
+                    name="📈 **Stock Portfolio**",
+                    value=f"**Total Value:** {total_value:,.2f} coins\n"
+                          f"**Stocks Owned:** {len(portfolio)}\n"
+                          f"Use `/stocks` to manage portfolio",
+                    inline=True
+                )
+            
+            # Active Purchases
+            if not active_purchases and not active_roles:
+                embed.add_field(
+                    name="🛍️ **Active Items**",
+                    value="No active premium items.\n💡 Visit `/shop` to browse items!",
+                    inline=False
+                )
+            else:
+                current_time = datetime.now().timestamp()
+                
+                # Group items by category
+                categories = {
+                    "🚀 Power-Ups": [],
+                    "🎰 Gambling": [],
+                    "🔑 Access": [],
+                    "🎮 Fun & Games": []
+                }
+                
+                # Process temporary purchases
+                for purchase in active_purchases:
+                    item_type = purchase.get("item_type", "unknown")
+                    end_time = purchase.get("end_time", 0)
+                    
+                    if end_time == 0:
+                        time_left = "Permanent"
+                    else:
+                        time_left = f"<t:{int(end_time)}:R>"
+                    
+                    # Get item display info
+                    item_names = {
+                        "xp_boost": "⚡ XP Boost",
+                        "coin_boost": "💰 Coin Boost", 
+                        "work_success": "🎯 Work Success",
+                        "luck_boost": "🎲 Luck Boost",
+                        "lucky_slots": "🎰 Lucky Slots",
+                        "slot_spins_5": "🎰 Slot Spins (5x)",
+                        "slot_spins_10": "🎰 Slot Spins (10x)",
+                        "slot_spins_25": "🎰 Slot Spins (25x)",
+                        "nickname_freedom": "📝 Custom Nickname",
+                        "custom_color": "🎨 Custom Color",
+                        "atm_card": "💳 ATM Card",
+                        "premium_account": "🏦 Premium Account"
+                    }
+                    
+                    item_name = item_names.get(item_type, item_type.title())
+                    
+                    # Categorize
+                    if item_type in ["lucky_slots", "slot_spins_5", "slot_spins_10", "slot_spins_25"]:
+                        category = "🎰 Gambling"
+                    elif item_type in ["xp_boost", "coin_boost", "work_success", "luck_boost"]:
+                        category = "🚀 Power-Ups"
+                    elif item_type in ["nickname_freedom", "custom_color", "atm_card", "premium_account"]:
+                        category = "🔑 Access"
+                    else:
+                        category = "🎮 Fun & Games"
+                    
+                    categories[category].append(f"**{item_name}**\nExpires: {time_left}")
+                
+                # Display active items by category
+                for category, items in categories.items():
+                    if items:
+                        embed.add_field(
+                            name=category,
+                            value="\n\n".join(items),
+                            inline=True
+                        )
+            
+            embed.add_field(
+                name="🔧 **Quick Actions**",
+                value="• `/atm` - Banking services\n• `/shop` - Browse items\n• `/slots <amount>` - Play slots\n• `/stocks` - Stock market\n• `/pet` - Pet management",
+                inline=False
+            )
+            
+            embed.set_footer(text="📋 Complete Inventory • Updated in real-time")
+            await interaction.response.send_message(embed=embed)
+            
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ Error",
+                description="There was an error loading your inventory. Please try again.",
+                color=0xff0000
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            print(f"Inventory error: {e}")
 
     @app_commands.command(name="buy", description="🛒 Purchase items from the enhanced shop")
     @app_commands.describe(item="Item to purchase from the shop")
@@ -1226,113 +1376,7 @@ class Economy(commands.Cog):
             except:
                 pass  # Interaction might be invalid
 
-    @app_commands.command(name="myitems", description="📋 View your active temporary purchases and their remaining time")
-    async def myitems(self, interaction: discord.Interaction):
-        try:
-            user_id = interaction.user.id
-            active_purchases = db.get_active_temporary_purchases(user_id)
-            active_roles = db.get_active_temporary_roles(user_id)
-            
-            embed = discord.Embed(
-                title="📋 **Your Active Premium Items**",
-                description="Here are all your currently active temporary purchases and their remaining time:",
-                color=0x9932cc,
-                timestamp=datetime.now()
-            )
-            
-            if not active_purchases and not active_roles:
-                embed.description = "You don't have any active premium items.\n\n💡 **Visit `/shop` to browse our premium temporary items!**"
-                embed.color = 0x6c757d
-                embed.add_field(
-                    name="🛒 **Available Categories**",
-                    value="• 🚀 **Power-Ups** - XP, Coin boosts\n• 👑 **Social Status** - VIP roles, custom colors\n• 🔑 **Access** - Exclusive channels & features\n• 🎮 **Fun & Games** - Special effects & bonuses",
-                    inline=False
-                )
-            else:
-                current_time = datetime.now().timestamp()
-                
-                # Group items by category
-                categories = {
-                    "🚀 Power-Ups": [],
-                    "👑 Social Status": [],
-                    "🔑 Access": [],
-                    "🎮 Fun & Games": []
-                }
-                
-                # Map item types to categories
-                category_mapping = {
-                    "xp_boost": "🚀 Power-Ups",
-                    "coin_boost": "🚀 Power-Ups", 
-                    "work_success": "🚀 Power-Ups",
-                    "luck_boost": "🚀 Power-Ups",
-                    "nickname_freedom": "🔑 Access",
-                    "custom_color": "🔑 Access",
-                    "double_daily": "🎮 Fun & Games",
-                    "cooldown_reset": "🎮 Fun & Games"
-                }
-                
-                # Process temporary purchases
-                for purchase in active_purchases:
-                    item_type = purchase.get("item_type", "unknown")
-                    end_time = purchase.get("end_time", 0)
-                    
-                    if end_time == 0:  # Permanent
-                        time_left = "Permanent"
-                    else:
-                        time_left = f"<t:{int(end_time)}:R>"
-                    
-                    # Get item display info
-                    item_names = {
-                        "xp_boost": "⚡ XP Boost",
-                        "coin_boost": "💰 Coin Boost", 
-                        "work_success": "🎯 Work Success",
-                        "luck_boost": "🎲 Luck Boost",
-                        "nickname_freedom": "📝 Custom Nickname",
-                        "custom_color": "🎨 Custom Color",
-                        "double_daily": "📊 Double XP Daily",
-                        "cooldown_reset": "⏱️ Work Cooldown Reset"
-                    }
-                    
-                    item_name = item_names.get(item_type, item_type.title())
-                    category = category_mapping.get(item_type, "🎮 Fun & Games")
-                    
-                    categories[category].append(f"**{item_name}**\nExpires: {time_left}")
-                
-                # Process temporary roles
-                for role_data in active_roles:
-                    role_id = role_data.get("role_id")
-                    end_time = role_data.get("end_time", 0)
-                    
-                    role = interaction.guild.get_role(role_id)
-                    role_name = role.name if role else f"Role {role_id}"
-                    
-                    time_left = f"<t:{int(end_time)}:R>" if end_time > 0 else "Permanent"
-                    categories["👑 Social Status"].append(f"**{role_name}**\nExpires: {time_left}")
-                
-                # Add non-empty categories to embed
-                for category, items in categories.items():
-                    if items:
-                        embed.add_field(
-                            name=category,
-                            value="\n\n".join(items),
-                            inline=True
-                        )
-                
-                # Add statistics
-                total_active = len(active_purchases) + len(active_roles)
-                embed.add_field(
-                    name="📊 **Summary**",
-                    value=f"**Total Active Items:** {total_active}\n**Premium Status:** {'✨ Active' if total_active > 0 else '⏸️ None'}\n**Account Type:** {'🌟 Premium User' if total_active >= 3 else '🔰 Standard User'}",
-                    inline=False
-                )
-            
-            embed.set_author(name=f"{interaction.user.display_name}'s Premium Items", icon_url=interaction.user.display_avatar.url)
-            embed.set_footer(text="✨ Premium Shop • Use /shop to get more items!")
-            
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error retrieving your items: {str(e)}", ephemeral=True)
+
 
     @app_commands.command(name="addcoins", description="💰 Add coins to a user (Admin only)")
     @app_commands.describe(
@@ -2084,6 +2128,373 @@ class Economy(commands.Cog):
         
         embed.set_footer(text="📊 Credit scores update daily based on your financial activity")
         await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="atm", description="🏦 Access ATM services - deposit, withdraw, transfer, and more!")
+    async def atm(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
+        user_data = db.get_user_data(user_id)
+        
+        # Check if user has ATM card
+        has_atm_card = user_data.get('atm_card', False)
+        if not has_atm_card:
+            embed = discord.Embed(
+                title="❌ **ATM Access Denied**",
+                description="You need an ATM card to use banking services!\n\n💳 **Get an ATM Card:**\nPurchase one from `/shop` for 500 coins.",
+                color=0xff0000
+            )
+            embed.add_field(
+                name="🏦 **Available Services**",
+                value="• Deposit coins to bank\n• Withdraw from bank\n• Transfer to other users\n• Open savings account\n• Apply for loans\n• View transaction history",
+                inline=False
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Get user's financial data
+        wallet = user_data.get('coins', 0)
+        bank_balance = user_data.get('bank_balance', 0)
+        savings_balance = user_data.get('savings_balance', 0)
+        loan_amount = user_data.get('loan_amount', 0)
+        is_premium = user_data.get('premium_account', False)
+        
+        # Create ATM interface
+        embed = discord.Embed(
+            title="🏦 **Coal Bank ATM**",
+            description="Welcome to your personal banking center!",
+            color=0x2f3136,
+            timestamp=datetime.now()
+        )
+        
+        embed.add_field(
+            name="💰 **Account Overview**",
+            value=f"**Wallet:** {wallet:,} coins\n"
+                  f"**Bank:** {bank_balance:,} coins\n"
+                  f"**Savings:** {savings_balance:,} coins\n"
+                  f"**Total:** {(wallet + bank_balance + savings_balance):,} coins",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="💳 **Account Status**",
+            value=f"**Type:** {'Premium' if is_premium else 'Standard'}\n"
+                  f"**Loan:** {loan_amount:,} coins\n"
+                  f"**Credit:** {'Good' if loan_amount == 0 else 'Active Loan'}\n"
+                  f"**ATM Card:** ✅ Active",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🏦 **Banking Services**",
+            value="Use the buttons below to access banking services:",
+            inline=False
+        )
+        
+        embed.set_footer(text="🏦 Coal Bank • Secure Banking Since 2024")
+        
+        # Create ATM view with buttons
+        class ATMView(View):
+            def __init__(self):
+                super().__init__(timeout=300)  # 5 minutes
+            
+            @discord.ui.button(label="Deposit", emoji="📥", style=discord.ButtonStyle.green)
+            async def deposit_button(self, button_interaction: discord.Interaction, button: Button):
+                if button_interaction.user.id != user_id:
+                    await button_interaction.response.send_message("This isn't your ATM session!", ephemeral=True)
+                    return
+                
+                class DepositModal(Modal, title="Deposit Coins to Bank"):
+                    amount_input = TextInput(
+                        label="Amount to deposit",
+                        placeholder="Enter amount (e.g., 1000)",
+                        max_length=10
+                    )
+                    
+                    async def on_submit(self, modal_interaction: discord.Interaction):
+                        try:
+                            amount = int(self.amount_input.value.replace(',', ''))
+                            if amount <= 0:
+                                await modal_interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+                                return
+                            
+                            current_data = db.get_user_data(user_id)
+                            current_wallet = current_data.get('coins', 0)
+                            
+                            if current_wallet < amount:
+                                await modal_interaction.response.send_message(
+                                    f"❌ Insufficient funds! You have {current_wallet:,} coins in wallet.",
+                                    ephemeral=True
+                                )
+                                return
+                            
+                            # Process deposit
+                            db.add_coins(user_id, -amount)  # Remove from wallet
+                            current_data['bank_balance'] = current_data.get('bank_balance', 0) + amount
+                            db.update_user_data(user_id, current_data)
+                            
+                            success_embed = discord.Embed(
+                                title="✅ **Deposit Successful**",
+                                description=f"Successfully deposited {amount:,} coins to your bank account!",
+                                color=0x00ff00
+                            )
+                            success_embed.add_field(
+                                name="💰 **Updated Balance**",
+                                value=f"Bank: {current_data['bank_balance']:,} coins",
+                                inline=True
+                            )
+                            await modal_interaction.response.send_message(embed=success_embed, ephemeral=True)
+                            
+                        except ValueError:
+                            await modal_interaction.response.send_message("❌ Please enter a valid number!", ephemeral=True)
+                
+                await button_interaction.response.send_modal(DepositModal())
+            
+            @discord.ui.button(label="Withdraw", emoji="📤", style=discord.ButtonStyle.red)
+            async def withdraw_button(self, button_interaction: discord.Interaction, button: Button):
+                if button_interaction.user.id != user_id:
+                    await button_interaction.response.send_message("This isn't your ATM session!", ephemeral=True)
+                    return
+                
+                class WithdrawModal(Modal, title="Withdraw Coins from Bank"):
+                    amount_input = TextInput(
+                        label="Amount to withdraw",
+                        placeholder="Enter amount (e.g., 500)",
+                        max_length=10
+                    )
+                    
+                    async def on_submit(self, modal_interaction: discord.Interaction):
+                        try:
+                            amount = int(self.amount_input.value.replace(',', ''))
+                            if amount <= 0:
+                                await modal_interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+                                return
+                            
+                            current_data = db.get_user_data(user_id)
+                            current_bank = current_data.get('bank_balance', 0)
+                            
+                            if current_bank < amount:
+                                await modal_interaction.response.send_message(
+                                    f"❌ Insufficient bank funds! You have {current_bank:,} coins in bank.",
+                                    ephemeral=True
+                                )
+                                return
+                            
+                            # Process withdrawal
+                            db.add_coins(user_id, amount)  # Add to wallet
+                            current_data['bank_balance'] = current_data.get('bank_balance', 0) - amount
+                            db.update_user_data(user_id, current_data)
+                            
+                            success_embed = discord.Embed(
+                                title="✅ **Withdrawal Successful**",
+                                description=f"Successfully withdrew {amount:,} coins from your bank account!",
+                                color=0x00ff00
+                            )
+                            success_embed.add_field(
+                                name="💰 **Updated Balance**",
+                                value=f"Bank: {current_data['bank_balance']:,} coins",
+                                inline=True
+                            )
+                            await modal_interaction.response.send_message(embed=success_embed, ephemeral=True)
+                            
+                        except ValueError:
+                            await modal_interaction.response.send_message("❌ Please enter a valid number!", ephemeral=True)
+                
+                await button_interaction.response.send_modal(WithdrawModal())
+            
+            @discord.ui.button(label="Transfer", emoji="💸", style=discord.ButtonStyle.primary)
+            async def transfer_button(self, button_interaction: discord.Interaction, button: Button):
+                if button_interaction.user.id != user_id:
+                    await button_interaction.response.send_message("This isn't your ATM session!", ephemeral=True)
+                    return
+                
+                class TransferModal(Modal, title="Transfer Coins to Another User"):
+                    user_input = TextInput(
+                        label="User to transfer to",
+                        placeholder="@username or user ID",
+                        max_length=50
+                    )
+                    amount_input = TextInput(
+                        label="Amount to transfer",
+                        placeholder="Enter amount (e.g., 250)",
+                        max_length=10
+                    )
+                    
+                    async def on_submit(self, modal_interaction: discord.Interaction):
+                        try:
+                            amount = int(self.amount_input.value.replace(',', ''))
+                            if amount <= 0:
+                                await modal_interaction.response.send_message("❌ Amount must be positive!", ephemeral=True)
+                                return
+                            
+                            # Find target user
+                            user_input = self.user_input.value.strip()
+                            target_user = None
+                            
+                            # Try to find user by mention or ID
+                            if user_input.startswith('<@') and user_input.endswith('>'):
+                                user_id_str = user_input[2:-1]
+                                if user_id_str.startswith('!'):
+                                    user_id_str = user_id_str[1:]
+                                try:
+                                    target_user = interaction.guild.get_member(int(user_id_str))
+                                except:
+                                    pass
+                            else:
+                                # Try to find by username
+                                for member in interaction.guild.members:
+                                    if member.display_name.lower() == user_input.lower() or member.name.lower() == user_input.lower():
+                                        target_user = member
+                                        break
+                            
+                            if not target_user:
+                                await modal_interaction.response.send_message("❌ User not found! Try using @mention or exact username.", ephemeral=True)
+                                return
+                            
+                            if target_user.id == user_id:
+                                await modal_interaction.response.send_message("❌ You can't transfer to yourself!", ephemeral=True)
+                                return
+                            
+                            # Check sender's balance
+                            current_data = db.get_user_data(user_id)
+                            current_bank = current_data.get('bank_balance', 0)
+                            
+                            transfer_fee = max(1, amount // 100)  # 1% fee, minimum 1 coin
+                            total_cost = amount + transfer_fee
+                            
+                            if current_bank < total_cost:
+                                await modal_interaction.response.send_message(
+                                    f"❌ Insufficient bank funds! You need {total_cost:,} coins (including {transfer_fee:,} transfer fee).\n"
+                                    f"You have {current_bank:,} coins in bank.",
+                                    ephemeral=True
+                                )
+                                return
+                            
+                            # Process transfer
+                            current_data['bank_balance'] -= total_cost
+                            db.update_user_data(user_id, current_data)
+                            
+                            # Add to recipient's bank
+                            recipient_data = db.get_user_data(target_user.id)
+                            recipient_data['bank_balance'] = recipient_data.get('bank_balance', 0) + amount
+                            db.update_user_data(target_user.id, recipient_data)
+                            
+                            success_embed = discord.Embed(
+                                title="✅ **Transfer Successful**",
+                                description=f"Successfully transferred {amount:,} coins to {target_user.display_name}!",
+                                color=0x00ff00
+                            )
+                            success_embed.add_field(
+                                name="💰 **Transaction Details**",
+                                value=f"Amount: {amount:,} coins\nFee: {transfer_fee:,} coins\nTotal: {total_cost:,} coins",
+                                inline=True
+                            )
+                            success_embed.add_field(
+                                name="🏦 **Your Bank Balance**",
+                                value=f"{current_data['bank_balance']:,} coins",
+                                inline=True
+                            )
+                            await modal_interaction.response.send_message(embed=success_embed, ephemeral=True)
+                            
+                        except ValueError:
+                            await modal_interaction.response.send_message("❌ Please enter a valid number!", ephemeral=True)
+                
+                await button_interaction.response.send_modal(TransferModal())
+            
+            @discord.ui.button(label="Savings", emoji="💎", style=discord.ButtonStyle.secondary)
+            async def savings_button(self, button_interaction: discord.Interaction, button: Button):
+                if button_interaction.user.id != user_id:
+                    await button_interaction.response.send_message("This isn't your ATM session!", ephemeral=True)
+                    return
+                
+                current_data = db.get_user_data(user_id)
+                savings = current_data.get('savings_balance', 0)
+                bank = current_data.get('bank_balance', 0)
+                
+                savings_embed = discord.Embed(
+                    title="💎 **Savings Account**",
+                    description="High-yield savings with 2% daily interest!",
+                    color=0x9932cc
+                )
+                
+                savings_embed.add_field(
+                    name="💰 **Current Savings**",
+                    value=f"{savings:,} coins",
+                    inline=True
+                )
+                
+                savings_embed.add_field(
+                    name="📈 **Daily Interest**",
+                    value=f"{int(savings * 0.02):,} coins (2%)",
+                    inline=True
+                )
+                
+                savings_embed.add_field(
+                    name="🏦 **Available to Save**",
+                    value=f"{bank:,} coins (from bank)",
+                    inline=True
+                )
+                
+                savings_embed.add_field(
+                    name="ℹ️ **How it Works**",
+                    value="• Transfer from bank to savings\n• Earn 2% interest daily\n• Minimum 100 coins to start\n• No withdrawal fees",
+                    inline=False
+                )
+                
+                class SavingsView(View):
+                    def __init__(self):
+                        super().__init__(timeout=180)
+                    
+                    @discord.ui.button(label="Deposit to Savings", style=discord.ButtonStyle.green)
+                    async def deposit_savings(self, savings_interaction: discord.Interaction, button: Button):
+                        class SavingsDepositModal(Modal, title="Deposit to Savings"):
+                            amount_input = TextInput(
+                                label="Amount to save (from bank)",
+                                placeholder="Minimum 100 coins",
+                                max_length=10
+                            )
+                            
+                            async def on_submit(self, savings_modal_interaction: discord.Interaction):
+                                try:
+                                    amount = int(self.amount_input.value.replace(',', ''))
+                                    if amount < 100:
+                                        await savings_modal_interaction.response.send_message("❌ Minimum savings deposit is 100 coins!", ephemeral=True)
+                                        return
+                                    
+                                    current_data = db.get_user_data(user_id)
+                                    current_bank = current_data.get('bank_balance', 0)
+                                    
+                                    if current_bank < amount:
+                                        await savings_modal_interaction.response.send_message(
+                                            f"❌ Insufficient bank funds! You have {current_bank:,} coins in bank.",
+                                            ephemeral=True
+                                        )
+                                        return
+                                    
+                                    # Transfer to savings
+                                    current_data['bank_balance'] -= amount
+                                    current_data['savings_balance'] = current_data.get('savings_balance', 0) + amount
+                                    db.update_user_data(user_id, current_data)
+                                    
+                                    success_embed = discord.Embed(
+                                        title="✅ **Savings Deposit Successful**",
+                                        description=f"Deposited {amount:,} coins to savings!",
+                                        color=0x00ff00
+                                    )
+                                    success_embed.add_field(
+                                        name="💎 **New Savings Balance**",
+                                        value=f"{current_data['savings_balance']:,} coins",
+                                        inline=True
+                                    )
+                                    await savings_modal_interaction.response.send_message(embed=success_embed, ephemeral=True)
+                                    
+                                except ValueError:
+                                    await savings_modal_interaction.response.send_message("❌ Please enter a valid number!", ephemeral=True)
+                        
+                        await savings_interaction.response.send_modal(SavingsDepositModal())
+                
+                await button_interaction.response.send_message(embed=savings_embed, view=SavingsView(), ephemeral=True)
+        
+        view = ATMView()
+        await interaction.response.send_message(embed=embed, view=view)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Economy(bot))

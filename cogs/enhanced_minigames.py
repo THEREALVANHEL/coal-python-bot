@@ -129,7 +129,7 @@ class EnhancedMiniGames(commands.Cog):
         return False
 
     def generate_ai_trivia_question(self, difficulty: str = "medium") -> dict:
-        """Generate AI-powered trivia questions dynamically with enhanced categories"""
+        """Generate AI-powered trivia questions dynamically with enhanced categories and proper rewards"""
         # Enhanced categories and their question templates
         categories = {
             "programming": {
@@ -806,11 +806,11 @@ class EnhancedMiniGames(commands.Cog):
             options = ["Option A", "Option B", "Option C", "Option D"]
             correct = random.randint(0, 3)
         
-        # Set reward based on difficulty
+        # Set reward based on difficulty - Updated as requested
         rewards = {
-            "easy": 2,
+            "easy": 1,
             "medium": 2,
-            "hard": 2
+            "hard": 3
         }
         
         return {
@@ -830,17 +830,7 @@ class EnhancedMiniGames(commands.Cog):
         app_commands.Choice(name="Hard", value="hard")
     ])
     async def trivia(self, interaction: discord.Interaction, difficulty: app_commands.Choice[str] = None):
-        # Deduct coins for playing trivia
-        entry_fee = 25
-        user_data = db.get_user_data(interaction.user.id)
-        balance = user_data.get('coins', 0)
-        if balance < entry_fee:
-            await interaction.response.send_message(
-                f"❌ You need at least {entry_fee} coins to play trivia! You have {balance}.",
-                ephemeral=True
-            )
-            return
-        db.remove_coins(interaction.user.id, entry_fee)
+        # No entry fee - trivia is free to play but gives small rewards
         # Check cooldown
         can_play, time_left = self.check_cooldown(interaction.user.id, "trivia", 60)
         if not can_play:
@@ -1030,8 +1020,8 @@ class EnhancedMiniGames(commands.Cog):
             async def on_submit(self, modal_interaction: discord.Interaction):
                 user_word = self.word_input.value.lower().strip()
                 
-                # Validate word starts with correct letter (case-insensitive)
-                if not user_word.startswith(self.last_letter.lower()):
+                # Validate word starts with correct letter (case-insensitive) - Fixed case sensitivity
+                if not user_word.lower().startswith(self.last_letter.lower()):
                     embed = discord.Embed(
                         title="❌ Invalid Starting Letter",
                         description=f"Your word must start with **'{self.last_letter.upper()}'**!\n"
@@ -1051,14 +1041,16 @@ class EnhancedMiniGames(commands.Cog):
                     await modal_interaction.response.send_message(embed=embed, ephemeral=True)
                     return
                 
-                # Enhanced word validation using the minigames cog
+                # Enhanced word validation using the minigames cog with AI validation
                 is_valid_word = self.minigames_cog.validate_word(user_word, self.last_letter)
                 
                 if not is_valid_word:
+                    # Add cooldown for wrong attempts
+                    self.minigames_cog.set_cooldown(modal_interaction.user.id, "wordchain", 300)  # 5 minute cooldown
                     embed = discord.Embed(
                         title="❌ Invalid Word",
                         description=f"**'{user_word.title()}'** doesn't appear to be a valid English word.\n"
-                                   "Try a different word!",
+                                   "You have a 5-minute cooldown before trying again.",
                         color=0xff0000
                     )
                     await modal_interaction.response.send_message(embed=embed, ephemeral=True)
@@ -1288,8 +1280,9 @@ class EnhancedMiniGames(commands.Cog):
         view = RPSView(interaction.user, opponent)
         await interaction.response.send_message(f"{opponent.mention}", embed=embed, view=view)
 
-    @app_commands.command(name="slots", description="🎰 Play the slot machine and win coins!")
-    async def slots(self, interaction: discord.Interaction):
+    @app_commands.command(name="slots", description="🎰 Play the slot machine with custom bet amounts!")
+    @app_commands.describe(amount="Amount to bet (minimum 10 coins)")
+    async def slots(self, interaction: discord.Interaction, amount: int = 25):
         # Check cooldown
         can_play, time_left = self.check_cooldown(interaction.user.id, "slots", 45)
         if not can_play:
@@ -1299,15 +1292,30 @@ class EnhancedMiniGames(commands.Cog):
             )
             return
 
+        # Validate bet amount
+        if amount < 10:
+            await interaction.response.send_message(
+                "❌ Minimum bet is 10 coins!",
+                ephemeral=True
+            )
+            return
+        
+        if amount > 1000:
+            await interaction.response.send_message(
+                "❌ Maximum bet is 1,000 coins!",
+                ephemeral=True
+            )
+            return
+        
         # Check if user has enough coins
         user_data = db.get_user_data(interaction.user.id)
         current_coins = user_data.get("coins", 0)
         
-        bet_amount = 25  # Fixed bet amount
+        bet_amount = amount  # Custom bet amount
         if current_coins < bet_amount:
             await interaction.response.send_message(
-                f"❌ You need at least {bet_amount} coins to play slots!\n"
-                f"💰 You currently have {current_coins} coins.",
+                f"❌ You need at least {bet_amount:,} coins to play slots!\n"
+                f"💰 You currently have {current_coins:,} coins.",
                 ephemeral=True
             )
             return
@@ -1432,73 +1440,7 @@ class EnhancedMiniGames(commands.Cog):
         embed.set_footer(text="🏆 Tournament system in development - Stay tuned!")
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="dailychallenge", description="🎯 Complete daily challenges for bonus rewards")
-    async def dailychallenge(self, interaction: discord.Interaction):
-        """Daily challenge system"""
-        user_data = db.get_user_data(interaction.user.id)
-        
-        # Check if user has completed today's challenge
-        last_challenge = user_data.get('last_daily_challenge', 0)
-        current_time = datetime.now().timestamp()
-        
-        if current_time - last_challenge < 86400:  # 24 hours
-            time_left = 86400 - (current_time - last_challenge)
-            hours = int(time_left // 3600)
-            minutes = int((time_left % 3600) // 60)
-            
-            embed = discord.Embed(
-                title="🎯 Daily Challenge",
-                description=f"⏰ **Challenge completed!**\n\nNext challenge available in **{hours}h {minutes}m**",
-                color=0x00ff00
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        
-        # Generate today's challenge
-        challenges = [
-            {"name": "High Roller", "desc": "Win 500+ coins in slots", "reward": 200, "type": "gambling"},
-            {"name": "Trivia Master", "desc": "Answer 5 trivia questions correctly", "reward": 150, "type": "knowledge"},
-            {"name": "Lucky Streak", "desc": "Win 3 coinflips in a row", "reward": 100, "type": "luck"},
-            {"name": "Worker Bee", "desc": "Complete 3 work sessions", "reward": 250, "type": "work"},
-            {"name": "Social Butterfly", "desc": "Use 5 different commands", "reward": 100, "type": "activity"}
-        ]
-        
-        # Use user ID as seed for consistent daily challenge
-        import hashlib
-        seed = int(hashlib.md5(f"{interaction.user.id}{int(current_time // 86400)}".encode()).hexdigest()[:8], 16)
-        random.seed(seed)
-        daily_challenge = random.choice(challenges)
-        random.seed()  # Reset seed
-        
-        embed = discord.Embed(
-            title="🎯 Daily Challenge",
-            description=f"**Today's Challenge: {daily_challenge['name']}**",
-            color=0xffd700
-        )
-        
-        embed.add_field(
-            name="📋 Objective",
-            value=daily_challenge['desc'],
-            inline=False
-        )
-        embed.add_field(
-            name="🏆 Reward",
-            value=f"{daily_challenge['reward']} coins + XP bonus",
-            inline=True
-        )
-        embed.add_field(
-            name="⏰ Time Limit",
-            value="24 hours",
-            inline=True
-        )
-        embed.add_field(
-            name="📊 Progress",
-            value="0% Complete",
-            inline=True
-        )
-        
-        embed.set_footer(text="🎯 Complete the challenge to claim your reward!")
-        await interaction.response.send_message(embed=embed)
+
 
 async def setup(bot):
     await bot.add_cog(EnhancedMiniGames(bot))

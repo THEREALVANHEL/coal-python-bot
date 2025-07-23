@@ -147,45 +147,7 @@ class CoolCommands(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="8ball", description="🎱 Ask the magic 8-ball a question!")
-    async def eight_ball(self, interaction: discord.Interaction, question: str):
-        if not question.endswith('?'):
-            await interaction.response.send_message("❓ Please ask a proper question ending with '?'", ephemeral=True)
-            return
-            
-        responses = [
-            "🟢 It is certain",
-            "🟢 Without a doubt", 
-            "🟢 Yes definitely",
-            "🟢 You may rely on it",
-            "🟢 As I see it, yes",
-            "🟢 Most likely",
-            "🟢 Outlook good",
-            "🟢 Yes",
-            "🟢 Signs point to yes",
-            "🟡 Reply hazy, try again",
-            "🟡 Ask again later",
-            "🟡 Better not tell you now",
-            "🟡 Cannot predict now",
-            "🟡 Concentrate and ask again",
-            "🔴 Don't count on it",
-            "🔴 My reply is no",
-            "🔴 My sources say no",
-            "🔴 Outlook not so good",
-            "🔴 Very doubtful"
-        ]
-        
-        answer = random.choice(responses)
-        
-        embed = discord.Embed(
-            title="🎱 Magic 8-Ball",
-            color=0x000000
-        )
-        embed.add_field(name="❓ Your Question", value=question, inline=False)
-        embed.add_field(name="🔮 Answer", value=answer, inline=False)
-        embed.set_footer(text="🎱 The magic 8-ball has spoken!")
-        
-        await interaction.response.send_message(embed=embed)
+
 
     @app_commands.command(name="fortune", description="🔮 Get your daily fortune!")
     async def fortune(self, interaction: discord.Interaction):
