@@ -136,6 +136,25 @@ class DatabaseManager:
             "last_work": 0,
             "inventory": {},
             "achievements": [],
+            "temporary_purchases": [],
+            "temporary_roles": [],
+            "reminders": [],
+            "pets": [],
+            "stocks": {},
+            "cookies": 0,
+            "last_cookie": 0,
+            "warnings": [],
+            "mutes": [],
+            "bans": [],
+            "tickets": [],
+            "reputation": 0,
+            "marriage": None,
+            "job_performance": {},
+            "credit_cards": [],
+            "loans": [],
+            "insurance": {},
+            "investments": {},
+            "gambling_stats": {"wins": 0, "losses": 0, "total_bet": 0, "total_won": 0},
             "settings": {
                 "notifications": True,
                 "privacy": "public"
@@ -359,6 +378,229 @@ class DatabaseManager:
             logger.error(f"Error adding XP for {user_id}: {e}")
             return {"xp_gained": 0, "leveled_up": False}
     
+    # ==================== TEMPORARY ITEMS SYSTEM ====================
+    
+    def add_temporary_purchase(self, user_id: int, item_type: str, duration: int) -> bool:
+        """Add temporary purchase"""
+        try:
+            expiry_time = time.time() + duration
+            purchase_data = {
+                "item_type": item_type,
+                "expires_at": expiry_time,
+                "purchased_at": time.time()
+            }
+            
+            user_data = self.get_user_data(user_id)
+            if "temporary_purchases" not in user_data:
+                user_data["temporary_purchases"] = []
+            user_data["temporary_purchases"].append(purchase_data)
+            
+            self.update_user_data(user_id, user_data)
+            return True
+        except Exception as e:
+            logger.error(f"Error adding temporary purchase: {e}")
+            return False
+    
+    def get_active_temporary_purchases(self, user_id: int) -> List[Dict[str, Any]]:
+        """Get active temporary purchases"""
+        try:
+            user_data = self.get_user_data(user_id)
+            current_time = time.time()
+            active_purchases = []
+            
+            for purchase in user_data.get("temporary_purchases", []):
+                if purchase.get("expires_at", 0) > current_time:
+                    active_purchases.append(purchase)
+            
+            return active_purchases
+        except Exception as e:
+            logger.error(f"Error getting active purchases: {e}")
+            return []
+    
+    def get_active_temporary_roles(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get active temporary roles"""
+        try:
+            current_time = time.time()
+            active_roles = []
+            
+            if user_id:
+                user_data = self.get_user_data(user_id)
+                for role in user_data.get("temporary_roles", []):
+                    if role.get("expires_at", 0) > current_time:
+                        active_roles.append(role)
+            else:
+                # Get all users with active roles
+                if self.connected_to_mongodb:
+                    users = self.users_collection.find({"temporary_roles": {"$exists": True}})
+                else:
+                    users = self.memory_users.values()
+                
+                for user_data in users:
+                    for role in user_data.get("temporary_roles", []):
+                        if role.get("expires_at", 0) > current_time:
+                            active_roles.append(role)
+            
+            return active_roles
+        except Exception as e:
+            logger.error(f"Error getting active roles: {e}")
+            return []
+    
+    def get_pending_reminders(self) -> List[Dict[str, Any]]:
+        """Get pending reminders"""
+        try:
+            current_time = time.time()
+            pending_reminders = []
+            
+            if self.connected_to_mongodb:
+                users = self.users_collection.find({"reminders": {"$exists": True}})
+            else:
+                users = self.memory_users.values()
+            
+            for user_data in users:
+                for reminder in user_data.get("reminders", []):
+                    if reminder.get("remind_at", 0) <= current_time:
+                        pending_reminders.append(reminder)
+            
+            return pending_reminders
+        except Exception as e:
+            logger.error(f"Error getting pending reminders: {e}")
+            return []
+    
+    def get_live_user_stats(self, user_id: int) -> Dict[str, Any]:
+        """Get live user statistics"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return {
+                "coins": user_data.get("coins", 0),
+                "bank": user_data.get("bank", 0),
+                "xp": user_data.get("xp", 0),
+                "level": user_data.get("level", 1),
+                "daily_streak": user_data.get("daily_streak", 0),
+                "work_streak": user_data.get("work_streak", 0)
+            }
+        except Exception as e:
+            logger.error(f"Error getting live user stats: {e}")
+            return {"coins": 0, "bank": 0, "xp": 0, "level": 1, "daily_streak": 0, "work_streak": 0}
+    
+    # ==================== PET SYSTEM ====================
+    
+    def get_user_pets(self, user_id: int) -> List[Dict[str, Any]]:
+        """Get user pets"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return user_data.get("pets", [])
+        except:
+            return []
+    
+    def add_pet(self, user_id: int, pet_data: Dict[str, Any]) -> bool:
+        """Add pet to user"""
+        try:
+            user_data = self.get_user_data(user_id)
+            if "pets" not in user_data:
+                user_data["pets"] = []
+            user_data["pets"].append(pet_data)
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
+    # ==================== COOKIES SYSTEM ====================
+    
+    def add_cookies(self, user_id: int, amount: int) -> bool:
+        """Add cookies to user"""
+        try:
+            user_data = self.get_user_data(user_id)
+            user_data["cookies"] = user_data.get("cookies", 0) + amount
+            user_data["last_cookie"] = time.time()
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
+    def get_cookies(self, user_id: int) -> int:
+        """Get user cookies"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return user_data.get("cookies", 0)
+        except:
+            return 0
+    
+    # ==================== MODERATION SYSTEM ====================
+    
+    def add_warning(self, user_id: int, warning_data: Dict[str, Any]) -> bool:
+        """Add warning to user"""
+        try:
+            user_data = self.get_user_data(user_id)
+            if "warnings" not in user_data:
+                user_data["warnings"] = []
+            user_data["warnings"].append(warning_data)
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
+    def get_warnings(self, user_id: int) -> List[Dict[str, Any]]:
+        """Get user warnings"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return user_data.get("warnings", [])
+        except:
+            return []
+    
+    # ==================== REMINDERS SYSTEM ====================
+    
+    def add_reminder(self, user_id: int, reminder_data: Dict[str, Any]) -> bool:
+        """Add reminder"""
+        try:
+            user_data = self.get_user_data(user_id)
+            if "reminders" not in user_data:
+                user_data["reminders"] = []
+            user_data["reminders"].append(reminder_data)
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
+    # ==================== STOCKS SYSTEM ====================
+    
+    def get_user_stocks(self, user_id: int) -> Dict[str, Any]:
+        """Get user stocks"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return user_data.get("stocks", {})
+        except:
+            return {}
+    
+    def update_user_stocks(self, user_id: int, stocks: Dict[str, Any]) -> bool:
+        """Update user stocks"""
+        try:
+            user_data = self.get_user_data(user_id)
+            user_data["stocks"] = stocks
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
+    # ==================== SETTINGS SYSTEM ====================
+    
+    def get_user_settings(self, user_id: int) -> Dict[str, Any]:
+        """Get user settings"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return user_data.get("settings", {})
+        except:
+            return {}
+    
+    def update_user_settings(self, user_id: int, settings: Dict[str, Any]) -> bool:
+        """Update user settings"""
+        try:
+            user_data = self.get_user_data(user_id)
+            user_data["settings"] = settings
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
     # ==================== GUILD DATA OPERATIONS ====================
     
     def get_guild_data(self, guild_id: int) -> Dict[str, Any]:
@@ -468,6 +710,16 @@ class DatabaseManager:
             logger.error(f"Error getting database stats: {e}")
             return {"users": 0, "guilds": 0, "storage": "Error", "status": "Error"}
     
+    def get_database_health(self) -> Dict[str, Any]:
+        """Get database health status"""
+        try:
+            if self.connected_to_mongodb and self.mongodb_client:
+                self.mongodb_client.admin.command('ping')
+                return {"status": "healthy", "connected": True}
+            return {"status": "memory", "connected": False}
+        except Exception as e:
+            return {"status": "error", "connected": False, "error": str(e)}
+    
     def cleanup_expired_data(self):
         """Clean up expired data"""
         try:
@@ -480,6 +732,14 @@ class DatabaseManager:
                     {},
                     {"$pull": {"temporary_items": {"expires_at": {"$lt": current_time}}}}
                 )
+                self.users_collection.update_many(
+                    {},
+                    {"$pull": {"temporary_purchases": {"expires_at": {"$lt": current_time}}}}
+                )
+                self.users_collection.update_many(
+                    {},
+                    {"$pull": {"temporary_roles": {"expires_at": {"$lt": current_time}}}}
+                )
                 logger.info("✅ MongoDB cleanup completed")
             else:
                 # Clean up memory storage
@@ -487,6 +747,16 @@ class DatabaseManager:
                     if "temporary_items" in user_data:
                         user_data["temporary_items"] = [
                             item for item in user_data["temporary_items"]
+                            if item.get("expires_at", 0) > current_time
+                        ]
+                    if "temporary_purchases" in user_data:
+                        user_data["temporary_purchases"] = [
+                            item for item in user_data["temporary_purchases"]
+                            if item.get("expires_at", 0) > current_time
+                        ]
+                    if "temporary_roles" in user_data:
+                        user_data["temporary_roles"] = [
+                            item for item in user_data["temporary_roles"]
                             if item.get("expires_at", 0) > current_time
                         ]
                 logger.info("✅ Memory cleanup completed")
@@ -518,10 +788,41 @@ def get_database():
     """Get database instance"""
     return db
 
+def cleanup_expired_items():
+    """Legacy cleanup function"""
+    return db.cleanup_expired_data()
+
+def get_active_temporary_roles(user_id=None):
+    """Legacy function for active temporary roles"""
+    return db.get_active_temporary_roles(user_id)
+
+def get_pending_reminders():
+    """Legacy function for pending reminders"""
+    return db.get_pending_reminders()
+
+def get_active_temporary_purchases(user_id: int):
+    """Legacy function for active temporary purchases"""
+    return db.get_active_temporary_purchases(user_id)
+
+def get_live_user_stats(user_id: int):
+    """Legacy function for live user stats"""
+    return db.get_live_user_stats(user_id)
+
+def add_xp(user_id: int, amount: int):
+    """Legacy function for adding XP"""
+    return db.add_xp(user_id, amount)
+
+def claim_daily_bonus(user_id: int):
+    """Legacy function for claiming daily bonus"""
+    return db.claim_daily_bonus(user_id)
+
 # Export commonly used functions
 __all__ = [
     'DatabaseManager', 'db', 'get_user_data', 'update_user_data', 
-    'add_coins', 'remove_coins', 'get_database'
+    'add_coins', 'remove_coins', 'get_database', 'cleanup_expired_items',
+    'get_active_temporary_roles', 'get_pending_reminders', 
+    'get_active_temporary_purchases', 'get_live_user_stats', 'add_xp',
+    'claim_daily_bonus'
 ]
 
 logger.info("🎯 Database system initialized successfully!")
