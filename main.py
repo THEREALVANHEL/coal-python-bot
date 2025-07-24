@@ -135,7 +135,7 @@ bot = commands.Bot(
     help_command=None,
     case_insensitive=True,
     strip_after_prefix=True,
-    owner_ids={123456789, 1234567890}  # Multiple owner IDs for flexibility
+    owner_ids={123456789, 1234567890, 1297924079243890780}  # Multiple owner IDs including yours
 )
 
 # Initialize error handler if available
@@ -173,27 +173,9 @@ async def on_ready():
         synced = await bot.tree.sync()
         logger.info(f"🔄 Synced {len(synced)} slash commands globally")
         
-        # Wait a moment for Discord to process
-        await asyncio.sleep(2)
-        
-        # Then sync to each guild for faster updates
-        for guild in bot.guilds:
-            try:
-                # Check bot permissions in guild
-                if guild.me and guild.me.guild_permissions.use_slash_commands:
-                    guild_synced = await bot.tree.sync(guild=guild)
-                    logger.info(f"🔄 Synced {len(guild_synced)} commands to {guild.name}")
-                else:
-                    logger.warning(f"⚠️ Missing slash command permissions in {guild.name}")
-            except discord.Forbidden:
-                logger.error(f"❌ No permission to sync commands in {guild.name}")
-            except discord.HTTPException as e:
-                if e.status == 400:
-                    logger.error(f"❌ Invalid command data for {guild.name}: {e}")
-                else:
-                    logger.error(f"❌ HTTP error syncing to {guild.name}: {e}")
-            except Exception as e:
-                logger.error(f"❌ Failed to sync to {guild.name}: {e}")
+        # Wait for Discord to process global sync
+        await asyncio.sleep(3)
+        logger.info("✅ Global command sync completed - commands should be visible shortly")
                 
     except discord.Forbidden:
         logger.error("❌ Bot lacks permission to sync commands globally")
@@ -271,18 +253,14 @@ async def sync_commands(ctx):
     try:
         await ctx.send("🔄 Starting command sync...")
         
-        # Clear and sync globally
+        # Clear and sync globally only
         bot.tree.clear_commands(guild=None)
         synced = await bot.tree.sync()
         await ctx.send(f"✅ Synced {len(synced)} commands globally!")
         
-        # Also sync to current guild for faster updates
-        if ctx.guild:
-            guild_synced = await bot.tree.sync(guild=ctx.guild)
-            await ctx.send(f"✅ Synced {len(guild_synced)} commands to {ctx.guild.name}!")
-        
-        # Force refresh Discord's command cache
-        await ctx.send("🔄 Refreshing Discord command cache...")
+        # Wait for Discord to process
+        await asyncio.sleep(2)
+        await ctx.send("🔄 Commands are being processed by Discord - they should appear within 1-2 minutes!")
         
         logger.info(f"Manual sync completed by {ctx.author} (ID: {ctx.author.id})")
         await ctx.send("✅ Command sync completed successfully!")
@@ -325,7 +303,7 @@ async def check_permissions(ctx):
             embed.add_field(
                 name="📋 Key Permissions",
                 value=f"""
-                **Use Slash Commands:** {'✅' if perms.use_slash_commands else '❌'}
+                **Use Slash Commands:** {'✅' if hasattr(perms, 'use_slash_commands') and perms.use_slash_commands else '❌'}
                 **Send Messages:** {'✅' if perms.send_messages else '❌'}
                 **Embed Links:** {'✅' if perms.embed_links else '❌'}
                 **Add Reactions:** {'✅' if perms.add_reactions else '❌'}
@@ -357,7 +335,7 @@ async def check_permissions(ctx):
         # Integration recommendations
         recommendations = []
         if ctx.guild and ctx.guild.me:
-            if not ctx.guild.me.guild_permissions.use_slash_commands:
+            if not (hasattr(ctx.guild.me.guild_permissions, 'use_slash_commands') and ctx.guild.me.guild_permissions.use_slash_commands):
                 recommendations.append("• Grant 'Use Slash Commands' permission")
             if not ctx.guild.me.guild_permissions.send_messages:
                 recommendations.append("• Grant 'Send Messages' permission")

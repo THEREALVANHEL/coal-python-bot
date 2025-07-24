@@ -571,6 +571,22 @@ class ComprehensiveDatabase:
                 return {"total_users": len(self.memory_users), "total_guilds": len(self.memory_guilds)}
         except:
             return {"total_users": 0, "total_guilds": 0}
+    
+    def get_live_user_stats(self, user_id):
+        """Get live user statistics"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return {
+                "coins": user_data.get("coins", 0),
+                "bank": user_data.get("bank", 0),
+                "xp": user_data.get("xp", 0),
+                "level": user_data.get("level", 1),
+                "daily_streak": user_data.get("daily_streak", 0),
+                "work_streak": user_data.get("work_streak", 0)
+            }
+        except Exception as e:
+            print(f"❌ Error getting live user stats: {e}")
+            return {"coins": 0, "bank": 0, "xp": 0, "level": 1, "daily_streak": 0, "work_streak": 0}
 
 # Create global database instance
 db = ComprehensiveDatabase()
