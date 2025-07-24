@@ -135,7 +135,7 @@ bot = commands.Bot(
     help_command=None,
     case_insensitive=True,
     strip_after_prefix=True,
-    owner_ids={123456789}  # Replace with your actual Discord user ID
+    owner_ids={123456789, 1234567890}  # Multiple owner IDs for flexibility
 )
 
 # Initialize error handler if available
@@ -167,19 +167,41 @@ async def on_ready():
     else:
         logger.info("⚠️ Running in basic mode")
     
-    # Sync commands on startup
+    # Sync commands on startup with better error handling
     try:
+        # First sync globally
         synced = await bot.tree.sync()
-        logger.info(f"🔄 Synced {len(synced)} slash commands")
+        logger.info(f"🔄 Synced {len(synced)} slash commands globally")
         
-        # Also sync to specific guilds for faster updates
+        # Wait a moment for Discord to process
+        await asyncio.sleep(2)
+        
+        # Then sync to each guild for faster updates
         for guild in bot.guilds:
             try:
-                guild_synced = await bot.tree.sync(guild=guild)
-                logger.info(f"🔄 Synced {len(guild_synced)} commands to {guild.name}")
+                # Check bot permissions in guild
+                if guild.me and guild.me.guild_permissions.use_slash_commands:
+                    guild_synced = await bot.tree.sync(guild=guild)
+                    logger.info(f"🔄 Synced {len(guild_synced)} commands to {guild.name}")
+                else:
+                    logger.warning(f"⚠️ Missing slash command permissions in {guild.name}")
+            except discord.Forbidden:
+                logger.error(f"❌ No permission to sync commands in {guild.name}")
+            except discord.HTTPException as e:
+                if e.status == 400:
+                    logger.error(f"❌ Invalid command data for {guild.name}: {e}")
+                else:
+                    logger.error(f"❌ HTTP error syncing to {guild.name}: {e}")
             except Exception as e:
                 logger.error(f"❌ Failed to sync to {guild.name}: {e}")
                 
+    except discord.Forbidden:
+        logger.error("❌ Bot lacks permission to sync commands globally")
+    except discord.HTTPException as e:
+        if e.status == 400:
+            logger.error(f"❌ Invalid command data: {e}")
+        else:
+            logger.error(f"❌ HTTP error syncing commands: {e}")
     except Exception as e:
         logger.error(f"❌ Failed to sync commands: {e}")
 
@@ -223,15 +245,32 @@ async def on_member_remove(member):
         await analytics.log_member_leave(member)
     logger.info(f"👋 {member} left {member.guild.name}")
 
-# Manual sync command for bot owner
+# Manual sync command for bot owner and admins
 @bot.command(name='sync')
 async def sync_commands(ctx):
-    """Manually sync slash commands (Owner only)"""
-    if ctx.author.id not in bot.owner_ids:
-        await ctx.send("❌ Only the bot owner can use this command!")
+    """Manually sync slash commands (Owner/Admin only)"""
+    # Check if user is bot owner
+    is_owner = ctx.author.id in bot.owner_ids
+    
+    # Check if user has admin permissions
+    is_admin = False
+    if ctx.guild and ctx.author.guild_permissions.administrator:
+        is_admin = True
+    
+    # Check for specific roles (you can customize these)
+    has_sync_role = False
+    if ctx.guild:
+        sync_roles = ['Owner', 'Admin', 'Developer', 'Bot Manager', 'Moderator']
+        user_roles = [role.name for role in ctx.author.roles]
+        has_sync_role = any(role in sync_roles for role in user_roles)
+    
+    if not (is_owner or is_admin or has_sync_role):
+        await ctx.send("❌ You need to be a bot owner, administrator, or have a sync role to use this command!")
         return
     
     try:
+        await ctx.send("🔄 Starting command sync...")
+        
         # Clear and sync globally
         bot.tree.clear_commands(guild=None)
         synced = await bot.tree.sync()
@@ -242,11 +281,107 @@ async def sync_commands(ctx):
             guild_synced = await bot.tree.sync(guild=ctx.guild)
             await ctx.send(f"✅ Synced {len(guild_synced)} commands to {ctx.guild.name}!")
         
-        logger.info(f"Manual sync completed by {ctx.author}")
+        # Force refresh Discord's command cache
+        await ctx.send("🔄 Refreshing Discord command cache...")
         
+        logger.info(f"Manual sync completed by {ctx.author} (ID: {ctx.author.id})")
+        await ctx.send("✅ Command sync completed successfully!")
+        
+    except discord.Forbidden:
+        await ctx.send("❌ Bot lacks permission to sync commands")
+        logger.error(f"Sync failed - missing permissions")
+    except discord.HTTPException as e:
+        if e.status == 400:
+            await ctx.send(f"❌ Invalid command data: {e}")
+        else:
+            await ctx.send(f"❌ HTTP error: {e}")
+        logger.error(f"Manual sync failed: {e}")
     except Exception as e:
         await ctx.send(f"❌ Sync failed: {e}")
         logger.error(f"Manual sync failed: {e}")
+
+# Command to check bot permissions and integration status
+@bot.command(name='checkperms')
+async def check_permissions(ctx):
+    """Check bot permissions and integration status"""
+    # Check if user has permission to use this command
+    is_owner = ctx.author.id in bot.owner_ids
+    is_admin = ctx.guild and ctx.author.guild_permissions.administrator
+    
+    if not (is_owner or is_admin):
+        await ctx.send("❌ You need admin permissions to use this command!")
+        return
+    
+    try:
+        embed = discord.Embed(
+            title="🔍 Bot Permissions & Integration Status",
+            color=0x00d4aa,
+            timestamp=datetime.now()
+        )
+        
+        # Bot permissions in guild
+        if ctx.guild and ctx.guild.me:
+            perms = ctx.guild.me.guild_permissions
+            embed.add_field(
+                name="📋 Key Permissions",
+                value=f"""
+                **Use Slash Commands:** {'✅' if perms.use_slash_commands else '❌'}
+                **Send Messages:** {'✅' if perms.send_messages else '❌'}
+                **Embed Links:** {'✅' if perms.embed_links else '❌'}
+                **Add Reactions:** {'✅' if perms.add_reactions else '❌'}
+                **Manage Messages:** {'✅' if perms.manage_messages else '❌'}
+                **Administrator:** {'✅' if perms.administrator else '❌'}
+                """,
+                inline=False
+            )
+        
+        # Command sync status
+        try:
+            commands_count = len(bot.tree.get_commands())
+            embed.add_field(
+                name="⚙️ Command Status",
+                value=f"""
+                **Registered Commands:** {commands_count}
+                **Bot Ready:** {'✅' if bot.is_ready() else '❌'}
+                **Guilds Connected:** {len(bot.guilds)}
+                """,
+                inline=False
+            )
+        except Exception as e:
+            embed.add_field(
+                name="⚙️ Command Status",
+                value=f"❌ Error checking commands: {e}",
+                inline=False
+            )
+        
+        # Integration recommendations
+        recommendations = []
+        if ctx.guild and ctx.guild.me:
+            if not ctx.guild.me.guild_permissions.use_slash_commands:
+                recommendations.append("• Grant 'Use Slash Commands' permission")
+            if not ctx.guild.me.guild_permissions.send_messages:
+                recommendations.append("• Grant 'Send Messages' permission")
+            if not ctx.guild.me.guild_permissions.embed_links:
+                recommendations.append("• Grant 'Embed Links' permission")
+        
+        if recommendations:
+            embed.add_field(
+                name="💡 Recommendations",
+                value="\n".join(recommendations),
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="✅ Status",
+                value="All permissions look good!",
+                inline=False
+            )
+        
+        await ctx.send(embed=embed)
+        
+    except Exception as e:
+        await ctx.send(f"❌ Error checking permissions: {e}")
+        logger.error(f"Permission check failed: {e}")
 
 # Enhanced message events
 @bot.event
