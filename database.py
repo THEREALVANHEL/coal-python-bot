@@ -155,6 +155,130 @@ except (ImportError, Exception) as e:
             except Exception as e:
                 print(f"❌ Error adding temporary purchase: {e}")
                 return False
+        
+        def claim_daily_bonus(self, user_id):
+            try:
+                if not self.connected or not self.users_collection:
+                    return {"success": False, "error": "Database not connected"}
+                
+                current_time = time.time()
+                user_data = self.users_collection.find_one({"user_id": user_id}) or {}
+                
+                # Check if user already claimed today
+                last_daily = user_data.get("last_daily_claim", 0)
+                time_since_last = current_time - last_daily
+                
+                # 24 hours = 86400 seconds
+                if time_since_last < 86400:
+                    hours_left = int((86400 - time_since_last) / 3600)
+                    minutes_left = int(((86400 - time_since_last) % 3600) / 60)
+                    time_left = f"{hours_left}h {minutes_left}m"
+                    return {"success": False, "time_left": time_left}
+                
+                # Calculate streak
+                streak = user_data.get("daily_streak", 0)
+                if time_since_last <= 172800:  # Within 48 hours (allows for 1 day gap)
+                    streak += 1
+                else:
+                    streak = 1  # Reset streak
+                
+                # Calculate rewards based on streak
+                base_xp = 50
+                base_coins = 100
+                
+                # Streak bonuses
+                streak_multiplier = min(1 + (streak * 0.1), 3.0)  # Max 3x multiplier
+                xp_gained = int(base_xp * streak_multiplier)
+                coins_gained = int(base_coins * streak_multiplier)
+                
+                # Weekly streak bonus (every 7 days)
+                if streak % 7 == 0:
+                    xp_gained += 200
+                    coins_gained += 500
+                
+                # Update user data
+                self.users_collection.update_one(
+                    {"user_id": user_id},
+                    {
+                        "$set": {
+                            "last_daily_claim": current_time,
+                            "daily_streak": streak
+                        },
+                        "$inc": {
+                            "xp": xp_gained,
+                            "coins": coins_gained
+                        }
+                    },
+                    upsert=True
+                )
+                
+                return {
+                    "success": True,
+                    "xp_gained": xp_gained,
+                    "coins_gained": coins_gained,
+                    "streak": streak
+                }
+                
+            except Exception as e:
+                print(f"❌ Error claiming daily bonus: {e}")
+                return {"success": False, "error": str(e)}
+        
+        def remove_coins(self, user_id, amount):
+            try:
+                if self.connected and self.users_collection:
+                    self.users_collection.update_one(
+                        {"user_id": user_id},
+                        {"$inc": {"coins": -amount}},
+                        upsert=True
+                    )
+                    return True
+                return False
+            except Exception as e:
+                print(f"❌ Error removing coins: {e}")
+                return False
+        
+        def get_leaderboard(self, field, limit=10):
+            try:
+                if self.connected and self.users_collection:
+                    cursor = self.users_collection.find().sort(field, -1).limit(limit)
+                    return list(cursor)
+                return []
+            except Exception as e:
+                print(f"❌ Error getting leaderboard: {e}")
+                return []
+        
+        def get_active_temporary_purchases(self, user_id):
+            try:
+                if self.connected and self.users_collection:
+                    user_data = self.users_collection.find_one({"user_id": user_id})
+                    if user_data and "temporary_purchases" in user_data:
+                        current_time = time.time()
+                        return [purchase for purchase in user_data["temporary_purchases"] 
+                               if purchase.get("expires_at", 0) > current_time]
+                return []
+            except Exception as e:
+                print(f"❌ Error getting active temporary purchases: {e}")
+                return []
+        
+        def get_database_health(self):
+            try:
+                if self.connected and self.client:
+                    # Test connection
+                    self.client.admin.command('ping')
+                    return {"status": "healthy", "connected": True}
+                return {"status": "disconnected", "connected": False}
+            except Exception as e:
+                return {"status": "error", "connected": False, "error": str(e)}
+        
+        def get_database_stats(self):
+            try:
+                if self.connected and self.users_collection:
+                    total_users = self.users_collection.count_documents({})
+                    return {"total_users": total_users}
+                return {"total_users": 0}
+            except Exception as e:
+                print(f"❌ Error getting database stats: {e}")
+                return {"total_users": 0}
     
     # Create the database instance
     db = DatabaseManager()
@@ -176,6 +300,18 @@ except (ImportError, Exception) as e:
                 return []
             def get_pending_reminders(self):
                 return []
+            def claim_daily_bonus(self, user_id):
+                return {"success": False, "error": "Database not available"}
+            def remove_coins(self, user_id, amount):
+                return False
+            def get_leaderboard(self, field, limit=10):
+                return []
+            def get_active_temporary_purchases(self, user_id):
+                return []
+            def get_database_health(self):
+                return {"status": "disconnected", "connected": False}
+            def get_database_stats(self):
+                return {"total_users": 0}
         
         db = MinimalDB()
 
