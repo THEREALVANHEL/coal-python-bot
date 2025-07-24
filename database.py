@@ -5,13 +5,23 @@ import os
 import time
 import logging
 from datetime import datetime, timedelta
-from pymongo import MongoClient
-from dotenv import load_dotenv
 import random
 import json
 
-# Load environment variables
-load_dotenv()
+# Try to import MongoDB, fallback to in-memory if not available
+try:
+    from pymongo import MongoClient
+    PYMONGO_AVAILABLE = True
+except ImportError:
+    PYMONGO_AVAILABLE = False
+    print("⚠️ PyMongo not available, using in-memory database")
+
+# Try to load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("⚠️ python-dotenv not available, using system environment variables")
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +34,16 @@ class ComprehensiveDatabase:
         self.users_collection = None
         self.guilds_collection = None
         self.connected = False
+        self.memory_users = {}
+        self.memory_guilds = {}
         self.initialize()
     
     def initialize(self):
-        """Initialize MongoDB connection"""
-        try:
-            mongodb_uri = os.getenv('MONGODB_URI')
-            if mongodb_uri:
+        """Initialize database connection or fallback to memory"""
+        mongodb_uri = os.getenv('MONGODB_URI')
+        
+        if PYMONGO_AVAILABLE and mongodb_uri:
+            try:
                 self.client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
                 # Test connection
                 self.client.admin.command('ping')
@@ -38,21 +51,14 @@ class ComprehensiveDatabase:
                 self.users_collection = self.db.users
                 self.guilds_collection = self.db.guilds
                 self.connected = True
-                print("✅ Complete database system connected successfully")
-            else:
-                print("⚠️ No MONGODB_URI found, using in-memory fallback")
-                self.connected = False
-                self._setup_fallback()
-        except Exception as e:
-            print(f"❌ Database connection failed: {e}")
-            self.connected = False
-            self._setup_fallback()
-    
-    def _setup_fallback(self):
-        """Setup in-memory fallback database"""
-        self.memory_users = {}
-        self.memory_guilds = {}
-        print("🔄 Using in-memory database fallback")
+                print("✅ MongoDB connection established successfully")
+                return
+            except Exception as e:
+                print(f"❌ MongoDB connection failed: {e}")
+        
+        # Fallback to in-memory database
+        self.connected = False
+        print("🔄 Using in-memory database (no MongoDB connection)")
     
     # ==================== USER DATA METHODS ====================
     
@@ -271,6 +277,31 @@ class ComprehensiveDatabase:
             print(f"❌ Error recording work: {e}")
             return False
     
+    # ==================== LEVELING SYSTEM ====================
+    
+    def add_xp(self, user_id, amount):
+        """Add XP to user"""
+        try:
+            user_data = self.get_user_data(user_id)
+            user_data["xp"] += amount
+            
+            # Calculate level
+            old_level = user_data.get("level", 1)
+            new_level = int((user_data["xp"] / 100) ** 0.5) + 1
+            user_data["level"] = new_level
+            
+            self.update_user_data(user_id, user_data)
+            
+            return {
+                "leveled_up": new_level > old_level,
+                "old_level": old_level,
+                "new_level": new_level,
+                "total_xp": user_data["xp"]
+            }
+        except Exception as e:
+            print(f"❌ Error adding XP: {e}")
+            return {"leveled_up": False, "old_level": 1, "new_level": 1, "total_xp": 0}
+    
     # ==================== TEMPORARY ITEMS ====================
     
     def add_temporary_purchase(self, user_id, item_type, duration):
@@ -338,110 +369,6 @@ class ComprehensiveDatabase:
             print(f"❌ Error getting active roles: {e}")
             return []
     
-    # ==================== LEVELING SYSTEM ====================
-    
-    def add_xp(self, user_id, amount):
-        """Add XP to user"""
-        try:
-            user_data = self.get_user_data(user_id)
-            user_data["xp"] += amount
-            
-            # Calculate level
-            old_level = user_data.get("level", 1)
-            new_level = int((user_data["xp"] / 100) ** 0.5) + 1
-            user_data["level"] = new_level
-            
-            self.update_user_data(user_id, user_data)
-            
-            return {
-                "leveled_up": new_level > old_level,
-                "old_level": old_level,
-                "new_level": new_level,
-                "total_xp": user_data["xp"]
-            }
-        except Exception as e:
-            print(f"❌ Error adding XP: {e}")
-            return {"leveled_up": False, "old_level": 1, "new_level": 1, "total_xp": 0}
-    
-    # ==================== PET SYSTEM ====================
-    
-    def get_user_pets(self, user_id):
-        """Get user pets"""
-        try:
-            user_data = self.get_user_data(user_id)
-            return user_data.get("pets", [])
-        except:
-            return []
-    
-    def add_pet(self, user_id, pet_data):
-        """Add pet to user"""
-        try:
-            user_data = self.get_user_data(user_id)
-            if "pets" not in user_data:
-                user_data["pets"] = []
-            user_data["pets"].append(pet_data)
-            self.update_user_data(user_id, user_data)
-            return True
-        except:
-            return False
-    
-    # ==================== COOKIE SYSTEM ====================
-    
-    def add_cookies(self, user_id, amount):
-        """Add cookies to user"""
-        try:
-            user_data = self.get_user_data(user_id)
-            user_data["cookies"] += amount
-            user_data["last_cookie"] = time.time()
-            self.update_user_data(user_id, user_data)
-            return True
-        except:
-            return False
-    
-    def get_cookies(self, user_id):
-        """Get user cookies"""
-        try:
-            user_data = self.get_user_data(user_id)
-            return user_data.get("cookies", 0)
-        except:
-            return 0
-    
-    # ==================== MODERATION SYSTEM ====================
-    
-    def add_warning(self, user_id, warning_data):
-        """Add warning to user"""
-        try:
-            user_data = self.get_user_data(user_id)
-            if "warnings" not in user_data:
-                user_data["warnings"] = []
-            user_data["warnings"].append(warning_data)
-            self.update_user_data(user_id, user_data)
-            return True
-        except:
-            return False
-    
-    def get_warnings(self, user_id):
-        """Get user warnings"""
-        try:
-            user_data = self.get_user_data(user_id)
-            return user_data.get("warnings", [])
-        except:
-            return []
-    
-    # ==================== REMINDERS SYSTEM ====================
-    
-    def add_reminder(self, user_id, reminder_data):
-        """Add reminder"""
-        try:
-            user_data = self.get_user_data(user_id)
-            if "reminders" not in user_data:
-                user_data["reminders"] = []
-            user_data["reminders"].append(reminder_data)
-            self.update_user_data(user_id, user_data)
-            return True
-        except:
-            return False
-    
     def get_pending_reminders(self):
         """Get pending reminders"""
         try:
@@ -463,7 +390,94 @@ class ComprehensiveDatabase:
             print(f"❌ Error getting pending reminders: {e}")
             return []
     
-    # ==================== STOCK MARKET ====================
+    def get_live_user_stats(self, user_id):
+        """Get live user statistics"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return {
+                "coins": user_data.get("coins", 0),
+                "bank": user_data.get("bank", 0),
+                "xp": user_data.get("xp", 0),
+                "level": user_data.get("level", 1),
+                "daily_streak": user_data.get("daily_streak", 0),
+                "work_streak": user_data.get("work_streak", 0)
+            }
+        except Exception as e:
+            print(f"❌ Error getting live user stats: {e}")
+            return {"coins": 0, "bank": 0, "xp": 0, "level": 1, "daily_streak": 0, "work_streak": 0}
+    
+    # ==================== ALL OTHER METHODS ====================
+    
+    def get_user_pets(self, user_id):
+        """Get user pets"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return user_data.get("pets", [])
+        except:
+            return []
+    
+    def add_pet(self, user_id, pet_data):
+        """Add pet to user"""
+        try:
+            user_data = self.get_user_data(user_id)
+            if "pets" not in user_data:
+                user_data["pets"] = []
+            user_data["pets"].append(pet_data)
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
+    def add_cookies(self, user_id, amount):
+        """Add cookies to user"""
+        try:
+            user_data = self.get_user_data(user_id)
+            user_data["cookies"] += amount
+            user_data["last_cookie"] = time.time()
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
+    def get_cookies(self, user_id):
+        """Get user cookies"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return user_data.get("cookies", 0)
+        except:
+            return 0
+    
+    def add_warning(self, user_id, warning_data):
+        """Add warning to user"""
+        try:
+            user_data = self.get_user_data(user_id)
+            if "warnings" not in user_data:
+                user_data["warnings"] = []
+            user_data["warnings"].append(warning_data)
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
+    
+    def get_warnings(self, user_id):
+        """Get user warnings"""
+        try:
+            user_data = self.get_user_data(user_id)
+            return user_data.get("warnings", [])
+        except:
+            return []
+    
+    def add_reminder(self, user_id, reminder_data):
+        """Add reminder"""
+        try:
+            user_data = self.get_user_data(user_id)
+            if "reminders" not in user_data:
+                user_data["reminders"] = []
+            user_data["reminders"].append(reminder_data)
+            self.update_user_data(user_id, user_data)
+            return True
+        except:
+            return False
     
     def get_user_stocks(self, user_id):
         """Get user stocks"""
@@ -483,8 +497,6 @@ class ComprehensiveDatabase:
         except:
             return False
     
-    # ==================== SETTINGS SYSTEM ====================
-    
     def get_user_settings(self, user_id):
         """Get user settings"""
         try:
@@ -502,8 +514,6 @@ class ComprehensiveDatabase:
             return True
         except:
             return False
-    
-    # ==================== GUILD DATA ====================
     
     def get_guild_data(self, guild_id):
         """Get guild data"""
@@ -548,15 +558,13 @@ class ComprehensiveDatabase:
             "leveling_settings": {}
         }
     
-    # ==================== SYSTEM HEALTH ====================
-    
     def get_database_health(self):
         """Get database health"""
         try:
             if self.connected and self.client:
                 self.client.admin.command('ping')
                 return {"status": "healthy", "connected": True}
-            return {"status": "fallback", "connected": False}
+            return {"status": "memory", "connected": False}
         except Exception as e:
             return {"status": "error", "connected": False, "error": str(e)}
     
@@ -571,22 +579,6 @@ class ComprehensiveDatabase:
                 return {"total_users": len(self.memory_users), "total_guilds": len(self.memory_guilds)}
         except:
             return {"total_users": 0, "total_guilds": 0}
-    
-    def get_live_user_stats(self, user_id):
-        """Get live user statistics"""
-        try:
-            user_data = self.get_user_data(user_id)
-            return {
-                "coins": user_data.get("coins", 0),
-                "bank": user_data.get("bank", 0),
-                "xp": user_data.get("xp", 0),
-                "level": user_data.get("level", 1),
-                "daily_streak": user_data.get("daily_streak", 0),
-                "work_streak": user_data.get("work_streak", 0)
-            }
-        except Exception as e:
-            print(f"❌ Error getting live user stats: {e}")
-            return {"coins": 0, "bank": 0, "xp": 0, "level": 1, "daily_streak": 0, "work_streak": 0}
 
 # Create global database instance
 db = ComprehensiveDatabase()
@@ -643,3 +635,5 @@ users_collection = db.users_collection if db.connected else None
 guilds_collection = db.guilds_collection if db.connected else None
 
 print("🎯 Comprehensive database system initialized - ALL COMMANDS SUPPORTED!")
+print(f"🗄️ Database mode: {'MongoDB' if db.connected else 'In-Memory'}")
+print(f"📊 Ready to serve all {len([m for m in dir(db) if not m.startswith('_')])} database methods")
