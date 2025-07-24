@@ -42,10 +42,17 @@ class Events(commands.Cog):
                         user_data = db.get_user_data(member.id)
                     except AttributeError as e:
                         # Database not fully initialized yet, skip this cleanup
-                        print(f"⚠️ Database not ready for cleanup: {e}")
+                        # Only log once to avoid spam
+                        if not hasattr(self, '_cleanup_error_logged'):
+                            print(f"⚠️ Database not ready for cleanup: {e}")
+                            self._cleanup_error_logged = True
                         continue
                     except Exception as e:
-                        print(f"⚠️ Error getting user data for {member.id}: {e}")
+                        # Only log unique errors to avoid spam
+                        error_key = f"cleanup_error_{member.id}"
+                        if not hasattr(self, error_key):
+                            print(f"⚠️ Error getting user data for {member.id}: {e}")
+                            setattr(self, error_key, True)
                         continue
                     if "temporary_roles" in user_data:
                         for role_data in user_data["temporary_roles"]:

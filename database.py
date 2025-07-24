@@ -18,10 +18,10 @@ try:
     from core.database import get_db_manager, initialize_database
     
     # Create a global db instance for backward compatibility
-    db_manager = get_db_manager()
-    if db_manager:
-        db = db_manager
-        print("✅ Using core database manager")
+    core_db_manager = get_db_manager()
+    if core_db_manager:
+        print("⚠️ Core database manager is async, using sync fallback")
+        raise ImportError("Core database is async, need sync fallback")
     else:
         raise ImportError("Core database manager not available")
         
@@ -212,7 +212,10 @@ def get_active_temporary_roles(user_id=None):
     try:
         return db.get_active_temporary_roles(user_id)
     except Exception as e:
-        print(f"❌ Error getting active temporary roles: {e}")
+        # Only log the first error to avoid spam
+        if not hasattr(get_active_temporary_roles, '_error_logged'):
+            print(f"❌ Error getting active temporary roles: {e}")
+            get_active_temporary_roles._error_logged = True
         return []
 
 def get_pending_reminders():
@@ -220,5 +223,8 @@ def get_pending_reminders():
     try:
         return db.get_pending_reminders()
     except Exception as e:
-        print(f"❌ Error getting pending reminders: {e}")
+        # Only log the first error to avoid spam
+        if not hasattr(get_pending_reminders, '_error_logged'):
+            print(f"❌ Error getting pending reminders: {e}")
+            get_pending_reminders._error_logged = True
         return []
