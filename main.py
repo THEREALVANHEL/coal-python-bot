@@ -1,259 +1,267 @@
+#!/usr/bin/env python3
+"""
+Professional Discord Bot - Main Entry Point
+Complete rewrite with proper MongoDB and Gemini AI integration
+"""
+
 import os
-import discord
-from discord.ext import commands
-from dotenv import load_dotenv
-from flask import Flask, jsonify
-from threading import Thread
+import sys
 import asyncio
 import logging
-import time
-from datetime import datetime
-import sys
 import traceback
+from datetime import datetime
+from typing import Optional
 
-# Import new core systems with error handling
-try:
-    from core.config import initialize_config, get_config
-    from core.database import initialize_database, get_db_manager
-    from core.security import get_security_manager
-    from core.analytics import get_analytics
-    from core.error_handler import initialize_error_handler, get_error_handler
-    ENHANCED_CORE_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Enhanced core systems not available, falling back to basic mode: {e}")
-    ENHANCED_CORE_AVAILABLE = False
-    # Provide basic fallbacks
-    def initialize_config(): return None
-    def get_config(): return None
-    def initialize_database(uri): return None
-    def get_db_manager(): return None
-    def get_security_manager(): return None
-    def get_analytics(): return None
-    def initialize_error_handler(bot): return None
-    def get_error_handler(): return None
+import discord
+from discord.ext import commands, tasks
+from flask import Flask, jsonify
+import threading
+import time
 
-# Setup enhanced logging
+# Import our systems
+from database import db
+from gemini_ai import ai
+
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('bot.log', mode='a')
     ]
 )
 logger = logging.getLogger(__name__)
 
-# Initialize configuration first
-if ENHANCED_CORE_AVAILABLE:
-    config = initialize_config()
-    logger.info("✅ Enhanced configuration initialized")
-else:
-    config = None
-    logger.info("⚠️ Running in basic mode without enhanced configuration")
-
 # Load environment variables
-load_dotenv()
-DISCORD_TOKEN = config.discord_token if config else os.getenv("DISCORD_TOKEN")
-MONGODB_URI = config.mongodb_uri if config else os.getenv("MONGODB_URI")
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    logger.info("✅ Environment variables loaded")
+except ImportError:
+    logger.warning("⚠️ python-dotenv not available")
+
+# Bot configuration
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+DISCORD_CLIENT_ID = os.getenv('DISCORD_CLIENT_ID')
+BOT_PREFIX = os.getenv('BOT_PREFIX', '!')
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 if not DISCORD_TOKEN:
-    logger.error("❌ NO DISCORD_TOKEN FOUND")
+    logger.error("❌ DISCORD_TOKEN not found in environment variables!")
     sys.exit(1)
 
-logger.info("🚀 Starting Coal Python Bot with Enhanced Core Systems")
-
-# Initialize core systems
-if ENHANCED_CORE_AVAILABLE:
-    try:
-        # Initialize database with enhanced features
-        db_manager = initialize_database(MONGODB_URI)
-        logger.info("✅ Enhanced database system initialized")
-        
-        # Initialize security manager
-        security_manager = get_security_manager()
-        logger.info("✅ Security system initialized")
-        
-        # Initialize analytics
-        analytics = get_analytics()
-        logger.info("✅ Analytics system initialized")
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize core systems: {e}")
-        logger.info("⚠️ Continuing in basic mode...")
-        db_manager = None
-        security_manager = None
-        analytics = None
-else:
-    logger.info("⚠️ Enhanced core systems not available, running in basic mode")
-    db_manager = None
-    security_manager = None
-    analytics = None
-
-# Keep-alive server for Render deployment
-app = Flask(__name__)
-bot_start_time = time.time()
-
-@app.route('/')
-def home():
-    uptime = time.time() - bot_start_time
-    uptime_hours = uptime // 3600
-    uptime_minutes = (uptime % 3600) // 60
-    
-    return jsonify({
-        "status": "Coal Python Bot is running!",
-        "uptime_hours": int(uptime_hours),
-        "uptime_minutes": int(uptime_minutes),
-        "timestamp": datetime.now().isoformat(),
-        "enhanced_core": ENHANCED_CORE_AVAILABLE
-    })
-
-@app.route('/health')
-def health():
-    return jsonify({
-        "status": "healthy",
-        "bot_ready": bot.is_ready() if 'bot' in globals() else False,
-        "enhanced_core": ENHANCED_CORE_AVAILABLE,
-        "timestamp": datetime.now().isoformat()
-    })
-
-def run_flask():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
-
-# Enhanced bot setup with comprehensive intents
-intents = discord.Intents.all()
+# Discord intents
+intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.guilds = True
 intents.reactions = True
 intents.voice_states = True
-intents.presences = True
 
-# Create bot with enhanced features
-bot = commands.Bot(
-    command_prefix='!',
-    intents=intents,
-    help_command=None,
-    case_insensitive=True,
-    strip_after_prefix=True,
-    owner_ids={123456789, 1234567890, 1297924079243890780}  # Multiple owner IDs including yours
-)
-
-# Initialize error handler if available
-if ENHANCED_CORE_AVAILABLE:
-    try:
-        initialize_error_handler(bot)
-        logger.info("✅ Enhanced error handling initialized")
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize error handler: {e}")
-
-# Enhanced startup event
-@bot.event
-async def on_ready():
-    logger.info(f'🤖 {bot.user} has connected to Discord!')
-    logger.info(f'📊 Serving {len(bot.guilds)} guilds with {len(bot.users)} users')
+# Create bot instance
+class ProfessionalBot(commands.Bot):
+    """Professional Discord Bot with enhanced features"""
     
-    # Set enhanced activity status
-    activity = discord.Activity(
-        type=discord.ActivityType.watching,
-        name="Coal Mining Operations | Enhanced V4.0"
-    )
-    await bot.change_presence(activity=activity, status=discord.Status.online)
-    
-    # Log enhanced features status
-    if ENHANCED_CORE_AVAILABLE:
-        logger.info("✅ All enhanced systems operational")
-        if analytics:
-            await analytics.log_bot_startup()
-    else:
-        logger.info("⚠️ Running in basic mode")
-    
-    # Sync commands on startup with better error handling
-    try:
-        # First sync globally
-        synced = await bot.tree.sync()
-        logger.info(f"🔄 Synced {len(synced)} slash commands globally")
+    def __init__(self):
+        super().__init__(
+            command_prefix=BOT_PREFIX,
+            intents=intents,
+            help_command=None,
+            case_insensitive=True,
+            strip_after_prefix=True,
+            owner_ids={1297924079243890780}  # Your Discord user ID
+        )
         
-        # Wait for Discord to process global sync
-        await asyncio.sleep(3)
-        logger.info("✅ Global command sync completed - commands should be visible shortly")
-                
-    except discord.Forbidden:
-        logger.error("❌ Bot lacks permission to sync commands globally")
-    except discord.HTTPException as e:
-        if e.status == 400:
-            logger.error(f"❌ Invalid command data: {e}")
-        else:
-            logger.error(f"❌ HTTP error syncing commands: {e}")
-    except Exception as e:
-        logger.error(f"❌ Failed to sync commands: {e}")
-
-# Enhanced error handling
-@bot.event
-async def on_command_error(ctx, error):
-    if ENHANCED_CORE_AVAILABLE and get_error_handler():
-        await get_error_handler().handle_command_error(ctx, error)
-    else:
-        # Basic error handling
+        self.start_time = datetime.utcnow()
+        self.commands_used = 0
+        self.cogs_loaded = 0
+        self.cogs_failed = 0
+        
+    async def setup_hook(self):
+        """Setup hook called when bot is starting"""
+        logger.info("🚀 Bot setup hook called")
+        
+        # Start background tasks
+        if not self.cleanup_task.is_running():
+            self.cleanup_task.start()
+        
+        # Load all cogs
+        await self.load_all_cogs()
+        
+        # Sync commands
+        await self.sync_commands()
+    
+    async def load_all_cogs(self):
+        """Load all cog extensions"""
+        cogs_to_load = [
+            'cogs.economy',
+            'cogs.moderation', 
+            'cogs.leveling',
+            'cogs.events',
+            'cogs.cookies',
+            'cogs.community',
+            'cogs.dashboard',
+            'cogs.cool_commands',
+            'cogs.backup_system',
+            'cogs.pet_system',
+            'cogs.stock_market',
+            'cogs.job_tracking',
+            'cogs.settings',
+            'cogs.simple_tickets',
+            'cogs.security_performance',
+            'cogs.enhanced_moderation',
+            'cogs.enhanced_minigames'
+        ]
+        
+        logger.info(f"📦 Loading {len(cogs_to_load)} cogs...")
+        
+        for cog in cogs_to_load:
+            try:
+                await self.load_extension(cog)
+                self.cogs_loaded += 1
+                logger.info(f"✅ Loaded {cog}")
+            except Exception as e:
+                self.cogs_failed += 1
+                logger.error(f"❌ Failed to load {cog}: {e}")
+                if DEBUG:
+                    traceback.print_exc()
+        
+        logger.info(f"📦 Cog loading complete: {self.cogs_loaded} loaded, {self.cogs_failed} failed")
+    
+    async def sync_commands(self):
+        """Sync slash commands"""
+        try:
+            logger.info("🔄 Syncing slash commands...")
+            synced = await self.tree.sync()
+            logger.info(f"🔄 Synced {len(synced)} slash commands globally")
+            
+            # Wait for Discord to process
+            await asyncio.sleep(2)
+            logger.info("✅ Command sync completed - commands should be visible shortly")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to sync commands: {e}")
+    
+    async def on_ready(self):
+        """Called when bot is ready"""
+        logger.info(f"🤖 {self.user} has connected to Discord!")
+        logger.info(f"📊 Serving {len(self.guilds)} guilds with {sum(g.member_count for g in self.guilds)} users")
+        
+        # Set bot status
+        activity = discord.Activity(
+            type=discord.ActivityType.watching,
+            name=f"{len(self.guilds)} servers | {BOT_PREFIX}help"
+        )
+        await self.change_presence(
+            status=discord.Status.online,
+            activity=activity
+        )
+        
+        logger.info("✅ Bot is ready and operational!")
+    
+    async def on_command_error(self, ctx, error):
+        """Global command error handler"""
         if isinstance(error, commands.CommandNotFound):
-            return
-        elif isinstance(error, commands.MissingPermissions):
+            return  # Ignore command not found errors
+        
+        if isinstance(error, commands.MissingPermissions):
             await ctx.send("❌ You don't have permission to use this command!")
-        elif isinstance(error, commands.BotMissingPermissions):
-            await ctx.send("❌ I don't have the required permissions!")
+            return
+        
+        if isinstance(error, commands.CommandOnCooldown):
+            await ctx.send(f"⏰ Command is on cooldown. Try again in {error.retry_after:.1f} seconds.")
+            return
+        
+        logger.error(f"Command error in {ctx.command}: {error}")
+        await ctx.send("❌ An error occurred while executing the command.")
+    
+    async def on_application_command_error(self, interaction, error):
+        """Global slash command error handler"""
+        if interaction.response.is_done():
+            send_method = interaction.followup.send
         else:
-            logger.error(f"Command error: {error}")
-            await ctx.send("❌ An error occurred while processing the command.")
+            send_method = interaction.response.send_message
+        
+        if isinstance(error, discord.app_commands.MissingPermissions):
+            await send_method("❌ You don't have permission to use this command!", ephemeral=True)
+            return
+        
+        logger.error(f"Slash command error in {interaction.command}: {error}")
+        await send_method("❌ An error occurred while executing the command.", ephemeral=True)
+    
+    async def on_message(self, message):
+        """Message event handler"""
+        if message.author.bot:
+            return
+        
+        # Update user activity
+        try:
+            user_data = db.get_user_data(message.author.id)
+            user_data['stats']['messages_sent'] += 1
+            user_data['last_seen'] = datetime.utcnow()
+            db.update_user_data(message.author.id, user_data)
+            
+            # Add XP for message
+            if len(message.content) > 5:  # Only for meaningful messages
+                xp_result = db.add_xp(message.author.id, 5)
+                
+                # Check for level up
+                if xp_result.get('leveled_up'):
+                    embed = discord.Embed(
+                        title="🎉 Level Up!",
+                        description=f"{message.author.mention} reached level **{xp_result['new_level']}**!",
+                        color=0x00ff00
+                    )
+                    await message.channel.send(embed=embed, delete_after=10)
+        
+        except Exception as e:
+            logger.error(f"Error in message handler: {e}")
+        
+        # Process commands
+        await self.process_commands(message)
+    
+    @tasks.loop(hours=1)
+    async def cleanup_task(self):
+        """Periodic cleanup task"""
+        try:
+            logger.info("🧹 Running periodic cleanup...")
+            
+            # Database cleanup
+            db.cleanup_expired_data()
+            
+            # AI conversation cleanup
+            ai.cleanup_old_conversations()
+            
+            logger.info("✅ Cleanup completed")
+            
+        except Exception as e:
+            logger.error(f"Error in cleanup task: {e}")
+    
+    @cleanup_task.before_loop
+    async def before_cleanup(self):
+        """Wait for bot to be ready before starting cleanup"""
+        await self.wait_until_ready()
 
-@bot.event
-async def on_application_command_error(interaction, error):
-    if ENHANCED_CORE_AVAILABLE and get_error_handler():
-        await get_error_handler().handle_interaction_error(interaction, error)
-    else:
-        # Basic error handling for slash commands
-        if not interaction.response.is_done():
-            await interaction.response.send_message("❌ An error occurred while processing the command.", ephemeral=True)
-        logger.error(f"Slash command error: {error}")
+# Create bot instance
+bot = ProfessionalBot()
 
-# Enhanced member events
-@bot.event
-async def on_member_join(member):
-    if ENHANCED_CORE_AVAILABLE and analytics:
-        await analytics.log_member_join(member)
-    logger.info(f"👋 {member} joined {member.guild.name}")
-
-@bot.event
-async def on_member_remove(member):
-    if ENHANCED_CORE_AVAILABLE and analytics:
-        await analytics.log_member_leave(member)
-    logger.info(f"👋 {member} left {member.guild.name}")
-
-# Manual sync command for bot owner and admins
+# Manual sync command
 @bot.command(name='sync')
 async def sync_commands(ctx):
     """Manually sync slash commands (Owner/Admin only)"""
-    # Check if user is bot owner
+    # Check permissions
     is_owner = ctx.author.id in bot.owner_ids
+    is_admin = ctx.guild and ctx.author.guild_permissions.administrator
     
-    # Check if user has admin permissions
-    is_admin = False
-    if ctx.guild and ctx.author.guild_permissions.administrator:
-        is_admin = True
-    
-    # Check for specific roles (you can customize these)
-    has_sync_role = False
-    if ctx.guild:
-        sync_roles = ['Owner', 'Admin', 'Developer', 'Bot Manager', 'Moderator']
-        user_roles = [role.name for role in ctx.author.roles]
-        has_sync_role = any(role in sync_roles for role in user_roles)
-    
-    if not (is_owner or is_admin or has_sync_role):
-        await ctx.send("❌ You need to be a bot owner, administrator, or have a sync role to use this command!")
+    if not (is_owner or is_admin):
+        await ctx.send("❌ You need to be a bot owner or administrator to use this command!")
         return
     
     try:
         await ctx.send("🔄 Starting command sync...")
         
-        # Clear and sync globally only
+        # Clear and sync globally
         bot.tree.clear_commands(guild=None)
         synced = await bot.tree.sync()
         await ctx.send(f"✅ Synced {len(synced)} commands globally!")
@@ -265,192 +273,142 @@ async def sync_commands(ctx):
         logger.info(f"Manual sync completed by {ctx.author} (ID: {ctx.author.id})")
         await ctx.send("✅ Command sync completed successfully!")
         
-    except discord.Forbidden:
-        await ctx.send("❌ Bot lacks permission to sync commands")
-        logger.error(f"Sync failed - missing permissions")
-    except discord.HTTPException as e:
-        if e.status == 400:
-            await ctx.send(f"❌ Invalid command data: {e}")
-        else:
-            await ctx.send(f"❌ HTTP error: {e}")
-        logger.error(f"Manual sync failed: {e}")
     except Exception as e:
         await ctx.send(f"❌ Sync failed: {e}")
         logger.error(f"Manual sync failed: {e}")
 
-# Command to check bot permissions and integration status
-@bot.command(name='checkperms')
-async def check_permissions(ctx):
-    """Check bot permissions and integration status"""
-    # Check if user has permission to use this command
-    is_owner = ctx.author.id in bot.owner_ids
-    is_admin = ctx.guild and ctx.author.guild_permissions.administrator
+# Bot info command
+@bot.command(name='info')
+async def bot_info(ctx):
+    """Display bot information"""
+    uptime = datetime.utcnow() - bot.start_time
+    db_stats = db.get_database_stats()
+    ai_stats = ai.get_all_conversations()
     
-    if not (is_owner or is_admin):
-        await ctx.send("❌ You need admin permissions to use this command!")
-        return
+    embed = discord.Embed(
+        title="🤖 Bot Information",
+        color=0x00d4aa,
+        timestamp=datetime.utcnow()
+    )
     
-    try:
-        embed = discord.Embed(
-            title="🔍 Bot Permissions & Integration Status",
-            color=0x00d4aa,
-            timestamp=datetime.now()
-        )
-        
-        # Bot permissions in guild
-        if ctx.guild and ctx.guild.me:
-            perms = ctx.guild.me.guild_permissions
-            embed.add_field(
-                name="📋 Key Permissions",
-                value=f"""
-                **Use Slash Commands:** {'✅' if hasattr(perms, 'use_slash_commands') and perms.use_slash_commands else '❌'}
-                **Send Messages:** {'✅' if perms.send_messages else '❌'}
-                **Embed Links:** {'✅' if perms.embed_links else '❌'}
-                **Add Reactions:** {'✅' if perms.add_reactions else '❌'}
-                **Manage Messages:** {'✅' if perms.manage_messages else '❌'}
-                **Administrator:** {'✅' if perms.administrator else '❌'}
-                """,
-                inline=False
-            )
-        
-        # Command sync status
-        try:
-            commands_count = len(bot.tree.get_commands())
-            embed.add_field(
-                name="⚙️ Command Status",
-                value=f"""
-                **Registered Commands:** {commands_count}
-                **Bot Ready:** {'✅' if bot.is_ready() else '❌'}
-                **Guilds Connected:** {len(bot.guilds)}
-                """,
-                inline=False
-            )
-        except Exception as e:
-            embed.add_field(
-                name="⚙️ Command Status",
-                value=f"❌ Error checking commands: {e}",
-                inline=False
-            )
-        
-        # Integration recommendations
-        recommendations = []
-        if ctx.guild and ctx.guild.me:
-            if not (hasattr(ctx.guild.me.guild_permissions, 'use_slash_commands') and ctx.guild.me.guild_permissions.use_slash_commands):
-                recommendations.append("• Grant 'Use Slash Commands' permission")
-            if not ctx.guild.me.guild_permissions.send_messages:
-                recommendations.append("• Grant 'Send Messages' permission")
-            if not ctx.guild.me.guild_permissions.embed_links:
-                recommendations.append("• Grant 'Embed Links' permission")
-        
-        if recommendations:
-            embed.add_field(
-                name="💡 Recommendations",
-                value="\n".join(recommendations),
-                inline=False
-            )
-        else:
-            embed.add_field(
-                name="✅ Status",
-                value="All permissions look good!",
-                inline=False
-            )
-        
-        await ctx.send(embed=embed)
-        
-    except Exception as e:
-        await ctx.send(f"❌ Error checking permissions: {e}")
-        logger.error(f"Permission check failed: {e}")
+    embed.add_field(
+        name="📊 Statistics",
+        value=f"""
+        **Guilds:** {len(bot.guilds)}
+        **Users:** {sum(g.member_count for g in bot.guilds)}
+        **Commands Used:** {bot.commands_used}
+        **Uptime:** {str(uptime).split('.')[0]}
+        """,
+        inline=True
+    )
+    
+    embed.add_field(
+        name="🗄️ Database",
+        value=f"""
+        **Storage:** {db_stats.get('storage', 'Unknown')}
+        **Status:** {db_stats.get('status', 'Unknown')}
+        **Users:** {db_stats.get('users', 0)}
+        **Guilds:** {db_stats.get('guilds', 0)}
+        """,
+        inline=True
+    )
+    
+    embed.add_field(
+        name="🤖 AI System",
+        value=f"""
+        **Status:** {'Available' if ai.is_available() else 'Unavailable'}
+        **Conversations:** {ai_stats.get('total_conversations', 0)}
+        **Messages:** {ai_stats.get('total_messages', 0)}
+        **Active Users:** {ai_stats.get('active_users', 0)}
+        """,
+        inline=True
+    )
+    
+    embed.add_field(
+        name="📦 System",
+        value=f"""
+        **Cogs Loaded:** {bot.cogs_loaded}
+        **Cogs Failed:** {bot.cogs_failed}
+        **Commands:** {len(bot.tree.get_commands())}
+        **Python:** {sys.version.split()[0]}
+        """,
+        inline=False
+    )
+    
+    embed.set_footer(text="Professional Discord Bot")
+    await ctx.send(embed=embed)
 
-# Enhanced message events
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-    
-    # Security check if available
-    if ENHANCED_CORE_AVAILABLE and security_manager:
-        if await security_manager.check_message_security(message):
-            return  # Message was flagged and handled
-    
-    # Process commands
-    await bot.process_commands(message)
+# Flask web server for health checks
+app = Flask(__name__)
+bot_start_time = time.time()
 
-# Load all cogs with enhanced error handling
-async def load_cogs():
-    cogs_to_load = [
-        'cogs.economy',
-        # 'cogs.enhanced_economy',  # Disabled to avoid work command conflict
-        'cogs.moderation',
-        'cogs.enhanced_moderation',
-        'cogs.enhanced_minigames',
-        'cogs.community',
-        'cogs.events',
-        'cogs.cookies',
-        'cogs.dashboard',
-        'cogs.cool_commands',
-        'cogs.backup_system',
-        'cogs.pet_system',
-        'cogs.stock_market',
-        'cogs.job_tracking',
-        'cogs.leveling',
-        'cogs.settings',
-        'cogs.simple_tickets',
-        'cogs.security_performance'
-    ]
+@app.route('/')
+def home():
+    """Health check endpoint"""
+    uptime = time.time() - bot_start_time
+    uptime_hours = uptime // 3600
+    uptime_minutes = (uptime % 3600) // 60
     
-    loaded_count = 0
-    failed_count = 0
-    
-    for cog in cogs_to_load:
-        try:
-            await bot.load_extension(cog)
-            logger.info(f"✅ Loaded {cog}")
-            loaded_count += 1
-        except Exception as e:
-            logger.error(f"❌ Failed to load {cog}: {e}")
-            failed_count += 1
-    
-    logger.info(f"📦 Cog loading complete: {loaded_count} loaded, {failed_count} failed")
-    return loaded_count, failed_count
+    return jsonify({
+        "status": "online",
+        "bot_name": str(bot.user) if bot.user else "Bot Starting",
+        "uptime_hours": int(uptime_hours),
+        "uptime_minutes": int(uptime_minutes),
+        "guilds": len(bot.guilds) if bot.guilds else 0,
+        "database": db.get_database_stats(),
+        "ai_available": ai.is_available(),
+        "timestamp": datetime.utcnow().isoformat()
+    })
 
-# Enhanced shutdown handler
-@bot.event
-async def on_disconnect():
-    logger.info("🔌 Bot disconnected from Discord")
-    if ENHANCED_CORE_AVAILABLE and analytics:
-        await analytics.log_bot_shutdown()
+@app.route('/health')
+def health():
+    """Detailed health check"""
+    return jsonify({
+        "bot_ready": bot.is_ready(),
+        "database_connected": db.connected_to_mongodb,
+        "ai_available": ai.is_available(),
+        "cogs_loaded": bot.cogs_loaded,
+        "cogs_failed": bot.cogs_failed,
+        "commands_synced": len(bot.tree.get_commands()),
+        "last_check": datetime.utcnow().isoformat()
+    })
 
-# Main execution with enhanced startup
+def run_flask():
+    """Run Flask server in a separate thread"""
+    port = int(os.getenv('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+
+# Main execution
 async def main():
-    # Start Flask server in background
-    flask_thread = Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-    logger.info("🌐 Flask keep-alive server started")
-    
-    # Load all cogs
-    await load_cogs()
-    
-    # Start the bot with enhanced error handling
+    """Main async function"""
     try:
+        # Start Flask server in background
+        flask_thread = threading.Thread(target=run_flask, daemon=True)
+        flask_thread.start()
+        logger.info(f"🌐 Flask server started on port {os.getenv('PORT', 10000)}")
+        
+        # Log system status
+        logger.info("🎯 Professional Discord Bot Starting...")
+        logger.info(f"📊 Database: {'MongoDB' if db.connected_to_mongodb else 'Memory'}")
+        logger.info(f"🤖 AI System: {'Available' if ai.is_available() else 'Unavailable'}")
+        
+        # Start the bot
         await bot.start(DISCORD_TOKEN)
+        
     except KeyboardInterrupt:
-        logger.info("🛑 Bot shutdown requested")
+        logger.info("👋 Bot shutdown requested")
     except Exception as e:
-        logger.error(f"❌ Bot startup failed: {e}")
-        raise
+        logger.error(f"❌ Fatal error: {e}")
+        traceback.print_exc()
     finally:
-        if ENHANCED_CORE_AVAILABLE:
-            # Cleanup enhanced systems
-            if db_manager:
-                await db_manager.close()
-            logger.info("🧹 Enhanced systems cleaned up")
+        await bot.close()
 
-# Run the bot
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("🛑 Bot stopped by user")
+        logger.info("👋 Bot stopped by user")
     except Exception as e:
-        logger.error(f"❌ Fatal error: {e}")
+        logger.error(f"❌ Failed to start bot: {e}")
+        traceback.print_exc()
         sys.exit(1)
