@@ -67,7 +67,8 @@ class DatabaseManager:
                 
                 # Test connection
                 self.mongodb_client.admin.command('ping')
-                self.mongodb_db = self.mongodb_client.get_default_database()
+                db_name = "coalbot"
+                self.mongodb_db = self.mongodb_client[db_name]
                 self.users_collection = self.mongodb_db.users
                 self.guilds_collection = self.mongodb_db.guilds
                 self.connected_to_mongodb = True
@@ -77,6 +78,8 @@ class DatabaseManager:
                 
         except Exception as e:
             logger.error(f"❌ MongoDB connection failed: {e}")
+        self.users_collection = None
+        self.guilds_collection = None
         
         # Fallback to memory storage
         self.connected_to_mongodb = False
@@ -87,7 +90,7 @@ class DatabaseManager:
     def get_user_data(self, user_id: int) -> Dict[str, Any]:
         """Get user data from database"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 result = self.users_collection.find_one({"user_id": user_id})
                 if result:
                     return result
@@ -105,7 +108,7 @@ class DatabaseManager:
     def update_user_data(self, user_id: int, data: Dict[str, Any]) -> bool:
         """Update user data in database"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 self.users_collection.update_one(
                     {"user_id": user_id},
                     {"$set": data},
@@ -189,7 +192,7 @@ class DatabaseManager:
     def add_coins(self, user_id: int, amount: int) -> bool:
         """Add coins to user account"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 result = self.users_collection.update_one(
                     {"user_id": user_id},
                     {
@@ -217,7 +220,7 @@ class DatabaseManager:
             if user_data["coins"] < amount:
                 return False
             
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 result = self.users_collection.update_one(
                     {"user_id": user_id},
                     {
@@ -430,7 +433,7 @@ class DatabaseManager:
                         active_roles.append(role)
             else:
                 # Get all users with active roles
-                if self.connected_to_mongodb:
+                if self.connected_to_mongodb and self.users_collection is not None:
                     users = self.users_collection.find({"temporary_roles": {"$exists": True}})
                 else:
                     users = self.memory_users.values()
@@ -451,7 +454,7 @@ class DatabaseManager:
             current_time = time.time()
             pending_reminders = []
             
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 users = self.users_collection.find({"reminders": {"$exists": True}})
             else:
                 users = self.memory_users.values()
@@ -606,7 +609,7 @@ class DatabaseManager:
     def get_guild_data(self, guild_id: int) -> Dict[str, Any]:
         """Get guild data from database"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 result = self.guilds_collection.find_one({"guild_id": guild_id})
                 if result:
                     return result
@@ -623,7 +626,7 @@ class DatabaseManager:
     def update_guild_data(self, guild_id: int, data: Dict[str, Any]) -> bool:
         """Update guild data in database"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 self.guilds_collection.update_one(
                     {"guild_id": guild_id},
                     {"$set": data},
@@ -674,7 +677,7 @@ class DatabaseManager:
     def get_leaderboard(self, field: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get leaderboard for specified field"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 cursor = self.users_collection.find().sort(field, -1).limit(limit)
                 return list(cursor)
             else:
@@ -689,7 +692,7 @@ class DatabaseManager:
     def get_database_stats(self) -> Dict[str, Any]:
         """Get database statistics"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 user_count = self.users_collection.count_documents({})
                 guild_count = self.guilds_collection.count_documents({})
                 return {
@@ -726,7 +729,7 @@ class DatabaseManager:
             current_time = time.time()
             logger.info("🧹 Starting database cleanup...")
             
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 # Clean up old temporary data
                 self.users_collection.update_many(
                     {},
