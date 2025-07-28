@@ -221,7 +221,7 @@ class GeminiAI:
         self.conversations[conversation_key].append({
             "user_message": user_message,
             "ai_response": ai_response,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
         # Limit history size
@@ -292,7 +292,7 @@ class GeminiAI:
     def cleanup_old_conversations(self, days: int = 7):
         """Clean up conversations older than specified days"""
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
             conversations_to_remove = []
             
             for key, history in self.conversations.items():

@@ -180,8 +180,8 @@ class DatabaseManager:
                 "mutes": [],
                 "notes": []
             },
-            "created_at": datetime.utcnow(),
-            "last_seen": datetime.utcnow()
+            "created_at": datetime.now(timezone.utc),
+            "last_seen": datetime.now(timezone.utc)
         }
     
     # ==================== ECONOMY OPERATIONS ====================
@@ -194,7 +194,7 @@ class DatabaseManager:
                     {"user_id": user_id},
                     {
                         "$inc": {"coins": amount, "economy.total_earned": amount},
-                        "$set": {"last_seen": datetime.utcnow()}
+                        "$set": {"last_seen": datetime.now(timezone.utc)}
                     },
                     upsert=True
                 )
@@ -222,7 +222,7 @@ class DatabaseManager:
                     {"user_id": user_id},
                     {
                         "$inc": {"coins": -amount, "economy.total_spent": amount},
-                        "$set": {"last_seen": datetime.utcnow()}
+                        "$set": {"last_seen": datetime.now(timezone.utc)}
                     }
                 )
                 return result.acknowledged
@@ -274,7 +274,7 @@ class DatabaseManager:
                 "daily_streak": streak,
                 "coins": user_data["coins"] + total_coins,
                 "xp": user_data["xp"] + total_xp,
-                "last_seen": datetime.utcnow()
+                "last_seen": datetime.now(timezone.utc)
             }
             
             # Calculate new level
@@ -332,7 +332,7 @@ class DatabaseManager:
                 "work_streak": work_streak,
                 "coins": user_data["coins"] + earnings,
                 "xp": user_data["xp"] + 25,
-                "last_seen": datetime.utcnow()
+                "last_seen": datetime.now(timezone.utc)
             }
             
             self.update_user_data(user_id, update_data)
@@ -361,7 +361,7 @@ class DatabaseManager:
             update_data = {
                 "xp": new_xp,
                 "level": new_level,
-                "last_seen": datetime.utcnow()
+                "last_seen": datetime.now(timezone.utc)
             }
             
             self.update_user_data(user_id, update_data)
@@ -665,8 +665,8 @@ class DatabaseManager:
                 "xp_per_message": 15,
                 "level_up_channel": None
             },
-            "created_at": datetime.utcnow(),
-            "last_updated": datetime.utcnow()
+            "created_at": datetime.now(timezone.utc),
+            "last_updated": datetime.now(timezone.utc)
         }
     
     # ==================== UTILITY METHODS ====================
