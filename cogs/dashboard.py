@@ -5,6 +5,7 @@ from discord.ui import View, Button, Select
 import os, sys
 import asyncio
 import random
+import io
 from typing import Dict, List
 from datetime import datetime, timedelta
 
@@ -14,7 +15,6 @@ try:
     matplotlib.use('Agg')  # Use non-interactive backend
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
-    import io
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
