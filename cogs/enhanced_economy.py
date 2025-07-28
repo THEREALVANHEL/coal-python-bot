@@ -13,21 +13,12 @@ from typing import Dict, List, Any, Optional
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
-# Import enhanced core systems with fallbacks
-try:
-    from core.database import get_db_manager
-    from core.security import get_security_manager
-    from core.analytics import get_analytics
-    from core.config import get_config
-    CORE_SYSTEMS_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Core systems not available: {e}")
-    CORE_SYSTEMS_AVAILABLE = False
-    # Provide fallback functions
-    def get_db_manager(): return None
-    def get_security_manager(): return None
-    def get_analytics(): return None
-    def get_config(): return None
+# Disable core systems to prevent conflicts - use main database.py only
+CORE_SYSTEMS_AVAILABLE = False
+def get_db_manager(): return None
+def get_security_manager(): return None
+def get_analytics(): return None
+def get_config(): return None
 
 GUILD_ID = 1370009417726169250
 

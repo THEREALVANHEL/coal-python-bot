@@ -11,21 +11,12 @@ from discord.ui import Button, View, Modal, TextInput
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import database as db
 
-# Import enhanced core systems with fallbacks
-try:
-    from core.database import get_db_manager
-    from core.security import get_security_manager
-    from core.analytics import get_analytics
-    from core.config import get_config
-    CORE_SYSTEMS_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Core systems not available: {e}")
-    CORE_SYSTEMS_AVAILABLE = False
-    # Provide fallback functions
-    def get_db_manager(): return None
-    def get_security_manager(): return None
-    def get_analytics(): return None
-    def get_config(): return None
+# Disable core systems to prevent conflicts - use main database.py only
+CORE_SYSTEMS_AVAILABLE = False
+def get_db_manager(): return None
+def get_security_manager(): return None  
+def get_analytics(): return None
+def get_config(): return None
 
 GUILD_ID = 1370009417726169250
 
@@ -406,7 +397,7 @@ class Economy(commands.Cog):
                 db.add_coins(user_id, earnings)
             
             # Update user data in database
-            if db.users_collection is not None:
+            if db.connected_to_mongodb and db.users_collection is not None:
                 db.users_collection.update_one(
                     {"user_id": user_id},
                     {"$set": update_data},

@@ -382,6 +382,17 @@ class DatabaseManager:
         """Calculate level based on XP"""
         return int((xp / 100) ** 0.5) + 1
     
+    def get_user_count(self) -> int:
+        """Get total number of users in database"""
+        try:
+            if self.connected_to_mongodb and self.users_collection is not None:
+                return self.users_collection.count_documents({})
+            else:
+                return len(self.memory_users)
+        except Exception as e:
+            logger.error(f"Error getting user count: {e}")
+            return 0
+    
     # ==================== WORK SYSTEM ====================
     
     def can_work(self, user_id: int) -> bool:
