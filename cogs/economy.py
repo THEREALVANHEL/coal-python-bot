@@ -407,7 +407,7 @@ class Economy(commands.Cog):
             
             # Update user data in database
             if db.users_collection is not None:
-                db.users_collection.update_one(
+                db.update_user_data(
                     {"user_id": user_id},
                     {"$set": update_data},
                     upsert=True
@@ -602,7 +602,7 @@ class Economy(commands.Cog):
             if not available_jobs:
                 # Initialize user with entry level jobs if none available
                 try:
-                    db.users_collection.update_one(
+                    db.update_user_data(
                         {"user_id": interaction.user.id},
                         {"$set": {"job_tier": "entry", "total_works": 0, "successful_works": 0}},
                         upsert=True
@@ -723,7 +723,7 @@ class Economy(commands.Cog):
                             try:
                                 # Update user's tier in database immediately
                                 update_data = {"job_tier": promotion_info}
-                                db.users_collection.update_one(
+                                db.update_user_data(
                                     {"user_id": self.user_id},
                                     {"$set": update_data},
                                     upsert=True
@@ -1761,7 +1761,7 @@ class Economy(commands.Cog):
                 # Check for recent user activity
                 if db.users_collection is not None:
                     recent_cutoff = datetime.now().timestamp() - 3600  # Last hour
-                    recent_users = db.users_collection.count_documents({
+                    recent_users = db.get_user_count({
                         "last_updated": {"$gte": recent_cutoff}
                     })
                     

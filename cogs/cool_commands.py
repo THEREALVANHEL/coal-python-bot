@@ -191,7 +191,7 @@ class CoolCommands(commands.Cog):
         # Give random bonus coins (10-50)
         bonus_coins = random.randint(10, 50)
         db.add_coins(user_id, bonus_coins)
-        db.users_collection.update_one(
+        db.update_user_data(
             {"user_id": user_id},
             {"$set": {"last_fortune": current_time}},
             upsert=True
