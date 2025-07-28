@@ -133,6 +133,21 @@ class ProfessionalBot(commands.Bot):
         """Sync slash commands"""
         try:
             logger.info("🔄 Syncing slash commands...")
+            
+            # Check if we have proper application info
+            if not self.application:
+                logger.warning("⚠️ Application not loaded, waiting...")
+                await asyncio.sleep(3)
+            
+            # Verify application ID matches
+            if self.application and DISCORD_CLIENT_ID:
+                if str(self.application.id) != DISCORD_CLIENT_ID:
+                    logger.error(f"❌ Application ID mismatch! Bot: {self.application.id}, Config: {DISCORD_CLIENT_ID}")
+                    logger.error("❌ This will cause 'unknown integration' errors!")
+                    return
+                else:
+                    logger.info(f"✅ Application ID verified: {self.application.id}")
+            
             synced = await self.tree.sync()
             logger.info(f"🔄 Synced {len(synced)} slash commands globally")
             
@@ -140,8 +155,16 @@ class ProfessionalBot(commands.Bot):
             await asyncio.sleep(2)
             logger.info("✅ Command sync completed - commands should be visible shortly")
             
+        except discord.HTTPException as e:
+            if e.status == 401:
+                logger.error("❌ Unauthorized: Invalid bot token!")
+            elif e.status == 403:
+                logger.error("❌ Forbidden: Bot lacks permissions or isn't in server!")
+            else:
+                logger.error(f"❌ HTTP Error syncing commands: {e}")
         except Exception as e:
             logger.error(f"❌ Failed to sync commands: {e}")
+            logger.error("💡 This might cause 'unknown integration' errors")
     
     async def on_ready(self):
         """Called when bot is ready"""
@@ -378,7 +401,88 @@ def run_flask():
     port = int(os.getenv('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
-# Admin commands for data recovery
+# Admin commands for data recovery and diagnostics
+@bot.command(name='bot_info', hidden=True)
+async def bot_info(ctx):
+    """Admin command to check bot configuration and diagnose issues"""
+    if not await bot.is_owner(ctx.author):
+        await ctx.send("❌ This command is restricted to bot owners.")
+        return
+    
+    try:
+        embed = discord.Embed(
+            title="🔍 Bot Diagnostic Information",
+            color=0x3498db,
+            timestamp=datetime.now(timezone.utc)
+        )
+        
+        # Bot application info
+        if bot.application:
+            embed.add_field(
+                name="🤖 Application Info",
+                value=f"**ID:** {bot.application.id}\n**Name:** {bot.application.name}\n**Owner:** {bot.application.owner}",
+                inline=False
+            )
+        
+        # Configuration
+        embed.add_field(
+            name="⚙️ Configuration",
+            value=f"**Token:** {'✅ Set' if DISCORD_TOKEN else '❌ Missing'}\n**Client ID:** {DISCORD_CLIENT_ID or '❌ Missing'}\n**Prefix:** {BOT_PREFIX}",
+            inline=False
+        )
+        
+        # Permissions
+        if ctx.guild:
+            bot_member = ctx.guild.get_member(bot.user.id)
+            if bot_member:
+                perms = bot_member.guild_permissions
+                embed.add_field(
+                    name="🔐 Bot Permissions",
+                    value=f"**Admin:** {'✅' if perms.administrator else '❌'}\n**Slash Commands:** {'✅' if perms.use_slash_commands else '❌'}\n**Send Messages:** {'✅' if perms.send_messages else '❌'}",
+                    inline=False
+                )
+        
+        # Command stats
+        embed.add_field(
+            name="📊 Commands",
+            value=f"**Slash Commands:** {len(bot.tree.get_commands())}\n**Text Commands:** {len(bot.commands)}\n**Cogs Loaded:** {bot.cogs_loaded}",
+            inline=False
+        )
+        
+        await ctx.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"Error in bot_info command: {e}")
+        await ctx.send(f"❌ Error getting bot info: {str(e)}")
+
+@bot.command(name='fix_integration', hidden=True)
+async def fix_integration(ctx):
+    """Admin command to attempt fixing unknown integration errors"""
+    if not await bot.is_owner(ctx.author):
+        await ctx.send("❌ This command is restricted to bot owners.")
+        return
+    
+    try:
+        await ctx.send("🔄 Attempting to fix integration issues...")
+        
+        # Clear and re-sync commands
+        bot.tree.clear_commands()
+        await bot.tree.sync()
+        
+        # Reload all cogs
+        for cog_name in list(bot.cogs.keys()):
+            await bot.unload_extension(f"cogs.{cog_name.lower()}")
+            await bot.load_extension(f"cogs.{cog_name.lower()}")
+        
+        # Re-sync commands
+        await bot.sync_commands()
+        
+        await ctx.send("✅ Integration fix attempted. Commands should work in a few minutes.")
+        
+    except Exception as e:
+        logger.error(f"Error in fix_integration command: {e}")
+        await ctx.send(f"❌ Error fixing integration: {str(e)}")
+
 @bot.command(name='reconnect_db', hidden=True)
 async def reconnect_database(ctx, *, mongodb_uri: str = None):
     """Admin command to reconnect to MongoDB with a new URI"""
