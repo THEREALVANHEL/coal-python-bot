@@ -59,13 +59,33 @@ class GeminiAI:
             genai.configure(api_key=self.api_key)
             
             # Initialize model
-            self.model = genai.GenerativeModel('gemini-pro')
+            # Try supported Gemini models in order of preference
+            models_to_try = [
+                'gemini-1.5-flash',
+                'gemini-1.5-pro', 
+                'gemini-1.0-pro',
+                'models/gemini-1.5-flash',
+                'models/gemini-1.5-pro'
+            ]
             
-            # Test connection
-            test_response = self.model.generate_content("Hello")
-            if test_response:
-                self.initialized = True
-                logger.info("🎯 Gemini AI initialized successfully!")
+            model_initialized = False
+            for model_name in models_to_try:
+                try:
+                    self.model = genai.GenerativeModel(model_name)
+                    # Test connection
+                    test_response = self.model.generate_content("Hello")
+                    logger.info(f"✅ Successfully initialized Gemini model: {model_name}")
+                    model_initialized = True
+                    break
+                except Exception as model_error:
+                    logger.warning(f"⚠️ Failed to initialize {model_name}: {model_error}")
+                    continue
+            
+            if not model_initialized:
+                raise Exception("No supported Gemini models available")
+            
+            self.initialized = True
+            logger.info("🎯 Gemini AI initialized successfully!")
                 return True
             
         except Exception as e:
