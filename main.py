@@ -9,7 +9,7 @@ import sys
 import asyncio
 import logging
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import discord
@@ -73,7 +73,7 @@ class ProfessionalBot(commands.Bot):
             owner_ids={1297924079243890780}  # Your Discord user ID
         )
         
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(timezone.utc)
         self.commands_used = 0
         self.cogs_loaded = 0
         self.cogs_failed = 0
@@ -199,7 +199,7 @@ class ProfessionalBot(commands.Bot):
         try:
             user_data = db.get_user_data(message.author.id)
             user_data['stats']['messages_sent'] += 1
-            user_data['last_seen'] = datetime.utcnow()
+            user_data['last_seen'] = datetime.now(timezone.utc)
             db.update_user_data(message.author.id, user_data)
             
             # Add XP for message
@@ -281,14 +281,14 @@ async def sync_commands(ctx):
 @bot.command(name='info')
 async def bot_info(ctx):
     """Display bot information"""
-    uptime = datetime.utcnow() - bot.start_time
+    uptime = datetime.now(timezone.utc) - bot.start_time
     db_stats = db.get_database_stats()
     ai_stats = ai.get_all_conversations()
     
     embed = discord.Embed(
         title="🤖 Bot Information",
         color=0x00d4aa,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     
     embed.add_field(
@@ -357,7 +357,7 @@ def home():
         "guilds": len(bot.guilds) if bot.guilds else 0,
         "database": db.get_database_stats(),
         "ai_available": ai.is_available(),
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     })
 
 @app.route('/health')
@@ -370,7 +370,7 @@ def health():
         "cogs_loaded": bot.cogs_loaded,
         "cogs_failed": bot.cogs_failed,
         "commands_synced": len(bot.tree.get_commands()),
-        "last_check": datetime.utcnow().isoformat()
+        "last_check": datetime.now(timezone.utc).isoformat()
     })
 
 def run_flask():

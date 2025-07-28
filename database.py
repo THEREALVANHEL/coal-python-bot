@@ -7,7 +7,7 @@ import os
 import asyncio
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional
 import json
 
@@ -180,8 +180,8 @@ class DatabaseManager:
                 "mutes": [],
                 "notes": []
             },
-            "created_at": datetime.utcnow(),
-            "last_seen": datetime.utcnow()
+            "created_at": datetime.now(timezone.utc),
+            "last_seen": datetime.now(timezone.utc)
         }
     
     # ==================== ECONOMY OPERATIONS ====================
