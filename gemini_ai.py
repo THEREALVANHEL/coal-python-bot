@@ -59,7 +59,7 @@ class GeminiAI:
             genai.configure(api_key=self.api_key)
             
             # Initialize model
-            self.model = genai.GenerativeModel('gemini-pro')
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
             
             # Test connection
             test_response = self.model.generate_content("Hello")
