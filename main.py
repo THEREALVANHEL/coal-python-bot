@@ -378,6 +378,95 @@ def run_flask():
     port = int(os.getenv('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
+# Admin commands for data recovery
+@bot.command(name='reconnect_db', hidden=True)
+async def reconnect_database(ctx, *, mongodb_uri: str = None):
+    """Admin command to reconnect to MongoDB with a new URI"""
+    # Check if user is bot owner (you can replace this with your Discord ID)
+    if not await bot.is_owner(ctx.author):
+        await ctx.send("❌ This command is restricted to bot owners.")
+        return
+    
+    if not mongodb_uri:
+        await ctx.send("❌ Please provide a MongoDB URI: `!reconnect_db mongodb+srv://...`")
+        return
+    
+    try:
+        # Attempt reconnection
+        success = db.reconnect_mongodb(mongodb_uri)
+        
+        if success:
+            embed = discord.Embed(
+                title="✅ Database Reconnection Successful",
+                color=0x00ff00,
+                timestamp=datetime.now(timezone.utc)
+            )
+            embed.add_field(name="Status", value="Connected to MongoDB", inline=False)
+            embed.add_field(name="Users in DB", value=f"{db.users_collection.count_documents({})}", inline=True)
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send("❌ Failed to reconnect to MongoDB. Check logs for details.")
+            
+    except Exception as e:
+        logger.error(f"Error in reconnect_db command: {e}")
+        await ctx.send(f"❌ Error during reconnection: {str(e)}")
+
+@bot.command(name='migrate_data', hidden=True)
+async def migrate_data(ctx):
+    """Admin command to migrate memory data to MongoDB"""
+    if not await bot.is_owner(ctx.author):
+        await ctx.send("❌ This command is restricted to bot owners.")
+        return
+    
+    try:
+        if not db.connected_to_mongodb:
+            await ctx.send("❌ MongoDB is not connected. Use `!reconnect_db` first.")
+            return
+        
+        migrated = db.migrate_memory_to_mongodb()
+        
+        embed = discord.Embed(
+            title="📊 Data Migration Complete",
+            color=0x00ff00,
+            timestamp=datetime.now(timezone.utc)
+        )
+        embed.add_field(name="Migrated Users", value=f"{migrated}", inline=True)
+        embed.add_field(name="Total Users in DB", value=f"{db.users_collection.count_documents({})}", inline=True)
+        await ctx.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"Error in migrate_data command: {e}")
+        await ctx.send(f"❌ Error during migration: {str(e)}")
+
+@bot.command(name='db_status', hidden=True)
+async def database_status(ctx):
+    """Admin command to check database status"""
+    if not await bot.is_owner(ctx.author):
+        await ctx.send("❌ This command is restricted to bot owners.")
+        return
+    
+    try:
+        embed = discord.Embed(
+            title="📊 Database Status",
+            color=0x3498db,
+            timestamp=datetime.now(timezone.utc)
+        )
+        
+        embed.add_field(name="Connection", value="✅ MongoDB" if db.connected_to_mongodb else "📝 Memory", inline=True)
+        
+        if db.connected_to_mongodb and db.users_collection:
+            user_count = db.users_collection.count_documents({})
+            embed.add_field(name="Users in MongoDB", value=f"{user_count}", inline=True)
+        
+        memory_users = len(db.memory_users)
+        embed.add_field(name="Users in Memory", value=f"{memory_users}", inline=True)
+        
+        await ctx.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"Error in db_status command: {e}")
+        await ctx.send(f"❌ Error checking database status: {str(e)}")
+
 # Main execution
 async def main():
     """Main async function"""

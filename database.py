@@ -56,7 +56,7 @@ class DatabaseManager:
         try:
             mongodb_uri = os.getenv('MONGODB_URI')
             
-            if MONGODB_AVAILABLE and mongodb_uri:
+            if MONGODB_AVAILABLE and mongodb_uri and mongodb_uri != 'your_mongodb_uri_here':
                 # Try MongoDB connection
                 self.mongodb_client = MongoClient(
                     mongodb_uri,
@@ -67,12 +67,22 @@ class DatabaseManager:
                 
                 # Test connection
                 self.mongodb_client.admin.command('ping')
-                self.mongodb_db = self.mongodb_client.get_default_database()
+                
+                # Extract database name from URI or use default
+                if '/botdatabase' in mongodb_uri:
+                    db_name = 'botdatabase'
+                elif '/' in mongodb_uri.split('?')[0] and mongodb_uri.split('?')[0].split('/')[-1]:
+                    db_name = mongodb_uri.split('?')[0].split('/')[-1]
+                else:
+                    db_name = 'coalbot'  # Default database name
+                
+                self.mongodb_db = self.mongodb_client[db_name]
                 self.users_collection = self.mongodb_db.users
                 self.guilds_collection = self.mongodb_db.guilds
                 self.connected_to_mongodb = True
                 
-                logger.info("🎯 MongoDB connection established successfully!")
+                logger.info(f"🎯 MongoDB connection established successfully! Database: {db_name}")
+                logger.info(f"📊 Users collection: {self.users_collection.count_documents({})}")
                 return
                 
         except Exception as e:
@@ -80,14 +90,85 @@ class DatabaseManager:
         
         # Fallback to memory storage
         self.connected_to_mongodb = False
+        self.users_collection = None
+        self.guilds_collection = None
         logger.info("📝 Using in-memory database storage")
+    
+    def reconnect_mongodb(self, mongodb_uri: str) -> bool:
+        """Reconnect to MongoDB with a new URI"""
+        try:
+            if not MONGODB_AVAILABLE:
+                logger.error("❌ MongoDB drivers not available")
+                return False
+                
+            # Close existing connection
+            if self.mongodb_client:
+                self.mongodb_client.close()
+            
+            # Try new connection
+            self.mongodb_client = MongoClient(
+                mongodb_uri,
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000,
+                socketTimeoutMS=5000
+            )
+            
+            # Test connection
+            self.mongodb_client.admin.command('ping')
+            
+            # Extract database name from URI or use default
+            if '/coalbot' in mongodb_uri:
+                db_name = 'coalbot'
+            elif '/botdatabase' in mongodb_uri:
+                db_name = 'botdatabase'
+            elif '/' in mongodb_uri.split('?')[0] and mongodb_uri.split('?')[0].split('/')[-1]:
+                db_name = mongodb_uri.split('?')[0].split('/')[-1]
+            else:
+                db_name = 'coalbot'  # Default database name
+            
+            self.mongodb_db = self.mongodb_client[db_name]
+            self.users_collection = self.mongodb_db.users
+            self.guilds_collection = self.mongodb_db.guilds
+            self.connected_to_mongodb = True
+            
+            user_count = self.users_collection.count_documents({})
+            logger.info(f"🎯 MongoDB reconnection successful! Database: {db_name}")
+            logger.info(f"📊 Found {user_count} users in database")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ MongoDB reconnection failed: {e}")
+            return False
+    
+    def migrate_memory_to_mongodb(self) -> int:
+        """Migrate all memory data to MongoDB"""
+        if not self.connected_to_mongodb or not self.users_collection:
+            logger.error("❌ Cannot migrate: MongoDB not connected")
+            return 0
+        
+        migrated = 0
+        try:
+            for user_id, user_data in self.memory_users.items():
+                self.users_collection.update_one(
+                    {"user_id": user_id},
+                    {"$set": user_data},
+                    upsert=True
+                )
+                migrated += 1
+            
+            logger.info(f"✅ Migrated {migrated} users from memory to MongoDB")
+            return migrated
+            
+        except Exception as e:
+            logger.error(f"❌ Migration failed: {e}")
+            return migrated
     
     # ==================== USER DATA OPERATIONS ====================
     
     def get_user_data(self, user_id: int) -> Dict[str, Any]:
         """Get user data from database"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 result = self.users_collection.find_one({"user_id": user_id})
                 if result:
                     return result
@@ -105,7 +186,7 @@ class DatabaseManager:
     def update_user_data(self, user_id: int, data: Dict[str, Any]) -> bool:
         """Update user data in database"""
         try:
-            if self.connected_to_mongodb:
+            if self.connected_to_mongodb and self.users_collection is not None:
                 self.users_collection.update_one(
                     {"user_id": user_id},
                     {"$set": data},
@@ -194,7 +275,7 @@ class DatabaseManager:
                     {"user_id": user_id},
                     {
                         "$inc": {"coins": amount, "economy.total_earned": amount},
-                        "$set": {"last_seen": datetime.utcnow()}
+                        "$set": {"last_seen": datetime.now(timezone.utc)}
                     },
                     upsert=True
                 )
