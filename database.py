@@ -689,6 +689,120 @@ class DatabaseManager:
             logger.error(f"Error getting leaderboard: {e}")
             return []
     
+    def get_paginated_leaderboard(self, field: str, page: int = 1, members_per_page: int = 10) -> Dict[str, Any]:
+        """Get paginated leaderboard for specified field"""
+        try:
+            if self.connected_to_mongodb and self.users_collection is not None:
+                # Calculate skip value for pagination
+                skip = (page - 1) * members_per_page
+                
+                # Get total count for pagination info
+                total_users = self.users_collection.count_documents({field: {"$exists": True, "$gt": 0}})
+                total_pages = max(1, (total_users + members_per_page - 1) // members_per_page)
+                
+                # Get paginated results
+                cursor = self.users_collection.find(
+                    {field: {"$exists": True, "$gt": 0}}
+                ).sort(field, -1).skip(skip).limit(members_per_page)
+                
+                users = list(cursor)
+                
+                return {
+                    'users': users,
+                    'total_pages': total_pages,
+                    'total_users': total_users,
+                    'current_page': page,
+                    'members_per_page': members_per_page
+                }
+                
+            else:
+                # Memory storage fallback
+                users = [user for user in self.memory_users.values() if user.get(field, 0) > 0]
+                users.sort(key=lambda x: x.get(field, 0), reverse=True)
+                
+                total_users = len(users)
+                total_pages = max(1, (total_users + members_per_page - 1) // members_per_page)
+                
+                # Paginate results
+                start_idx = (page - 1) * members_per_page
+                end_idx = start_idx + members_per_page
+                paginated_users = users[start_idx:end_idx]
+                
+                return {
+                    'users': paginated_users,
+                    'total_pages': total_pages,
+                    'total_users': total_users,
+                    'current_page': page,
+                    'members_per_page': members_per_page
+                }
+                
+        except Exception as e:
+            logger.error(f"Error getting paginated leaderboard: {e}")
+            return {
+                'users': [],
+                'total_pages': 1,
+                'total_users': 0,
+                'current_page': page,
+                'members_per_page': members_per_page
+            }
+    
+    def get_streak_leaderboard(self, page: int = 1, members_per_page: int = 10) -> Dict[str, Any]:
+        """Get streak leaderboard with pagination"""
+        try:
+            if self.connected_to_mongodb and self.users_collection is not None:
+                # Calculate skip value for pagination
+                skip = (page - 1) * members_per_page
+                
+                # Get total count for users with streaks
+                total_users = self.users_collection.count_documents({"daily_streak": {"$exists": True, "$gt": 0}})
+                total_pages = max(1, (total_users + members_per_page - 1) // members_per_page)
+                
+                # Get paginated results sorted by daily_streak
+                cursor = self.users_collection.find(
+                    {"daily_streak": {"$exists": True, "$gt": 0}}
+                ).sort("daily_streak", -1).skip(skip).limit(members_per_page)
+                
+                users = list(cursor)
+                
+                return {
+                    'users': users,
+                    'total_pages': total_pages,
+                    'total_users': total_users,
+                    'current_page': page,
+                    'members_per_page': members_per_page
+                }
+                
+            else:
+                # Memory storage fallback
+                users = [user for user in self.memory_users.values() if user.get('daily_streak', 0) > 0]
+                users.sort(key=lambda x: x.get('daily_streak', 0), reverse=True)
+                
+                total_users = len(users)
+                total_pages = max(1, (total_users + members_per_page - 1) // members_per_page)
+                
+                # Paginate results
+                start_idx = (page - 1) * members_per_page
+                end_idx = start_idx + members_per_page
+                paginated_users = users[start_idx:end_idx]
+                
+                return {
+                    'users': paginated_users,
+                    'total_pages': total_pages,
+                    'total_users': total_users,
+                    'current_page': page,
+                    'members_per_page': members_per_page
+                }
+                
+        except Exception as e:
+            logger.error(f"Error getting streak leaderboard: {e}")
+            return {
+                'users': [],
+                'total_pages': 1,
+                'total_users': 0,
+                'current_page': page,
+                'members_per_page': members_per_page
+            }
+    
     def get_database_stats(self) -> Dict[str, Any]:
         """Get database statistics"""
         try:
