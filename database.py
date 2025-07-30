@@ -67,7 +67,7 @@ class DatabaseManager:
                 
                 # Test connection
                 self.mongodb_client.admin.command('ping')
-                db_name = "coalbot"
+                db_name = os.getenv('MONGODB_DATABASE', 'coalbot')
                 self.mongodb_db = self.mongodb_client[db_name]
                 self.users_collection = self.mongodb_db.users
                 self.guilds_collection = self.mongodb_db.guilds
