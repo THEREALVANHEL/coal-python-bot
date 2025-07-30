@@ -73,7 +73,7 @@ class ProfessionalBot(commands.Bot):
             owner_ids={1297924079243890780}  # Your Discord user ID
         )
         
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(timezone.utc)
         self.commands_used = 0
         self.cogs_loaded = 0
         self.cogs_failed = 0
